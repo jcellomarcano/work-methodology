@@ -1,0 +1,32 @@
+{
+  "caps": {
+    "00-principles/runtime-adapters.md": 120,
+    "00-principles/why-layer.md": 120,
+    "00-principles/model-routing.md": 60,
+    "00-principles/multi-provider-routing.md": 80,
+    "00-principles/change-card.md": 40,
+    "00-principles/methodology.md": 250,
+    "00-principles/agent-protocol.md": 80,
+    "00-principles/review-receipt.md": 60,
+    "05-adopt/checklist.md": 120,
+    "06-languages/compose.md": 150,
+    "06-languages/concurrency-kotlin.md": 150,
+    "06-languages/concurrency-swift.md": 150,
+    "06-languages/haskell.md": 150,
+    "06-languages/kotlin.md": 150,
+    "06-languages/python.md": 150,
+    "06-languages/sql.md": 150,
+    "06-languages/swift.md": 150,
+    "06-languages/swiftui.md": 150,
+    "07-communication/README.md": 70,
+    "07-communication/adapters/README.md": 40,
+    "07-communication/identidad.es.md": 100,
+    "07-communication/identity.en.md": 100,
+    "07-communication/research.md": 120,
+    "07-communication/templates.md": 150,
+    "07-communication/rules.md": 100,
+    "CONTEXT-PACK.md": 120,
+    "README.md": 150
+  },
+  "docs_root": "~/work-methodology"
+}

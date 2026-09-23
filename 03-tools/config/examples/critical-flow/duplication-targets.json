@@ -1,0 +1,8 @@
+{
+  "_comment": "Real example, instantiated over a critical-flow domain (a critical-flow domain): the three ViewModel duplication candidates that drove config/cpd.json's original calibration.",
+  "targets": [
+    "app/src/main/java/com/example/app/ui/card/CardPaymentViewModel.kt",
+    "app/src/main/java/com/example/app/ui/validator/ValidatorPaymentViewModel.kt",
+    "app/src/main/java/com/example/app/ui/topup/TopupPaymentViewModel.kt"
+  ]
+}

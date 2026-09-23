@@ -46,10 +46,12 @@ See [docs/02-workflow.md](docs/02-workflow.md) for the full description of each 
 Quick start — adopt this in a project in 5 steps:
 
 1. Read [docs/01-principles.md](docs/01-principles.md) and [docs/02-workflow.md](docs/02-workflow.md).
-2. Copy the `templates/` folder into your project.
-3. Fill in `templates/project-profile.md` (protected properties, invariants, owner gates).
+2. Copy the `04-templates/` folder into your project.
+3. Fill in `04-templates/project-profile.md` (protected properties, invariants, owner gates).
 4. Run one real change through the full loop as a pilot.
 5. Follow the detailed steps in [docs/07-adoption.md](docs/07-adoption.md), including a two-week retro.
+
+For the full kit (agent roles, skills, scripts, and tests behind the workflow above), see "Kit layout" and "Tooling" below.
 
 ## Managing the work
 
@@ -79,8 +81,36 @@ stateDiagram-v2
 | `docs/05-work-management.md` | Work item lifecycle, roles, cadence, owner gates |
 | `docs/06-git-and-release.md` | Commit and branch conventions, benchmarking releases |
 | `docs/07-adoption.md` | Step-by-step adoption plan, minimal vs. full, using AI agents |
-| `templates/` | Copy-ready templates for change cards, tasks, PRs, reviews, benchmarks |
+| `04-templates/` | Copy-ready templates for change cards, tasks, PRs, reviews, benchmarks |
 | `CONTRIBUTING.md` | How to propose changes to this methodology |
+
+## Kit layout
+
+`docs/` above is the guided introduction. The rest of the repository is the full kit those docs summarize:
+agent roles, skills, scripts, tests, and the evidence behind each convention.
+
+| Path | Content |
+|---|---|
+| `CONTEXT-PACK.md` | One-page orientation for an AI agent joining a session: what this kit is, where things live |
+| `00-principles/` | The methodology's own foundations: evidence rules, why-layer, change card, review receipt, model/runtime routing, agent protocol |
+| `01-roles/agents/` | Generic agent role definitions (cartographer, proposer, challenger, blind-spot adversary, judge, verifier, mechanic, reviewers, comment gate) with a machine-readable `.contract.json` per role |
+| `02-skills/` | Step-by-step skills (`SKILL.md`) that chain roles and tools for one recurring job: change card, cartography, PR message, clean pass, human review, receipt review, repo metrics, and more |
+| `03-tools/` | The Python/bash implementation: `bin/` scripts, `lib/` checkers and validators, `hooks/`, an MCP server, `config/` (with a neutral `config/examples/critical-flow/` instantiation), `schemas/`, and `tests/` (run with pytest) |
+| `04-templates/` | Copy-ready templates: change card, PR, review findings, release benchmark, project profile, agent brief, round minutes |
+| `05-adopt/` | Adoption checklist for bringing the kit into an existing project |
+| `06-languages/` | Language- and framework-specific guidance (Kotlin, Swift, SwiftUI, Compose, Python, SQL, Haskell, concurrency notes, sourced code-comment research) |
+| `07-communication/` | The response-identity block (human-first replies), its rules, templates, source dossiers, provider adapters (Claude/Codex/Gemini), and the benchmark that measures it |
+| `docs/` | The friendly entry layer: a narrative walkthrough of principles, workflow, change cards, review, work management, git/release, and adoption |
+
+## Tooling
+
+The kit under `03-tools/` needs only Python 3 (standard library) and bash — no extra runtime dependencies for the checks themselves; `pytest` is required to run the test suite.
+
+- **Run the tests**: `python3 -m pytest -q 03-tools/tests`
+- **Run one checker by hand**: e.g. `python3 03-tools/lib/output_lint.py <reply.md>` or `python3 03-tools/lib/change_card_validator.py <card.md>` (see each script's `--help` and docstring)
+- **Install agents/skills into a target repo**: `03-tools/bin/install-claude.sh` (or `install-pi.sh`) wires the roles in `01-roles/agents/` and the skills in `02-skills/` into that repo's assistant config
+- **Bootstrap a project's config**: `03-tools/bin/adopt.sh <repo> <audit-folder>` writes a starting `config/project.json`; pass `--critical-flow-example` to start from the full `config/examples/critical-flow/` instantiation instead of the minimal placeholders
+- **Adopt the methodology itself**: follow `05-adopt/checklist.md`
 
 ## Glossary
 

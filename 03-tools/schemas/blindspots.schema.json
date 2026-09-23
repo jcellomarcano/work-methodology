@@ -1,0 +1,85 @@
+{
+  "properties": {
+    "blind_spots": {
+      "items": {
+        "properties": {
+          "epistemic": {
+            "enum": [
+              "Medido",
+              "Probado",
+              "Inferido",
+              "Asumido",
+              "Desconocido"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "proposed_owner": {
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "CERRADO",
+              "ABIERTO CON DUEÑO",
+              "CONTENIDO"
+            ],
+            "type": "string"
+          },
+          "what_nobody_looks_at": {
+            "type": "string"
+          },
+          "where_it_should_live": {
+            "type": "string"
+          },
+          "why_it_matters": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "what_nobody_looks_at",
+          "why_it_matters",
+          "where_it_should_live",
+          "state",
+          "proposed_owner",
+          "epistemic"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "not_covered": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "role": {
+      "type": "string"
+    },
+    "round": {
+      "type": [
+        "string",
+        "integer"
+      ]
+    },
+    "summary": {
+      "type": [
+        "string",
+        "object"
+      ]
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "round",
+    "role",
+    "blind_spots",
+    "summary"
+  ],
+  "type": "object"
+}

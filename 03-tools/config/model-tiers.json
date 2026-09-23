@@ -1,0 +1,246 @@
+{
+  "_comment": "The kit's tiers and candidate models per provider. status: admitted (measured with the multi-provider-routing.md §4 protocol), candidate (unmeasured), rejected (measured and dropped, see minutes). Prices are USD per million input/output tokens, standard rate, read on the updated date; they expire. The final choice per role is made by the harness installer reading this file.",
+  "updated": "2026-09-15",
+  "sources": "00-principles/multi-provider-routing.md §5",
+  "tiers": {
+    "small": {
+      "max_context_tokens": 15000,
+      "roles": [
+        "generic-style-reviewer",
+        "generic-comment-gate",
+        "generic-human-reviewer",
+        "generic-mechanic"
+      ],
+      "candidates": [
+        {
+          "provider": "anthropic",
+          "id": "claude-haiku-4-5",
+          "status": "admitted",
+          "usd_in": 1.0,
+          "usd_out": 5.0,
+          "context": 200000,
+          "note": "incumbent in Claude Code"
+        },
+        {
+          "provider": "google",
+          "id": "gemini-3.5-flash-lite",
+          "status": "candidate",
+          "usd_in": 0.3,
+          "usd_out": 2.5
+        },
+        {
+          "provider": "google",
+          "id": "gemini-3.8-flash",
+          "status": "candidate",
+          "usd_in": 0.75,
+          "usd_out": 3.75,
+          "context": 1048576,
+          "note": "1.50/7.50 from 2027-01-01"
+        },
+        {
+          "provider": "openai",
+          "id": "gpt-5.4-nano",
+          "status": "candidate",
+          "usd_in": 0.2,
+          "usd_out": 1.25
+        },
+        {
+          "provider": "openai",
+          "id": "gpt-5.4-mini",
+          "status": "candidate",
+          "usd_in": 0.75,
+          "usd_out": 4.5,
+          "context": 400000
+        },
+        {
+          "provider": "openai",
+          "id": "gpt-5.6-luna",
+          "status": "candidate",
+          "usd_in": 0.2,
+          "usd_out": 1.2,
+          "context": 1050000,
+          "max_output": 128000,
+          "note": "cached input 0.02; reasoning none..max; structured outputs; replaces gpt-5.4 nano/mini as the small candidate"
+        }
+      ]
+    },
+    "medium": {
+      "max_context_tokens": 60000,
+      "roles": [
+        "generic-cartographer",
+        "generic-verifier",
+        "generic-boundary-reviewer",
+        "generic-judge",
+        "generic-proposer"
+      ],
+      "first_to_trial": [
+        "generic-cartographer",
+        "generic-verifier"
+      ],
+      "keep_incumbent_until_trial_on_low_risk_unit": [
+        "generic-proposer"
+      ],
+      "candidates": [
+        {
+          "provider": "anthropic",
+          "id": "claude-sonnet-5",
+          "status": "admitted",
+          "usd_in": 2.0,
+          "usd_out": 10.0,
+          "context": 1000000,
+          "note": "incumbent in Claude Code"
+        },
+        {
+          "provider": "google",
+          "id": "gemini-3.8-flash",
+          "status": "candidate",
+          "usd_in": 0.75,
+          "usd_out": 3.75,
+          "context": 1048576,
+          "max_output": 65536
+        },
+        {
+          "provider": "openai",
+          "id": "gpt-5.4-mini",
+          "status": "candidate",
+          "usd_in": 0.75,
+          "usd_out": 4.5,
+          "context": 400000,
+          "max_output": 128000
+        },
+        {
+          "provider": "openai",
+          "id": "gpt-5.6-terra",
+          "status": "candidate",
+          "usd_in": 2.0,
+          "usd_out": 12.0,
+          "context": 1050000,
+          "max_output": 128000,
+          "note": "4.00/18.00 at long context; reasoning low..ultra; incumbent in the owner's Codex CLI"
+        }
+      ]
+    },
+    "large": {
+      "max_context_tokens": 60000,
+      "roles": [
+        "generic-challenger",
+        "generic-blind-spot-adversary"
+      ],
+      "judge_escalates_here_on": [
+        "P0",
+        "critical_property"
+      ],
+      "diversity_rule": "a third adversary from another provider in trial mode adds value; it does not replace the incumbent pair in the critical flow without the owner's OK",
+      "candidates": [
+        {
+          "provider": "anthropic",
+          "id": "claude-opus-5",
+          "status": "admitted",
+          "usd_in": 5.0,
+          "usd_out": 25.0,
+          "context": 1000000,
+          "note": "incumbent in Claude Code"
+        },
+        {
+          "provider": "google",
+          "id": "gemini-3.1-pro-preview",
+          "status": "candidate",
+          "usd_in": 2.0,
+          "usd_out": 12.0,
+          "note": "4.00/18.00 above 200k prompt; preview"
+        },
+        {
+          "provider": "openai",
+          "id": "gpt-5.4",
+          "status": "candidate",
+          "usd_in": 2.5,
+          "usd_out": 15.0,
+          "context": 400000
+        },
+        {
+          "provider": "openai",
+          "id": "gpt-5.6-sol",
+          "status": "candidate",
+          "usd_in": 5.0,
+          "usd_out": 30.0,
+          "context": 1050000,
+          "note": "the gpt-5.6 alias routes to sol: always ask for the full id"
+        }
+      ]
+    },
+    "orchestrator": {
+      "max_context_tokens": 150000,
+      "roles": [
+        "orquestador",
+        "voz al propietario"
+      ],
+      "candidates": [
+        {
+          "provider": "anthropic",
+          "id": "claude-fable-5-1",
+          "status": "admitted",
+          "usd_in": 10.0,
+          "usd_out": 50.0,
+          "context": 1000000,
+          "note": "never replaced for cost"
+        }
+      ]
+    }
+  },
+  "harness": {
+    "claude-code": {
+      "agent_dir": ".claude/agents",
+      "format": "md+frontmatter",
+      "budget": "hooks/budget.py",
+      "output_validation": "hooks/validate_subagent_output.py",
+      "installer": "03-tools/bin/install-claude.sh"
+    },
+    "gemini-cli": {
+      "agent_dir": ".gemini/agents",
+      "format": "md+yaml",
+      "fields": [
+        "name",
+        "description",
+        "model",
+        "tools",
+        "mcpServers",
+        "max_turns",
+        "timeout_mins",
+        "temperature"
+      ],
+      "budget": "max_turns+timeout_mins [Asumido]",
+      "output_validation": "orquestador via lib/round_output.py",
+      "installer": "pending: install-gemini.sh",
+      "headless": "gemini -p <prompt> -m <id> --skip-trust (or GEMINI_CLI_TRUST_WORKSPACE=true); measured 15-sep-2026 with Gemini Code Assist for individuals OAuth"
+    },
+    "codex-cli": {
+      "agent_dir": ".codex/agents",
+      "format": "toml",
+      "fields": [
+        "name",
+        "description",
+        "developer_instructions",
+        "model",
+        "reasoning",
+        "sandbox",
+        "mcp_servers"
+      ],
+      "budget": "to be verified [Desconocido]",
+      "output_validation": "orquestador via lib/round_output.py",
+      "installer": "pending: install-codex.sh",
+      "headless": "codex exec -m <id> --skip-git-repo-check <prompt>; measured 15-sep-2026 (gpt-5.6-luna, 4,398 tokens, PONG)"
+    }
+  },
+  "admission": {
+    "min_runs": 2,
+    "same_brief_required": true,
+    "gates": [
+      "round_output PASS",
+      "cite_check >= incumbent",
+      "judge CONFIRMED rate >= incumbent",
+      "tokens and cost in runs/"
+    ],
+    "critical_lane_requires_owner_ok": true,
+    "record": "minutes/ + status in this file"
+  }
+}

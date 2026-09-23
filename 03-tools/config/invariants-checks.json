@@ -1,0 +1,12 @@
+{
+  "_comment": "Generic config for lib/domain_invariants.py: a domain invariant (INV-NN, or the prefix config/project.json declares) is a list of regex 'signals' with file:line evidence. 'scope' is 'all' (all production code, src/main/** of the modules declared in settings.gradle) or 'money' (only the paths listed in config/project.json:money_paths). 'match' is 'line' (searches each line, comments already stripped) or 'filename' (searches the file name, without looking at content). This does NOT prove the invariant holds: it is a PRESENCE detector -- empty evidence is a valid finding, not an error. Full example instantiated over a critical-flow domain in config/examples/critical-flow/invariants-checks.json.",
+  "invariants": {
+    "INV-01": {
+      "epistemic": "Medido",
+      "note": "minimal example: spots that leave a TODO with no associated ticket in production code",
+      "signals": [
+        {"kind": "todo-sin-ticket", "regex": "//\\s*TODO(?!.*[A-Z]+-\\d+)", "scope": "all", "match": "line"}
+      ]
+    }
+  }
+}

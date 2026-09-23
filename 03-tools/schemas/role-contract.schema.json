@@ -1,0 +1,38 @@
+{
+  "_comment": "Descripción informal (no validada por un motor de JSON Schema) del contrato de rol que consume lib/role_contract_validator.py. Un contrato declara qué puede tocar un agente; el validador compara eso contra lo que realmente cambió.",
+  "fields": {
+    "agent": {"type": "string", "required": true, "note": "nombre del rol, ej. 'generic-proposer'"},
+    "model": {"type": "string", "required": false, "note": "modelo con el que corre el agente, informativo"},
+    "tools": {"type": "array[string]", "required": false, "note": "herramientas permitidas, informativo (no lo aplica este validador)"},
+    "forbidden_paths": {
+      "type": "array[string]",
+      "required": false,
+      "note": "patrones fnmatch (** soportado) que este rol nunca puede tocar, además de ALWAYS_FORBIDDEN"
+    },
+    "may_write": {
+      "type": "array[string]",
+      "required": false,
+      "note": "patrones fnmatch de las únicas rutas que el rol puede escribir. Si está vacío/ausente Y --scope-glob tampoco se pasó, no se aplica ninguna allowlist (solo se comprueban forbidden_paths)"
+    },
+    "may_spawn": {"type": "array[string]", "required": false, "note": "qué otros roles puede lanzar este agente, informativo"},
+    "may_talk_to_user": {"type": "boolean", "required": false},
+    "handoff_targets": {"type": "array[string]", "required": false, "note": "a qué rol(es) puede entregar el trabajo"},
+    "max_context_tokens": {"type": "number", "required": false}
+  },
+  "always_forbidden_regardless_of_contract": [
+    "settings.gradle",
+    "build.gradle",
+    "gradle.properties",
+    "gradle/libs.versions.toml",
+    "app/build.gradle",
+    ".claude/**",
+    "**/.claude/**"
+  ],
+  "output": {
+    "agent": "el campo 'agent' del contrato",
+    "changed_paths": "lista ordenada de todas las rutas cambiadas evaluadas",
+    "forbidden_hits": "[{path, pattern}]: rutas que casaron un patrón prohibido (ALWAYS_FORBIDDEN o forbidden_paths del contrato)",
+    "outside_allowlist": "rutas que, con una allowlist activa (may_write y/o --scope-glob no vacíos), no casaron ningún patrón permitido",
+    "verdict": "PASS | FAIL: FAIL si forbidden_hits u outside_allowlist no están vacíos"
+  }
+}

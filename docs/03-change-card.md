@@ -2,7 +2,7 @@
 
 A short, structured note that explains a change before it's built. **No card, no PR.**
 
-Use [templates/change-card.md](../templates/change-card.md) to start one.
+Use [04-templates/change-card.md](../04-templates/change-card.md) to start one.
 
 ## The 9 fields
 

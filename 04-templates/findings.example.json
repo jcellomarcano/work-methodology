@@ -1,0 +1,19 @@
+{
+  "round": "<round-id>",
+  "role": "challenger",
+  "findings": [
+    {
+      "id": "C-01",
+      "lens": "flujo-critico",
+      "claim": "\"<quoted claim>\" (<doc>:<line>)",
+      "attack": "<why it is false or weaker than stated>",
+      "failure_scenario": "<concrete inputs/state -> wrong outcome>",
+      "evidence": ["<file>:<line>@<sha>"],
+      "verdict": "ROTO",
+      "epistemic": "Medido"
+    }
+  ],
+  "summary": {"ok": 0, "matiz": 0, "roto": 1},
+  "truncated": false,
+  "not_covered": []
+}

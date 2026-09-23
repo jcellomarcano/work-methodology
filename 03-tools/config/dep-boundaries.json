@@ -1,0 +1,21 @@
+{
+  "_comment": "MINIMAL, generic architectural node map for lib/dep_boundaries.py. Replace nodes/paths with the real repo's own (each node's package prefixes are DERIVED by scanning 'package X' at run time and are left in the payload as derived_prefixes, for reference only). A full example instantiated over a critical-flow domain lives in config/examples/critical-flow/dep-boundaries.json.",
+  "epistemic": "Asumido",
+  "status": "v1 unreviewed",
+  "schema_version": "1",
+  "nodes": {
+    "domain": ["domain/src/main"],
+    "data": ["data/src/main"],
+    "app-ui": ["app/src/main/java/com/example/app/ui"],
+    "app-framework": ["app/src/main/java/com/example/app/framework"]
+  },
+  "node_dir_note": "If a node declares a folder that is an ancestor of another node's (e.g. the app module root as a catch-all), the more specific (longer) folder prefix always wins: a file is never counted twice.",
+  "domain_allowed_external_prefixes": ["kotlin.", "kotlinx.", "java.", "javax."],
+  "data_forbidden_raw_prefixes": ["android.", "androidx."],
+  "data_forbidden_node_prefix": "app-",
+  "payment_purity_nodes": [],
+  "payment_purity_forbidden_prefixes": [],
+  "vendor_packages": [],
+  "vendor_exempt_nodes": [],
+  "cycle_pair": ["app-framework", "app-ui"]
+}

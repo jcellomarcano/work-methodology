@@ -1,0 +1,28 @@
+{
+  "_comment": "The comment gate judges and proposes text; it never writes. may_write stays empty and the generic-mechanic applies approved texts. forbidden_paths lists only what is specific to this role; the project's shared build files (config/project.json: shared_build_files) and **/.claude/** are always forbidden regardless of this contract, enforced by role_contract_validator.py at runtime. 15-sep: Write added, scoped by may_write to the round directory. Reason measured that day: the MCP server was not connected in the session and these roles were left with NO write path at all, since output_write was the only one. A challenger and an adversary delivered 276k tokens of findings in their final message for the orchestrator to transcribe by hand. guard_paths.py still blocks any path outside may_write.",
+  "agent": "generic-comment-gate",
+  "model": "haiku",
+  "tools": [
+    "Read",
+    "Grep",
+    "Write",
+    "mcp__metodo__output_write",
+    "mcp__metodo__handoff_write"
+  ],
+  "forbidden_paths": [
+    "**/.claude/**"
+  ],
+  "may_write": [
+    "**/round-*/**",
+    "**/scratchpad/**"
+  ],
+  "may_spawn": [],
+  "may_talk_to_user": false,
+  "handoff_targets": [
+    "generic-mechanic",
+    "generic-judge"
+  ],
+  "max_context_tokens": 15000,
+  "max_tool_calls": 20,
+  "max_turns": 25
+}

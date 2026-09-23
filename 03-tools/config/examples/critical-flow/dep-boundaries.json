@@ -1,0 +1,50 @@
+{
+  "_comment": "Real example, instantiated over a critical-flow domain (a critical-flow domain): v1 module boundaries for lib/dep_boundaries.py. It is not that project's real audit boundary (that lives in its own ARCH-001..006 doc): it is the version a script can evaluate today, over the folders declared below. Each node's package prefixes are DERIVED by scanning 'package X' at run time (see deps.json:derived_prefixes) and are frozen here only as a design reference. Copy this file to config/dep-boundaries.json (or pass --config to lib/dep_boundaries.py) if your project has a similar shape: a pure domain/data core, a payment module with api/runtime/vendor/host, and an Android app with ui/framework/di.",
+  "epistemic": "Assumed",
+  "status": "v1 unreviewed",
+  "schema_version": "1",
+  "nodes": {
+    "domain": ["domain/src/main"],
+    "data": ["data/src/main"],
+    "services": ["services/src/main"],
+    "payment-api": ["payment/api/src/main"],
+    "payment-runtime": ["payment/runtime/src/main"],
+    "payment-vendor": ["payment/vendor-a/src/main", "payment/vendor-b/src/main"],
+    "payment-host": ["payment/host-android/src/main", "payment/host-androidx/src/main"],
+    "observability": [
+      "observability/api/src/main",
+      "observability/core/src/main",
+      "observability/firebase/src/main",
+      "observability/telemetry/src/main"
+    ],
+    "designsystem": ["designsystem/src/main", "designsystem/compose/src/main"],
+    "app-ui": [
+      "app/src/main/java/com/example/app/ui",
+      "app/src/main/java/com/example/app/altui"
+    ],
+    "app-framework": ["app/src/main/java/com/example/app/framework"],
+    "app-di": ["app/src/main/java/com/example/app/utils/di"],
+    "app-other": ["app/src/main/java/com/example/app"]
+  },
+  "node_dir_note": "app-other is the app module's root folder, which is why it acts as a catch-all: any file under app-ui/app-framework/app-di escapes it because those paths are more specific (the longer folder prefix wins).",
+  "domain_allowed_external_prefixes": ["kotlin.", "kotlinx.", "java.", "javax."],
+  "data_forbidden_raw_prefixes": ["android.", "androidx."],
+  "data_forbidden_node_prefix": "app-",
+  "payment_purity_nodes": ["payment-api", "payment-runtime"],
+  "payment_purity_forbidden_prefixes": [
+    "android.",
+    "androidx.",
+    "com.vendor.sdka",
+    "com.vendor.sdkb",
+    "com.vendor.sdkc",
+    "com.vendor.sdkd",
+    "dagger.",
+    "javax.inject",
+    "org.greenrobot",
+    "com.google.protobuf",
+    "androidx.room"
+  ],
+  "vendor_packages": ["com.vendor.sdka", "com.vendor.sdkb", "com.vendor.sdkc", "com.vendor.sdkd"],
+  "vendor_exempt_nodes": ["payment-vendor", "app-framework", "app-di"],
+  "cycle_pair": ["app-framework", "app-ui"]
+}

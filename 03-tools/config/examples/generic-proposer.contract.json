@@ -1,0 +1,24 @@
+{
+  "agent": "generic-proposer",
+  "model": "sonnet",
+  "tools": ["Read", "Edit", "Write", "Bash", "Grep", "Glob"],
+  "forbidden_paths": [
+    "**/*.jks",
+    "**/*.keystore",
+    "local.properties",
+    "ci/**"
+  ],
+  "may_write": [
+    "app/src/**",
+    "domain/src/**",
+    "data/src/**",
+    "services/src/**",
+    "designsystem/**/src/**",
+    "payment/**/src/**",
+    "observability/**/src/**"
+  ],
+  "may_spawn": [],
+  "may_talk_to_user": false,
+  "handoff_targets": ["adversary", "auditor"],
+  "max_context_tokens": 150000
+}

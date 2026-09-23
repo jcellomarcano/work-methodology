@@ -1,0 +1,239 @@
+{
+  "_comment": "Full project.json instantiation over a multi-module Android payments project (a critical-flow domain). The Gradle task names are its tools/verify/verify.sh's own; test_sectors.py --check-verify checks that they still exist.",
+  "docs_root": "~/<audit-folder>",
+  "shared_build_files": [
+    "settings.gradle",
+    "build.gradle",
+    "gradle.properties",
+    "gradle/libs.versions.toml",
+    "app/build.gradle",
+    "bitbucket-pipelines.yml",
+    "tools/verify/verify.sh"
+  ],
+  "money_paths": [
+    "payment/",
+    "framework/payment/",
+    "ui/gatewaypay/"
+  ],
+  "property_order": [
+    "Money",
+    "Payment status",
+    "Transaction identity",
+    "Integrity",
+    "Auditability",
+    "Recoverability",
+    "Security",
+    "UX"
+  ],
+  "invariant_prefix": "PAY-INV",
+  "extra_invariant_tokens": [
+    "ARCH-006"
+  ],
+  "language": "kotlin",
+  "ticket_keys": [
+    "DEV",
+    "POS"
+  ],
+  "rdd": {
+    "_comment": "Review receipt (RDD). enabled turns off the whole receipt and hooks system except the absolute set. mode is the default mode for non-absolute hooks (warn logs, block denies or asks); hook_modes overrides it per hook. test_sectors also uses exempt_globs to ignore files.",
+    "enabled": true,
+    "mode": "warn",
+    "hook_modes": {},
+    "exempt_globs": [
+      "**/*.md",
+      "docs/**"
+    ],
+    "tests_globs": [
+      "**/src/test/**",
+      "**/src/androidTest/**"
+    ],
+    "low_max_changed_lines": 120,
+    "lens_paths": {
+      "flujo-critico": [
+        "**/*Repository*.kt",
+        "**/*Store*.kt"
+      ],
+      "jamas-peor-que-antes": [
+        "**/*Application*.kt",
+        "**/di/**"
+      ],
+      "tests-anti-flake": [
+        "**/src/test/**"
+      ]
+    }
+  },
+  "test_sectors": {
+    "base_ref": "origin/develop",
+    "full_required_globs": [
+      "app/libs/**",
+      "**/proguard*.pro",
+      "gradle/**",
+      "gradlew*",
+      "**/build.gradle",
+      "tools/verify/**"
+    ],
+    "sectors": [
+      {
+        "paths": [
+          "domain/"
+        ],
+        "tasks": [
+          ":domain:test"
+        ]
+      },
+      {
+        "paths": [
+          "data/"
+        ],
+        "tasks": [
+          ":app:test_prod_NON_GMSReleaseUnitTest",
+          ":app:test_prod_GMSReleaseUnitTest"
+        ]
+      },
+      {
+        "paths": [
+          "services/"
+        ],
+        "tasks": [
+          ":services:testReleaseUnitTest",
+          ":services:lintRelease"
+        ]
+      },
+      {
+        "paths": [
+          "designsystem/compose/"
+        ],
+        "tasks": [
+          ":designsystem:compose:lintRelease"
+        ]
+      },
+      {
+        "paths": [
+          "designsystem/"
+        ],
+        "tasks": [
+          ":designsystem:lintRelease"
+        ]
+      },
+      {
+        "paths": [
+          "observability/api/"
+        ],
+        "tasks": [
+          ":observability:api:test"
+        ]
+      },
+      {
+        "paths": [
+          "observability/core/"
+        ],
+        "tasks": [
+          ":observability:core:testReleaseUnitTest"
+        ]
+      },
+      {
+        "paths": [
+          "observability/firebase/"
+        ],
+        "tasks": [
+          ":observability:firebase:testReleaseUnitTest"
+        ]
+      },
+      {
+        "paths": [
+          "observability/telemetry/"
+        ],
+        "tasks": [
+          ":observability:telemetry:testReleaseUnitTest"
+        ]
+      },
+      {
+        "paths": [
+          "lint-rules/"
+        ],
+        "tasks": [
+          ":lint-rules:test",
+          ":app:lint_prod_NON_GMSRelease",
+          ":app:lint_prod_GMSRelease"
+        ]
+      },
+      {
+        "paths": [
+          "payment/api/"
+        ],
+        "tasks": [
+          ":payment:api:test",
+          ":payment:runtime:test",
+          ":payment:stripe:testReleaseUnitTest",
+          ":payment:vendor-a:testDebugUnitTest",
+          ":payment:host-androidx:testReleaseUnitTest"
+        ]
+      },
+      {
+        "paths": [
+          "payment/runtime/"
+        ],
+        "tasks": [
+          ":payment:runtime:test"
+        ]
+      },
+      {
+        "paths": [
+          "payment/stripe/"
+        ],
+        "tasks": [
+          ":payment:stripe:testReleaseUnitTest",
+          ":payment:stripe:lintRelease"
+        ]
+      },
+      {
+        "paths": [
+          "payment/vendor-a/"
+        ],
+        "tasks": [
+          ":payment:vendor-a:testDebugUnitTest",
+          ":payment:vendor-a:lintRelease"
+        ]
+      },
+      {
+        "paths": [
+          "payment/host-android/"
+        ],
+        "tasks": [
+          ":payment:host-android:lintRelease"
+        ]
+      },
+      {
+        "paths": [
+          "payment/host-androidx/"
+        ],
+        "tasks": [
+          ":payment:host-androidx:testReleaseUnitTest",
+          ":payment:host-androidx:lintRelease"
+        ]
+      },
+      {
+        "paths": [
+          "app/"
+        ],
+        "tasks": [
+          ":app:verifyEmvAssets",
+          ":app:verifyMergedNativeLibs",
+          ":app:verifyBouncyCastleLineage",
+          ":app:verifyNoGlobalTlsOverride",
+          ":app:verifyJceProviderTable",
+          ":app:depsDiff",
+          ":app:verifyBuildProvenance",
+          ":app:verify_prod_NON_GMSReleaseMergedPermissions",
+          ":app:verify_prod_GMSReleaseMergedPermissions",
+          ":app:verify_prod_NON_GMSReleaseNoAutoInitVendorSdks",
+          ":app:verify_prod_GMSReleaseNoAutoInitVendorSdks",
+          ":app:test_prod_NON_GMSReleaseUnitTest",
+          ":app:test_prod_GMSReleaseUnitTest",
+          ":app:lint_prod_NON_GMSRelease",
+          ":app:lint_prod_GMSRelease"
+        ]
+      }
+    ]
+  }
+}

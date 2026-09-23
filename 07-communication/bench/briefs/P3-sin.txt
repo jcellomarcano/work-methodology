@@ -1,0 +1,7 @@
+Do not use any tools. You are replying to a person. Reply in Spanish to the following message, exactly as you would reply to them. Output ONLY your reply text (markdown allowed), nothing else.
+
+<message>
+¿Guardamos el estado del pago en SharedPreferences, en Room o en un fichero write-ahead propio? Restricciones:
+el proceso puede morir entre la llamada al proveedor y la confirmación; hay que poder reconstruir qué pasó;
+el equipo ya usa Room; la jerarquía del proyecto es Dinero > Estado del pago > Recuperabilidad > UX.
+</message>

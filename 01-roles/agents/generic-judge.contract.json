@@ -1,0 +1,30 @@
+{
+  "_comment": "model is the default lane. Escalate to opus (per the agent body's rule) when the change card's Para que/Que arriesga is money-set or a P0 is in play. The judge writes its verdict with mcp__metodo__output_write (validated, outside the repo), so it needs no Write tool and no may_write. forbidden_paths only lists what's specific to this role; the project's shared build files and **/.claude/** are always forbidden. 15-sep: Write added, scoped by may_write to the round directory. Reason measured that day: the MCP server was not connected in the session and these roles were left with NO write path at all, since output_write was the only one. A challenger and an adversary delivered 276k tokens of findings in their final message for the orchestrator to transcribe by hand. guard_paths.py still blocks any path outside may_write. 15-sep: max_tool_calls 20 -> 60, measured. The judge has to reread on its own what the two adversaries claim, who each bring 40 calls EACH, so the role with the most to verify had half the budget of just one of the roles it judges. In round r1-dev283 (32 findings) it ran out of budget at call 20 with six failures still open, and on resuming it could not even open an excerpts file prepared for it. 60 matches it to the proposer, the other role that touches many files.",
+  "agent": "generic-judge",
+  "model": "sonnet",
+  "tools": [
+    "Read",
+    "Grep",
+    "Glob",
+    "Write",
+    "mcp__metodo__change_card_validate",
+    "mcp__metodo__output_write",
+    "mcp__metodo__handoff_write"
+  ],
+  "forbidden_paths": [
+    "**/.claude/**"
+  ],
+  "may_write": [
+    "**/round-*/**",
+    "**/scratchpad/**"
+  ],
+  "may_spawn": [],
+  "may_talk_to_user": false,
+  "handoff_targets": [
+    "generic-verifier",
+    "generic-proposer"
+  ],
+  "max_context_tokens": 30000,
+  "max_tool_calls": 60,
+  "max_turns": 75
+}

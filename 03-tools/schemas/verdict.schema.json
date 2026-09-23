@@ -1,0 +1,73 @@
+{
+  "properties": {
+    "not_covered": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "role": {
+      "enum": [
+        "judge"
+      ],
+      "type": "string"
+    },
+    "round": {
+      "type": [
+        "string",
+        "integer"
+      ]
+    },
+    "rulings": {
+      "items": {
+        "properties": {
+          "epistemic": {
+            "enum": [
+              "Medido",
+              "Probado",
+              "Inferido",
+              "Asumido",
+              "Desconocido"
+            ],
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "finding_id": {
+            "type": "string"
+          },
+          "ruling": {
+            "enum": [
+              "CONFIRMED",
+              "REFUTED",
+              "NEEDS_BENCH",
+              "UNRESOLVED"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "finding_id",
+          "ruling",
+          "evidence",
+          "epistemic"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "round",
+    "role",
+    "rulings"
+  ],
+  "type": "object"
+}

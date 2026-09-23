@@ -1,0 +1,20 @@
+{
+  "_comment": "Salida del generic-human-reviewer (antes inline en su cuerpo).",
+  "type": "object",
+  "required": ["reader", "violations", "verdict"],
+  "properties": {
+    "reader": {"type": "string", "enum": ["public", "owner"]},
+    "violations": {"type": "array", "items": {"type": "object",
+      "required": ["rule", "line", "statement", "fix_hint", "epistemic"],
+      "properties": {
+        "rule": {"type": "string", "enum": ["COM-07", "COM-12", "COM-13", "COM-16", "COM-17"]},
+        "line": {"type": "integer"},
+        "statement": {"type": "string"},
+        "fix_hint": {"type": "string"},
+        "epistemic": {"type": "string", "enum": ["Medido", "Probado", "Inferido", "Asumido", "Desconocido"]}
+      }}},
+    "verdict": {"type": "string", "enum": ["PASS", "FAIL"]},
+    "truncated": {"type": "boolean"},
+    "not_covered": {"type": "array", "items": {"type": "string"}}
+  }
+}

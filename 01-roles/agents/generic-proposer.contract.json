@@ -1,0 +1,36 @@
+{
+  "_comment": "may_write is a placeholder: the real scope-glob comes from the assigned change card's 'How far' and is passed to role_contract_validator.py via --scope-glob at invocation time, not fixed here. forbidden_paths only lists what's specific to this role; the project's shared build files (config/project.json: shared_build_files) and **/.claude/** are always forbidden regardless of this contract - enforced by role_contract_validator.py at runtime.",
+  "agent": "generic-proposer",
+  "model": "sonnet",
+  "tools": [
+    "Read",
+    "Grep",
+    "Glob",
+    "Edit",
+    "Bash",
+    "mcp__metodo__change_card_validate",
+    "mcp__metodo__role_contract_validate",
+    "mcp__metodo__comment_gate_measure",
+    "mcp__metodo__test_sectors",
+    "mcp__metodo__verify_sectors",
+    "mcp__metodo__job_status",
+    "mcp__metodo__output_write",
+    "mcp__metodo__handoff_write"
+  ],
+  "forbidden_paths": [
+    "**/.claude/**"
+  ],
+  "may_write": [
+    "<scope-glob-from-change-card>"
+  ],
+  "may_spawn": [],
+  "may_talk_to_user": false,
+  "handoff_targets": [
+    "generic-challenger",
+    "generic-blind-spot-adversary",
+    "generic-verifier"
+  ],
+  "max_context_tokens": 60000,
+  "max_tool_calls": 60,
+  "max_turns": 75
+}

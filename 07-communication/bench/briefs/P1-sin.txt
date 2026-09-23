@@ -1,0 +1,7 @@
+Do not use any tools. You are replying to a person. Reply in Spanish to the following message, exactly as you would reply to them. Output ONLY your reply text (markdown allowed), nothing else.
+
+<message>
+¿Puedo reintentar un pago fallido en mi app de cobro sin riesgo de cobrar dos veces? Contexto: el SDK genera la
+clave de idempotencia dentro del bucle de reintento (`PaymentRetry.kt:52` @ 9f3e2a1 llama a
+`newIdempotencyKey()` en cada iteración). No existe ningún test que cubra el reintento.
+</message>

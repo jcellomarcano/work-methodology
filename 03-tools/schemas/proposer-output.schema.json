@@ -1,0 +1,18 @@
+{
+  "_comment": "Salida del generic-proposer (antes inline en su cuerpo).",
+  "type": "object",
+  "required": ["change_card_id", "files_changed", "build", "role_contract_validation", "handoff_to"],
+  "properties": {
+    "change_card_id": {"type": "string"},
+    "files_changed": {"type": "array", "items": {"type": "string"}},
+    "build": {"type": "object", "required": ["variant", "task", "result"],
+      "properties": {"variant": {"type": "string"}, "task": {"type": "string"},
+        "result": {"type": "string", "enum": ["PASS", "FAIL"]}}},
+    "role_contract_validation": {"type": "object", "required": ["verdict"],
+      "properties": {"verdict": {"type": "string", "enum": ["PASS", "FAIL"]},
+        "forbidden_hits": {"type": "array"}, "outside_allowlist": {"type": "array"}}},
+    "handoff_to": {"type": "array", "items": {"type": "string"}},
+    "truncated": {"type": "boolean"},
+    "not_covered": {"type": "array", "items": {"type": "string"}}
+  }
+}

@@ -27,7 +27,7 @@ flowchart LR
 
 Every PR includes:
 
-- A summary (use [templates/pull-request.md](../templates/pull-request.md))
+- A summary (use [04-templates/pull-request.md](../04-templates/pull-request.md))
 - A link to its change card
 - Evidence the change works
 - What was explicitly **not** tested
@@ -39,7 +39,7 @@ Written from the release PR. Customer-facing summary up front; internal detail (
 
 ## No merge to a release branch without a benchmark
 
-Every release into a release branch carries a completed [templates/release-benchmark.md](../templates/release-benchmark.md):
+Every release into a release branch carries a completed [04-templates/release-benchmark.md](../04-templates/release-benchmark.md):
 
 - What improves
 - What worsens

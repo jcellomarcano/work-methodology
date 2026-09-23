@@ -61,4 +61,4 @@ Every review, regardless of tier, checks:
 - Fixtures mirror the real shape of production data, not a simplified stand-in.
 - **Negative control:** force the test to fail once, on purpose, to prove it can actually fail before trusting it to pass.
 
-Findings are recorded with [templates/review-findings.md](../templates/review-findings.md).
+Findings are recorded with [04-templates/review-findings.md](../04-templates/review-findings.md).

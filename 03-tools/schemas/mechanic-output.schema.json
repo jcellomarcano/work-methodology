@@ -1,0 +1,18 @@
+{
+  "_comment": "Salida del generic-mechanic (antes inline en su cuerpo).",
+  "type": "object",
+  "required": ["fix_id", "applied", "files_changed"],
+  "properties": {
+    "fix_id": {"type": "string"},
+    "applied": {"type": "boolean"},
+    "files_changed": {"type": "array", "items": {"type": "string"}},
+    "build": {"type": "object", "properties": {
+      "variant": {"type": "string"}, "task": {"type": "string"},
+      "result": {"type": "string", "enum": ["PASS", "FAIL"]}}},
+    "escalated": {"type": "boolean"},
+    "escalation_reason": {"type": "string"},
+    "handoff_to": {"type": "array", "items": {"type": "string"}},
+    "truncated": {"type": "boolean"},
+    "not_covered": {"type": "array", "items": {"type": "string"}}
+  }
+}

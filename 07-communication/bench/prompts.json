@@ -1,0 +1,22 @@
+{
+  "P1": {
+    "type": "pregunta",
+    "text": "¿Puedo reintentar un pago fallido en mi app de cobro sin riesgo de cobrar dos veces? Contexto: el SDK genera la\nclave de idempotencia dentro del bucle de reintento (`PaymentRetry.kt:52` @ 9f3e2a1 llama a\n`newIdempotencyKey()` en cada iteración). No existe ningún test que cubra el reintento."
+  },
+  "P2": {
+    "type": "estado",
+    "text": "Dame el estado de la migración a Room. Datos: 14 de 18 entidades migradas; tests verdes en los commits\na1b2c3d..e4f5a6b; faltan `Receipt` y `Shift`; el banco de pruebas lo tiene otra sesión hasta mañana; no se\nha probado el arranque en frío sin red."
+  },
+  "P3": {
+    "type": "decision",
+    "text": "¿Guardamos el estado del pago en SharedPreferences, en Room o en un fichero write-ahead propio? Restricciones:\nel proceso puede morir entre la llamada al proveedor y la confirmación; hay que poder reconstruir qué pasó;\nel equipo ya usa Room; la jerarquía del proyecto es Dinero > Estado del pago > Recuperabilidad > UX."
+  },
+  "P4": {
+    "type": "fallo",
+    "text": "Los cajeros dicen que \"la pantalla se queda congelada al cobrar\". Datos: log `12:03:41 ANR in MainActivity`;\n`PaymentViewModel.kt:118` @ 7c1d0e9 llama a `provider.confirm()` de forma síncrona en el hilo principal; la\nred iba bien (ping 40 ms); no hay OOM en el log; no se ha reproducido todavía en el banco de pruebas."
+  },
+  "P5": {
+    "type": "investigacion",
+    "text": "Explícame qué es el \"split-attention effect\" y qué implica para escribir documentación técnica. Mi lector no\nconoce el tema. Usa solo estas fuentes, citándolas literales: (1) Sweller, van Merriënboer y Paas (2019),\nhttps://link.springer.com/article/10.1007/s10648-019-09465-5 : \"Learners must mentally integrate two sources\nof information in order to understand the solution, a process that yields a high cognitive load and hampers\nlearning.\" (2) misma fuente, efecto de redundancia: \"only presenting the diagram was superior to presenting\nboth sources of information together.\" (3) misma fuente, carga extrínseca: la determina \"how the information\nis presented and what the learner is required to do by the instructional procedure.\" No has leído la página:\neres tú quien decide la etiqueta epistémica de cada afirmación."
+  }
+}

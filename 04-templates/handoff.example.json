@@ -1,0 +1,12 @@
+{
+  "seq": 3,
+  "from_role": "generic-proposer",
+  "to_role": "generic-challenger",
+  "artifact_path": "rounds/2026-09-05-journal/003-proposer-diff.patch",
+  "repo_sha": "<filled by script>",
+  "tools_sha": "<filled by script>",
+  "summary": "Implements change card 0 (write-ahead terms before external call). Battery green per commit.",
+  "residual_risks": ["disk-full policy pending owner decision", "no process-death test runnable in JVM"],
+  "truncated": false,
+  "not_covered": []
+}

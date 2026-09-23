@@ -40,7 +40,7 @@ stateDiagram-v2
 
 ## Feature task document
 
-One file per feature, kept current as work progresses. See [templates/feature-tasks.md](../templates/feature-tasks.md). It holds:
+One file per feature, kept current as work progresses. See [04-templates/feature-tasks.md](../04-templates/feature-tasks.md). It holds:
 
 - Objective, scope, and explicit out-of-scope
 - Task checklist with stable IDs
@@ -98,4 +98,4 @@ A finding outside the current change's scope gets a ticket, not a drive-by fix. 
 
 ## When the owner is unavailable
 
-Each team defines its own **emergency lane** in `templates/project-profile.md`: who can stand in, what qualifies as an emergency, and how the real owner reviews the decision afterward.
+Each team defines its own **emergency lane** in `04-templates/project-profile.md`: who can stand in, what qualifies as an emergency, and how the real owner reviews the decision afterward.

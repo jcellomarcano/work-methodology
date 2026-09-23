@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "required": ["claims"],
+  "properties": {
+    "truncated": {"type": "boolean"},
+    "not_covered": {"type": "array", "items": {"type": "string"}},
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "statement", "assumption", "files", "evidence_needed", "epistemic"],
+        "properties": {
+          "id": {"type": "string"},
+          "statement": {"type": "string"},
+          "assumption": {"type": "string"},
+          "files": {"type": "array", "items": {"type": "string"}},
+          "evidence_needed": {"type": "string"},
+          "epistemic": {"type": "string", "enum": ["Medido", "Probado", "Inferido", "Asumido", "Desconocido"]}
+        }
+      }
+    }
+  }
+}

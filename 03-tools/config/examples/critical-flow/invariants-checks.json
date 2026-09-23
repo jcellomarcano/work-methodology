@@ -1,0 +1,64 @@
+{
+  "_comment": "Real example, instantiated over a critical-flow domain (a critical-flow domain): 10 invariants INV-01..10 (PAY-INV-01..10 there). Copy to config/invariants-checks.json (or pass --config to lib/domain_invariants.py) and adjust the patterns to your own code. Some signals from the original script had no clean generic form and are approximated here: INV-03 originally looked at a single named file (the tokenization repository); this version uses 'scope: money' instead. INV-04 originally distinguished an enum's declaration from its usage site; this version only detects mentions of the identifier, without that distinction.",
+  "invariants": {
+    "INV-01": {
+      "epistemic": "Measured",
+      "note": "concurrency guards + idempotency key construction: idempotency across all production code, guards only on money paths",
+      "signals": [
+        {"kind": "IdempotencyKey(", "regex": "IdempotencyKey\\(", "scope": "all", "match": "line"},
+        {"kind": "Idempotency-Key", "regex": "\"Idempotency-Key\"", "scope": "all", "match": "line"},
+        {"kind": "purchase:", "regex": "\"purchase:", "scope": "all", "match": "line"},
+        {"kind": "late-approval:", "regex": "\"late-approval:", "scope": "all", "match": "line"},
+        {"kind": "abandon:", "regex": "\"abandon:", "scope": "all", "match": "line"},
+        {"kind": "putIfAbsent", "regex": "\\bputIfAbsent\\b", "scope": "money", "match": "line"},
+        {"kind": "Mutex(", "regex": "\\bMutex\\(", "scope": "money", "match": "line"},
+        {"kind": "AtomicBoolean", "regex": "\\bAtomicBoolean\\b", "scope": "money", "match": "line"},
+        {"kind": "AtomicReference", "regex": "\\bAtomicReference\\b", "scope": "money", "match": "line"},
+        {"kind": "compareAndSet", "regex": "\\bcompareAndSet\\b", "scope": "money", "match": "line"},
+        {"kind": "CompletableDeferred", "regex": "\\bCompletableDeferred\\b", "scope": "money", "match": "line"}
+      ]
+    },
+    "INV-02": {"epistemic": "Unknown", "note": "no script check yet", "signals": []},
+    "INV-03": {
+      "epistemic": "Measured",
+      "note": "generic approximation: status?.copy on money paths (the original looked at a single tokenization repository file, not expressible in a generic scope)",
+      "signals": [
+        {"kind": "status?.copy", "regex": "\\bstatus\\?\\.copy\\b", "scope": "money", "match": "line"}
+      ]
+    },
+    "INV-04": {
+      "epistemic": "Measured",
+      "note": "journal (*Journal*.kt) expected at NONE today; reconcile(/RecoveredAfterRestart are the evidence of real recovery (without distinguishing declaration from usage site, unlike the original script)",
+      "signals": [
+        {"kind": "journal-file", "regex": "Journal", "scope": "all", "match": "filename"},
+        {"kind": "reconcile(", "regex": "\\breconcile\\(", "scope": "all", "match": "line"},
+        {"kind": "RecoveredAfterRestart", "regex": "\\bRecoveredAfterRestart\\b", "scope": "all", "match": "line"}
+      ]
+    },
+    "INV-05": {
+      "epistemic": "Measured",
+      "note": "presence of install(HttpRequestRetry) in code (comments excluded) as evidence of transport retry",
+      "signals": [
+        {"kind": "install(HttpRequestRetry", "regex": "\\binstall\\(\\s*HttpRequestRetry\\b", "scope": "all", "match": "line"}
+      ]
+    },
+    "INV-06": {"epistemic": "Unknown", "note": "no script check yet", "signals": []},
+    "INV-07": {"epistemic": "Unknown", "note": "no script check yet", "signals": []},
+    "INV-08": {
+      "epistemic": "Measured",
+      "note": "spots that format money with String.format(\"%.2f\", ...) instead of minorUnits",
+      "signals": [
+        {"kind": "String.format(\"%.2f", "regex": "String\\.format\\(\"%\\.2f", "scope": "all", "match": "line"}
+      ]
+    },
+    "INV-09": {"epistemic": "Unknown", "note": "no script check yet", "signals": []},
+    "INV-10": {
+      "epistemic": "Measured",
+      "note": "android.util.Log (import or call) inside money paths",
+      "signals": [
+        {"kind": "android.util.Log", "regex": "android\\.util\\.Log", "scope": "money", "match": "line"},
+        {"kind": "Log.call", "regex": "Log\\.[dweiv]\\(", "scope": "money", "match": "line"}
+      ]
+    }
+  }
+}

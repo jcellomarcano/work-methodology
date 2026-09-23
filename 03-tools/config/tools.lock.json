@@ -1,0 +1,23 @@
+{
+  "detekt": {
+    "path": "vendor/detekt-cli-1.23.8-all.jar",
+    "sha256": "2ce2ff952e150baf28a29cda70a363b0340b3e81a55f43e51ec5edffc3d066c1",
+    "status": "ok",
+    "url": "https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8-all.jar",
+    "version": "1.23.8"
+  },
+  "ktlint": {
+    "path": "vendor/ktlint",
+    "sha256": "a3fd620207d5c40da6ca789b95e7f823c54e854b7fade7f613e91096a3706d75",
+    "status": "ok",
+    "url": "https://github.com/pinterest/ktlint/releases/download/1.8.0/ktlint",
+    "version": "1.8.0"
+  },
+  "pmd": {
+    "path": "vendor/pmd-dist-7.27.0-bin.zip",
+    "sha256": "4ae396ffaf2b0d3ef0b73a10b2925e77066f73d57a4ce9078c60e7302bcddec9",
+    "status": "ok",
+    "url": "https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.27.0/pmd-dist-7.27.0-bin.zip",
+    "version": "7.27.0"
+  }
+}

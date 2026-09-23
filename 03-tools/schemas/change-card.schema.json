@@ -1,0 +1,59 @@
+{
+  "_comment": "Informal description (not validated by a JSON Schema engine) of a change card's Markdown format. lib/change_card_validator.py implements this shape directly with regex; this file is the human-readable reference for whoever writes the card by hand.",
+  "line_format": "**<Label>**: <value>[ [Tag]]",
+  "fields": [
+    {"label": "Why", "requires_epistemic_tag": true},
+    {
+      "label": "For what",
+      "requires_epistemic_tag": true,
+      "allowed_values": [
+        "Data integrity",
+        "State correctness",
+        "Identity/uniqueness",
+        "Auditability",
+        "Recoverability",
+        "Security",
+        "Performance",
+        "UX"
+      ],
+      "note": "this list is the kit's domain-neutral default hierarchy (config/project.json:property_order); a real project declares its own there"
+    },
+    {
+      "label": "What it risks",
+      "requires_epistemic_tag": true,
+      "note": "free text except for the literal value \"none\", which Invariant treats as \"explicitly declares there is no risk\" (see mandatory_nonempty_unless_both_in)"
+    },
+    {"label": "When", "requires_epistemic_tag": true},
+    {"label": "How", "requires_epistemic_tag": true},
+    {"label": "How far", "requires_epistemic_tag": true},
+    {"label": "How we'll know", "requires_epistemic_tag": true},
+    {
+      "label": "Invariant",
+      "requires_epistemic_tag": false,
+      "value_format": "\"n/a\" (case-insensitive), or a comma-separated list of tokens matching <invariant_prefix>-\\d\\d (config/project.json:invariant_prefix, INV by default) or any of config/project.json:extra_invariant_tokens (ARCH-006 by default)",
+      "mandatory_nonempty_unless_both_in": {
+        "fields": ["For what", "What it risks"],
+        "allowed_values_for_na": ["Auditability", "UX", "none"],
+        "note": "n/a is only accepted if BOTH fields fall in this set; if either one is Data integrity/State correctness/Identity-uniqueness/Recoverability/Security/Performance, a real invariant is required"
+      }
+    },
+    {
+      "label": "Ticket",
+      "requires_epistemic_tag": false,
+      "value_format": "a Jira-style key [A-Z]+-\\d+ (e.g. DEV-123), or the literal \"no ticket\" (case-insensitive)",
+      "always_mandatory": true
+    }
+  ],
+  "epistemic_tags": ["Medido", "Probado", "Inferido", "Asumido", "Desconocido"],
+  "output": {
+    "verdict": "PASS | FAIL",
+    "routing": "opus | sonnet: opus if For what or What it risks fall under the project's critical properties (by default: everything except Auditability and UX)",
+    "fields_found": "sorted list of labels found",
+    "fields_missing": "sorted list of the 9 labels that are missing",
+    "errors": "list of strings, one per detected violation",
+    "epistemic_coverage": {
+      "tag_required_fields": "how many of the 9 fields require a tag (7)",
+      "tagged_ok": "how many of the fields present carry a valid tag in the right position"
+    }
+  }
+}

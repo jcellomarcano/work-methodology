@@ -1,0 +1,22 @@
+{
+  "_comment": "Salida del generic-comment-gate (antes inline en su cuerpo).",
+  "type": "object",
+  "required": ["findings", "pass"],
+  "properties": {
+    "findings": {"type": "array", "items": {"type": "object",
+      "required": ["path", "line", "statement", "verdict", "proposed_text", "rules", "epistemic"],
+      "properties": {
+        "path": {"type": "string"},
+        "line": {"type": "integer"},
+        "statement": {"type": "string"},
+        "verdict": {"type": "string", "enum": ["NECESSARY", "UNNECESSARY", "MAKE-SELF-EXPLANATORY", "KDOC-INTERFACE"]},
+        "proposed_text": {"type": ["string", "null"]},
+        "rules": {"type": "array", "items": {"type": "string",
+          "enum": ["DOC-001", "DOC-002", "DOC-003", "ISO-24495-CODE-1", "ISO-24495-CODE-2", "ISO-24495-CODE-3", "ISO-24495-CODE-4", "ISO-24495-CODE-5", "ISO-24495-CODE-6"]}},
+        "epistemic": {"type": "string", "enum": ["Medido", "Probado", "Inferido", "Asumido", "Desconocido"]}
+      }}},
+    "pass": {"type": "boolean"},
+    "truncated": {"type": "boolean"},
+    "not_covered": {"type": "array", "items": {"type": "string"}}
+  }
+}

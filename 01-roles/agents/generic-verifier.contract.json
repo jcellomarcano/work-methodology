@@ -1,0 +1,29 @@
+{
+  "_comment": "forbidden_paths only lists what's specific to this role; the project's shared build files (config/project.json: shared_build_files) and **/.claude/** are always forbidden regardless of this contract - enforced by role_contract_validator.py at runtime.",
+  "agent": "generic-verifier",
+  "model": "sonnet",
+  "tools": [
+    "Read",
+    "Grep",
+    "Glob",
+    "Bash",
+    "mcp__metodo__test_sectors",
+    "mcp__metodo__verify_sectors",
+    "mcp__metodo__verify_commit",
+    "mcp__metodo__job_status",
+    "mcp__metodo__receipt_status",
+    "mcp__metodo__receipt_capture",
+    "mcp__metodo__output_write",
+    "mcp__metodo__handoff_write"
+  ],
+  "forbidden_paths": [
+    "**/.claude/**"
+  ],
+  "may_write": [],
+  "may_spawn": [],
+  "may_talk_to_user": false,
+  "handoff_targets": [],
+  "max_context_tokens": 40000,
+  "max_tool_calls": 40,
+  "max_turns": 50
+}

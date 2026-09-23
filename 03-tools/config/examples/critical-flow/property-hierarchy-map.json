@@ -1,0 +1,172 @@
+{
+  "_comment": "Real example, instantiated over a critical-flow domain (a critical-flow domain): 32 rules mapped to the property hierarchy. Copy to config/property-hierarchy-map.json if your project uses a similar hierarchy.",
+  "property_order": [
+    "Money",
+    "Payment status",
+    "Transaction identity",
+    "Integrity",
+    "Auditability",
+    "Recoverability",
+    "Security",
+    "UX"
+  ],
+  "rules": {
+    "A11Y-001": {
+      "epistemic": "Assumed",
+      "property": "UX",
+      "why": "controls with a localized description and a sensible focus order during payment"
+    },
+    "ARCH-001": {
+      "epistemic": "Assumed",
+      "property": "Integrity",
+      "why": "domain/data with no Android or eventing keeps the core testable and leak-free"
+    },
+    "ARCH-002": {
+      "epistemic": "Assumed",
+      "property": "Payment status",
+      "why": "an event that decides money is not lost or duplicated outside the global bus"
+    },
+    "ARCH-003": {
+      "epistemic": "Assumed",
+      "property": "Recoverability",
+      "why": "paired register/unregister avoids leaks and zombie states after retries"
+    },
+    "ARCH-004": {
+      "epistemic": "Assumed",
+      "property": "Auditability",
+      "why": "files under 500 lines can be reviewed and reasoned about"
+    },
+    "ARCH-005": {
+      "epistemic": "Assumed",
+      "property": "Security",
+      "why": "a process-wide default overwritten by an SDK breaks TLS for everyone"
+    },
+    "ARCH-006": {
+      "epistemic": "Assumed",
+      "property": "Integrity",
+      "why": "knowledge duplication means two implementations silently diverging"
+    },
+    "CHG-001": {
+      "epistemic": "Assumed",
+      "property": "Auditability",
+      "why": "new code with style, old code with a ticket: the change is traceable"
+    },
+    "CHG-002": {
+      "epistemic": "Assumed",
+      "property": "Integrity",
+      "why": "a finding closes against trunk, not against a branch"
+    },
+    "CHG-003": {
+      "epistemic": "Assumed",
+      "property": "Security",
+      "why": "SDK defect reported with evidence; patch tagged with a removal condition"
+    },
+    "CHG-004": {
+      "epistemic": "Assumed",
+      "property": "Security",
+      "why": "binary allowlist and no dev switches left on in release"
+    },
+    "CONC-001": {
+      "epistemic": "Assumed",
+      "property": "Recoverability",
+      "why": "no GlobalScope on terminal paths: work is cancelled and retried with an owner"
+    },
+    "CONC-002": {
+      "epistemic": "Assumed",
+      "property": "Integrity",
+      "why": "RMW inside the transform: persisted state never loses a concurrent write"
+    },
+    "CONC-003": {
+      "epistemic": "Assumed",
+      "property": "Payment status",
+      "why": "memory barrier and CAS on callback fields: state is never read stale"
+    },
+    "CONC-004": {
+      "epistemic": "Assumed",
+      "property": "Recoverability",
+      "why": "its own deadline and signal, not polling: the flow ends even if the SDK never responds"
+    },
+    "KS-001": {
+      "epistemic": "Assumed",
+      "property": "Auditability",
+      "why": "the combinator that names the intent reads at a glance; it is readability, not money"
+    },
+    "KS-002": {
+      "epistemic": "Assumed",
+      "property": "Auditability",
+      "why": "fewer lines with more resolutions protects the reviewer's reading"
+    },
+    "KS-003": {
+      "epistemic": "Assumed",
+      "property": "Integrity",
+      "why": "a business condition with a single source avoids two diverging truths"
+    },
+    "LOG-001": {
+      "epistemic": "Assumed",
+      "property": "Auditability",
+      "why": "everything through the facade: the log is complete and filterable"
+    },
+    "LOG-002": {
+      "epistemic": "Assumed",
+      "property": "Security",
+      "why": "no full payload and outcome logged at Info: no payment data leaks"
+    },
+    "LOG-003": {
+      "epistemic": "Assumed",
+      "property": "Security",
+      "why": "sensitive data typed and masked by declaration"
+    },
+    "LOG-004": {
+      "epistemic": "Assumed",
+      "property": "Security",
+      "why": "no device capture anywhere in the tree"
+    },
+    "MONEY-001": {
+      "epistemic": "Assumed",
+      "property": "Money",
+      "why": "pure transformations in their own file: every money row is verifiable"
+    },
+    "MONEY-002": {
+      "epistemic": "Assumed",
+      "property": "Money",
+      "why": "minorUnits with no locale: the amount charged is the amount calculated"
+    },
+    "MONEY-003": {
+      "epistemic": "Assumed",
+      "property": "Transaction identity",
+      "why": "stable idempotency key per sale notification"
+    },
+    "MONEY-004": {
+      "epistemic": "Assumed",
+      "property": "Money",
+      "why": "finite retry by cause avoids charging twice or never"
+    },
+    "MONEY-005": {
+      "epistemic": "Assumed",
+      "property": "Auditability",
+      "why": "raw vendor code kept apart from synthetic code: the outcome can be reconstructed"
+    },
+    "MONEY-006": {
+      "epistemic": "Assumed",
+      "property": "Payment status",
+      "why": "green only on confirmed delivery: the shown state is the real state"
+    },
+    "TEST-001": {
+      "epistemic": "Assumed",
+      "property": "Integrity",
+      "why": "additive wire contract frozen by a golden test"
+    },
+    "TEST-002": {
+      "epistemic": "Assumed",
+      "property": "Auditability",
+      "why": "the guard reads the source and carries a negative control: the guarantee is real"
+    },
+    "TEST-003": {
+      "epistemic": "Assumed",
+      "property": "Integrity",
+      "why": "no vocabulary that exists only in tests: prod and test speak the same language"
+    }
+  },
+  "schema_version": "1.0",
+  "status": "v1 unreviewed (Assumed)"
+}

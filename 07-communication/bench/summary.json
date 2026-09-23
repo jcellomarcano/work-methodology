@@ -1,0 +1,97 @@
+{
+  "by_arm": {
+    "con": {
+      "code_fence_lines": 0,
+      "fail_by_rule": {
+        "COM-04": 1,
+        "COM-05": 1,
+        "COM-09": 4,
+        "COM-15": 1
+      },
+      "fail_total": 7,
+      "median_words": 231,
+      "n": 15,
+      "pass": 8,
+      "technical_heading": 11,
+      "warn_by_rule": {
+        "COM-05": 6,
+        "COM-12": 1,
+        "COM-15": 1
+      }
+    },
+    "sin": {
+      "code_fence_lines": 4,
+      "fail_by_rule": {
+        "COM-01": 3,
+        "COM-02": 7,
+        "COM-03": 3,
+        "COM-04": 9,
+        "COM-05": 8,
+        "COM-10": 9,
+        "COM-11": 1,
+        "COM-15": 6
+      },
+      "fail_total": 46,
+      "median_words": 362,
+      "n": 15,
+      "pass": 1,
+      "technical_heading": 0,
+      "warn_by_rule": {
+        "COM-05": 3,
+        "COM-15": 3
+      }
+    }
+  },
+  "by_model": {
+    "haiku": {
+      "con": {
+        "fail_total": 2,
+        "median_words": 154,
+        "n": 5,
+        "pass": 3
+      },
+      "sin": {
+        "fail_total": 12,
+        "median_words": 152,
+        "n": 5,
+        "pass": 1
+      }
+    },
+    "opus": {
+      "con": {
+        "fail_total": 3,
+        "median_words": 491,
+        "n": 5,
+        "pass": 2
+      },
+      "sin": {
+        "fail_total": 19,
+        "median_words": 571,
+        "n": 5,
+        "pass": 0
+      }
+    },
+    "sonnet": {
+      "con": {
+        "fail_total": 2,
+        "median_words": 231,
+        "n": 5,
+        "pass": 3
+      },
+      "sin": {
+        "fail_total": 15,
+        "median_words": 365,
+        "n": 5,
+        "pass": 0
+      }
+    }
+  },
+  "config_sha": "3c162e8277fc",
+  "tool_sha": "17d607d4d78d",
+  "worse_in_con": {
+    "COM-09": {
+      "con": 4,
+      "sin": 0
+    }
+  }
+}

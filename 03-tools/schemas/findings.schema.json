@@ -1,0 +1,96 @@
+{
+  "properties": {
+    "findings": {
+      "items": {
+        "properties": {
+          "attack": {
+            "type": "string"
+          },
+          "claim": {
+            "type": "string"
+          },
+          "epistemic": {
+            "enum": [
+              "Medido",
+              "Probado",
+              "Inferido",
+              "Asumido",
+              "Desconocido"
+            ],
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "failure_scenario": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "lens": {
+            "type": "string"
+          },
+          "simpler_alternative": {
+            "description": "SIMP-7: the simplest design that satisfies the same invariants, or 'none'",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "OK",
+              "MATIZ",
+              "ROTO"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "lens",
+          "claim",
+          "attack",
+          "failure_scenario",
+          "evidence",
+          "verdict",
+          "epistemic"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "not_covered": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "role": {
+      "type": "string"
+    },
+    "round": {
+      "type": [
+        "string",
+        "integer"
+      ]
+    },
+    "summary": {
+      "type": [
+        "string",
+        "object"
+      ]
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "round",
+    "role",
+    "findings",
+    "summary"
+  ],
+  "type": "object"
+}

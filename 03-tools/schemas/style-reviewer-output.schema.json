@@ -1,0 +1,20 @@
+{
+  "_comment": "Salida del generic-style-reviewer (antes inline en su cuerpo).",
+  "type": "object",
+  "required": ["diff_scope", "violations", "verdict"],
+  "properties": {
+    "diff_scope": {"type": "string"},
+    "violations": {"type": "array", "items": {"type": "object",
+      "required": ["rule", "file", "statement", "fix_hint", "epistemic"],
+      "properties": {
+        "rule": {"type": "string", "enum": ["KS-001", "KS-002", "KS-003", "CHG-001", "LOG-001"]},
+        "file": {"type": "string"},
+        "statement": {"type": "string"},
+        "fix_hint": {"type": "string"},
+        "epistemic": {"type": "string", "enum": ["Medido", "Probado", "Inferido", "Asumido", "Desconocido"]}
+      }}},
+    "verdict": {"type": "string", "enum": ["PASS", "FAIL"]},
+    "truncated": {"type": "boolean"},
+    "not_covered": {"type": "array", "items": {"type": "string"}}
+  }
+}

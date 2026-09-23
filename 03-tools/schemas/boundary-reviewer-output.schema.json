@@ -1,0 +1,19 @@
+{
+  "_comment": "Salida del generic-boundary-reviewer (antes inline en su cuerpo).",
+  "type": "object",
+  "required": ["source", "rulings"],
+  "properties": {
+    "source": {"type": "string"},
+    "rulings": {"type": "array", "items": {"type": "object",
+      "required": ["violation_id", "verdict", "rationale", "evidence", "epistemic"],
+      "properties": {
+        "violation_id": {"type": "string"},
+        "verdict": {"type": "string", "enum": ["REAL", "FALSE_POSITIVE"]},
+        "rationale": {"type": "string"},
+        "evidence": {"type": "array", "items": {"type": "string"}},
+        "epistemic": {"type": "string", "enum": ["Medido", "Probado", "Inferido", "Asumido", "Desconocido"]}
+      }}},
+    "truncated": {"type": "boolean"},
+    "not_covered": {"type": "array", "items": {"type": "string"}}
+  }
+}

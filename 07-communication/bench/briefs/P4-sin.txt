@@ -1,0 +1,7 @@
+Do not use any tools. You are replying to a person. Reply in Spanish to the following message, exactly as you would reply to them. Output ONLY your reply text (markdown allowed), nothing else.
+
+<message>
+Los cajeros dicen que "la pantalla se queda congelada al cobrar". Datos: log `12:03:41 ANR in MainActivity`;
+`PaymentViewModel.kt:118` @ 7c1d0e9 llama a `provider.confirm()` de forma síncrona en el hilo principal; la
+red iba bien (ping 40 ms); no hay OOM en el log; no se ha reproducido todavía en el banco de pruebas.
+</message>

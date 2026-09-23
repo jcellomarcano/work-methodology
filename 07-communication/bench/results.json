@@ -1,0 +1,525 @@
+{
+  "config_sha": "3c162e8277fc",
+  "rows": [
+    {
+      "arm": "con",
+      "code_fence_lines": 0,
+      "fails": [
+        "COM-09"
+      ],
+      "file": "haiku-con-decision.md",
+      "human_lines": 9,
+      "kind": "decision",
+      "model": "haiku",
+      "technical_heading": true,
+      "total_lines": 14,
+      "verdict": "FAIL",
+      "warns": [],
+      "words": 182
+    },
+    {
+      "arm": "con",
+      "code_fence_lines": 0,
+      "fails": [],
+      "file": "haiku-con-estado.md",
+      "human_lines": 5,
+      "kind": "estado",
+      "model": "haiku",
+      "technical_heading": false,
+      "total_lines": 5,
+      "verdict": "PASS",
+      "warns": [],
+      "words": 36
+    },
+    {
+      "arm": "con",
+      "code_fence_lines": 0,
+      "fails": [],
+      "file": "haiku-con-fallo.md",
+      "human_lines": 10,
+      "kind": "fallo",
+      "model": "haiku",
+      "technical_heading": false,
+      "total_lines": 10,
+      "verdict": "PASS",
+      "warns": [],
+      "words": 113
+    },
+    {
+      "arm": "con",
+      "code_fence_lines": 0,
+      "fails": [
+        "COM-15"
+      ],
+      "file": "haiku-con-investigacion.md",
+      "human_lines": 7,
+      "kind": "investigacion",
+      "model": "haiku",
+      "technical_heading": true,
+      "total_lines": 12,
+      "verdict": "FAIL",
+      "warns": [
+        "COM-05",
+        "COM-12"
+      ],
+      "words": 352
+    },
+    {
+      "arm": "con",
+      "code_fence_lines": 0,
+      "fails": [],
+      "file": "haiku-con-pregunta.md",
+      "human_lines": 5,
+      "kind": "pregunta",
+      "model": "haiku",
+      "technical_heading": false,
+      "total_lines": 5,
+      "verdict": "PASS",
+      "warns": [],
+      "words": 154
+    },
+    {
+      "arm": "sin",
+      "code_fence_lines": 0,
+      "fails": [
+        "COM-02",
+        "COM-03",
+        "COM-04"
+      ],
+      "file": "haiku-sin-decision.md",
+      "human_lines": 24,
+      "kind": "decision",
+      "model": "haiku",
+      "technical_heading": false,
+      "total_lines": 24,
+      "verdict": "FAIL",
+      "warns": [],
+      "words": 235
+    },
+    {
+      "arm": "sin",
+      "code_fence_lines": 0,
+      "fails": [
+        "COM-02",
+        "COM-04",
+        "COM-10"
+      ],
+      "file": "haiku-sin-estado.md",
+      "human_lines": 14,
+      "kind": "estado",
+      "model": "haiku",
+      "technical_heading": false,
+      "total_lines": 14,
+      "verdict": "FAIL",
+      "warns": [
+        "COM-15"
+      ],
+      "words": 132
+    },
+    {
+      "arm": "sin",
+      "code_fence_lines": 2,
+      "fails": [
+        "COM-03",
+        "COM-04",
+        "COM-10"
+      ],
+      "file": "haiku-sin-fallo.md",
+      "human_lines": 11,
+      "kind": "fallo",
+      "model": "haiku",
+      "technical_heading": false,
+      "total_lines": 16,
+      "verdict": "FAIL",
+      "warns": [],
+      "words": 134
+    },
+    {
+      "arm": "sin",
+      "code_fence_lines": 0,
+      "fails": [
+        "COM-05",
+        "COM-10",
+        "COM-15"
+      ],
+      "file": "haiku-sin-investigacion.md",
+      "human_lines": 5,
+      "kind": "investigacion",
+      "model": "haiku",
+      "technical_heading": false,
+      "total_lines": 5,
+      "verdict": "FAIL",
+      "warns": [],
+      "words": 216
+    },
+    {
+      "arm": "sin",
+      "code_fence_lines": 2,
+      "fails": [],
+      "file": "haiku-sin-pregunta.md",
+      "human_lines": 9,
+      "kind": "pregunta",
+      "model": "haiku",
+      "technical_heading": false,
+      "total_lines": 21,
+      "verdict": "PASS",
+      "warns": [
+        "COM-15"
+      ],
+      "words": 152
+    },
+    {
+      "arm": "con",
+      "code_fence_lines": 0,
+      "fails": [
+        "COM-09"
+      ],
+      "file": "opus-con-decision.md",
+      "human_lines": 13,
+      "kind": "decision",
+      "model": "opus",
+      "technical_heading": true,
+      "total_lines": 20,
+      "verdict": "FAIL",
+      "warns": [
+        "COM-05"
+      ],
+      "words": 636
+    },
+    {
+      "arm": "con",
+      "code_fence_lines": 0,
+      "fails": [],
+      "file": "opus-con-estado.md",
+      "human_lines": 7,
+      "kind": "estado",
+      "model": "opus",
+      "technical_heading": true,
+      "total_lines": 13,
+      "verdict": "PASS",
+      "warns": [],
+      "words": 166
+    },
+    {
+      "arm": "con",
+      "code_fence_lines": 0,
+      "fails": [
+        "COM-09"
+      ],
+      "file": "opus-con-fallo.md",
+      "human_lines": 9,
+      "kind": "fallo",
+      "model": "opus",
+      "technical_heading": true,
+      "total_lines": 20,
+      "verdict": "FAIL",
+      "warns": [
+        "COM-05"
+      ],
+      "words": 491
+    },
+    {
+      "arm": "con",
+      "code_fence_lines": 0,
+      "fails": [
+        "COM-05"
+      ],
+      "file": "opus-con-investigacion.md",
+      "human_lines": 8,
+      "kind": "investigacion",
+      "model": "opus",
+      "technical_heading": true,
+      "total_lines": 15,
+      "verdict": "FAIL",
+      "warns": [],
+      "words": 586
+    },
+    {
+      "arm": "con",
+      "code_fence_lines": 0,
+      "fails": [],
+      "file": "opus-con-pregunta.md",
+      "human_lines": 10,
+      "kind": "pregunta",
+      "model": "opus",
+      "technical_heading": true,
+      "total_lines": 16,
+      "verdict": "PASS",
+      "warns": [
+        "COM-05"
+      ],
+      "words": 470
+    },
+    {
+      "arm": "sin",
+      "code_fence_lines": 0,
+      "fails": [
+        "COM-02",
+        "COM-04",
+        "COM-15"
+      ],
+      "file": "opus-sin-decision.md",
+      "human_lines": 15,
+      "kind": "decision",
+      "model": "opus",
+      "technical_heading": false,
+      "total_lines": 15,
+      "verdict": "FAIL",
+      "warns": [
+        "COM-05"
+      ],
+      "words": 571
+    },
+    {
+      "arm": "sin",
+      "code_fence_lines": 0,
+      "fails": [
+        "COM-04",
+        "COM-05",
+        "COM-10",
+        "COM-15"
+      ],
+      "file": "opus-sin-estado.md",
+      "human_lines": 11,
+      "kind": "estado",
+      "model": "opus",
+      "technical_heading": false,
+      "total_lines": 11,
+      "verdict": "FAIL",
+      "warns": [],
+      "words": 175
+    },
+    {
+      "arm": "sin",
+      "code_fence_lines": 0,
+      "fails": [
+        "COM-02",
+        "COM-04",
+        "COM-05",
+        "COM-10",
+        "COM-15"
+      ],
+      "file": "opus-sin-fallo.md",
+      "human_lines": 16,
+      "kind": "fallo",
+      "model": "opus",
+      "technical_heading": false,
+      "total_lines": 16,
+      "verdict": "FAIL",
+      "warns": [],
+      "words": 569
+    },
+    {
+      "arm": "sin",
+      "code_fence_lines": 0,
+      "fails": [
+        "COM-02",
+        "COM-05",
+        "COM-10",
+        "COM-15"
+      ],
+      "file": "opus-sin-investigacion.md",
+      "human_lines": 24,
+      "kind": "investigacion",
+      "model": "opus",
+      "technical_heading": false,
+      "total_lines": 24,
+      "verdict": "FAIL",
+      "warns": [],
+      "words": 939
+    },
+    {
+      "arm": "sin",
+      "code_fence_lines": 0,
+      "fails": [
+        "COM-02",
+        "COM-03",
+        "COM-05"
+      ],
+      "file": "opus-sin-pregunta.md",
+      "human_lines": 22,
+      "kind": "pregunta",
+      "model": "opus",
+      "technical_heading": false,
+      "total_lines": 22,
+      "verdict": "FAIL",
+      "warns": [],
+      "words": 650
+    },
+    {
+      "arm": "con",
+      "code_fence_lines": 0,
+      "fails": [
+        "COM-04"
+      ],
+      "file": "sonnet-con-decision.md",
+      "human_lines": 9,
+      "kind": "decision",
+      "model": "sonnet",
+      "technical_heading": true,
+      "total_lines": 16,
+      "verdict": "FAIL",
+      "warns": [
+        "COM-05"
+      ],
+      "words": 327
+    },
+    {
+      "arm": "con",
+      "code_fence_lines": 0,
+      "fails": [],
+      "file": "sonnet-con-estado.md",
+      "human_lines": 6,
+      "kind": "estado",
+      "model": "sonnet",
+      "technical_heading": false,
+      "total_lines": 6,
+      "verdict": "PASS",
+      "warns": [],
+      "words": 62
+    },
+    {
+      "arm": "con",
+      "code_fence_lines": 0,
+      "fails": [],
+      "file": "sonnet-con-fallo.md",
+      "human_lines": 8,
+      "kind": "fallo",
+      "model": "sonnet",
+      "technical_heading": true,
+      "total_lines": 15,
+      "verdict": "PASS",
+      "warns": [],
+      "words": 231
+    },
+    {
+      "arm": "con",
+      "code_fence_lines": 0,
+      "fails": [
+        "COM-09"
+      ],
+      "file": "sonnet-con-investigacion.md",
+      "human_lines": 8,
+      "kind": "investigacion",
+      "model": "sonnet",
+      "technical_heading": true,
+      "total_lines": 14,
+      "verdict": "FAIL",
+      "warns": [
+        "COM-05",
+        "COM-15"
+      ],
+      "words": 374
+    },
+    {
+      "arm": "con",
+      "code_fence_lines": 0,
+      "fails": [],
+      "file": "sonnet-con-pregunta.md",
+      "human_lines": 4,
+      "kind": "pregunta",
+      "model": "sonnet",
+      "technical_heading": true,
+      "total_lines": 9,
+      "verdict": "PASS",
+      "warns": [],
+      "words": 228
+    },
+    {
+      "arm": "sin",
+      "code_fence_lines": 0,
+      "fails": [
+        "COM-04"
+      ],
+      "file": "sonnet-sin-decision.md",
+      "human_lines": 10,
+      "kind": "decision",
+      "model": "sonnet",
+      "technical_heading": false,
+      "total_lines": 10,
+      "verdict": "FAIL",
+      "warns": [
+        "COM-05"
+      ],
+      "words": 362
+    },
+    {
+      "arm": "sin",
+      "code_fence_lines": 0,
+      "fails": [
+        "COM-04",
+        "COM-10"
+      ],
+      "file": "sonnet-sin-estado.md",
+      "human_lines": 7,
+      "kind": "estado",
+      "model": "sonnet",
+      "technical_heading": false,
+      "total_lines": 7,
+      "verdict": "FAIL",
+      "warns": [
+        "COM-05",
+        "COM-15"
+      ],
+      "words": 90
+    },
+    {
+      "arm": "sin",
+      "code_fence_lines": 0,
+      "fails": [
+        "COM-01",
+        "COM-04",
+        "COM-05",
+        "COM-10"
+      ],
+      "file": "sonnet-sin-fallo.md",
+      "human_lines": 8,
+      "kind": "fallo",
+      "model": "sonnet",
+      "technical_heading": false,
+      "total_lines": 8,
+      "verdict": "FAIL",
+      "warns": [],
+      "words": 365
+    },
+    {
+      "arm": "sin",
+      "code_fence_lines": 0,
+      "fails": [
+        "COM-01",
+        "COM-02",
+        "COM-05",
+        "COM-10",
+        "COM-11",
+        "COM-15"
+      ],
+      "file": "sonnet-sin-investigacion.md",
+      "human_lines": 14,
+      "kind": "investigacion",
+      "model": "sonnet",
+      "technical_heading": false,
+      "total_lines": 14,
+      "verdict": "FAIL",
+      "warns": [],
+      "words": 687
+    },
+    {
+      "arm": "sin",
+      "code_fence_lines": 0,
+      "fails": [
+        "COM-01",
+        "COM-05"
+      ],
+      "file": "sonnet-sin-pregunta.md",
+      "human_lines": 11,
+      "kind": "pregunta",
+      "model": "sonnet",
+      "technical_heading": false,
+      "total_lines": 11,
+      "verdict": "FAIL",
+      "warns": [],
+      "words": 401
+    }
+  ],
+  "tool_sha": "17d607d4d78d"
+}

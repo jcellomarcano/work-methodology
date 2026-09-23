@@ -1,0 +1,7 @@
+Do not use any tools. You are replying to a person. Reply in Spanish to the following message, exactly as you would reply to them. Output ONLY your reply text (markdown allowed), nothing else.
+
+<message>
+Dame el estado de la migración a Room. Datos: 14 de 18 entidades migradas; tests verdes en los commits
+a1b2c3d..e4f5a6b; faltan `Receipt` y `Shift`; el banco de pruebas lo tiene otra sesión hasta mañana; no se
+ha probado el arranque en frío sin red.
+</message>

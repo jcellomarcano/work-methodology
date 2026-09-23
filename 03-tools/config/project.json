@@ -1,0 +1,82 @@
+{
+  "_comment": "The only file a new project has to fill in to adapt the kit. bin/adopt.sh <repo> <audit-folder> writes it with a reasonable start; adjust by hand the fields that depend on the real repo. The other config/ files (dep-boundaries.json, invariants-checks.json, duplication-targets.json, property-hierarchy-map.json) each have their own generic placeholder here and their full example over a critical-flow domain in config/examples/critical-flow/.",
+  "docs_root": "~/<audit-folder>",
+  "shared_build_files": [
+    "settings.gradle",
+    "build.gradle",
+    "gradle.properties",
+    "gradle/libs.versions.toml",
+    "app/build.gradle"
+  ],
+  "money_paths": [
+    "payment/",
+    "framework/payment/",
+    "ui/gatewaypay/"
+  ],
+  "property_order": [
+    "Data integrity",
+    "State correctness",
+    "Identity/uniqueness",
+    "Auditability",
+    "Recoverability",
+    "Security",
+    "Performance",
+    "UX"
+  ],
+  "invariant_prefix": "INV",
+  "extra_invariant_tokens": [
+    "ARCH-006"
+  ],
+  "language": "kotlin",
+  "ticket_keys": [
+    "DEV",
+    "POS"
+  ],
+  "rdd": {
+    "_comment": "Review receipt (RDD). enabled turns off the whole receipt and hooks system except the absolute set. mode is the default mode for non-absolute hooks (warn logs, block denies or asks); hook_modes overrides it per hook. test_sectors also uses exempt_globs to ignore files. review_authority says who owns the review when another receipt system also runs: kit (this receipt decides) or gentle-ai (its lineage decides delivery and this receipt is only the ledger of the kit checkers).",
+    "enabled": true,
+    "review_authority": "kit",
+    "mode": "warn",
+    "hook_modes": {},
+    "exempt_globs": [
+      "**/*.md",
+      "docs/**"
+    ],
+    "tests_globs": [
+      "**/src/test/**",
+      "**/src/androidTest/**"
+    ],
+    "low_max_changed_lines": 120,
+    "lens_paths": {
+      "flujo-critico": [
+        "**/*Repository*.kt",
+        "**/*Store*.kt"
+      ],
+      "jamas-peor-que-antes": [
+        "**/*Application*.kt",
+        "**/di/**"
+      ],
+      "tests-anti-flake": [
+        "**/src/test/**"
+      ]
+    }
+  },
+  "memory": {
+    "_comment": "engram persistent memory (lib/engram_bridge.py). enabled false, or no engram binary on PATH, turns every save into a no-op. engram_project empty falls back to ENGRAM_PROJECT and then to the repo folder's name.",
+    "enabled": true,
+    "engram_project": ""
+  },
+  "test_sectors": {
+    "_comment": "Path -> Gradle tasks map for the touched module, for test_sectors.py. Empty = every source file is unmapped and full_required comes out true (safe default). Full example in config/examples/critical-flow/project.json.",
+    "base_ref": "origin/develop",
+    "full_required_globs": [
+      "app/libs/**",
+      "**/proguard*.pro",
+      "gradle/**",
+      "gradlew*",
+      "**/build.gradle",
+      "tools/verify/**"
+    ],
+    "sectors": []
+  }
+}
