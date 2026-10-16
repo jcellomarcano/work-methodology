@@ -38,9 +38,9 @@ Prices are USD/MTok, standard tier, and expire.
    dependent chains stay in one agent. Max 3 in parallel, depth 1 ([M§2], [M§5]; [A§4]; [O§4]; [G§3] no nesting).
 7. **Best result = lexicographic, not weighted.** First every mandatory role of the tier, then the quality guards,
    then the cheapest roster under budget. Budget never removes a mandatory role ([M§4]; [RR§3]).
-8. **Catalog refresh.** The incumbents Haiku 4.5, Sonnet 5 and Opus 5 are now legacy. Haiku 4.5's "not sooner than"
-   retirement date has passed ([A§1]). Successors and the new Google, OpenAI and local models enter as `candidate`
-   ([MPR§4]).
+8. **Catalog refresh.** The owner admitted the Claude 5.5 family by decision (L5, cost), not by the [MPR§4] test:
+   Haiku, Sonnet and Opus 5.5 replace Haiku 4.5, Sonnet 5 and Opus 5, and Opus 5.5 becomes the orchestrator. The
+   new Google, OpenAI and local models still enter as `candidate` ([MPR§4]).
 9. **Prices carry dates, and the router takes `as_of` as an input** (never the system clock). Argon doubles on
    2026-12-01 and the Flash tiers on 2027-01-01 ([G§1]).
 10. **Every decision writes one log line** so cost and quality per tier can be attributed ([M§4]; §5 below).
@@ -52,10 +52,10 @@ default / critical path at the high tier.
 
 | Tier | Anthropic | Google | OpenAI | Local (offline/privacy only) |
 |---|---|---|---|---|
-| small | A `claude-haiku-4-5` $1/$5, effort [Unknown] for legacy ids [MT][A§1]. C `claude-haiku-5-5` low / medium, $0.10/$0.50 for prompts ≤100K [A§1,§5] | C `gemini-3.5-flash-lite` minimal / medium, $0.30/$2.50 [G§1,§5] | C `gpt-6-luna` low / high, $0.10/$0.50 [O§1,§5] | C `qwen3.5:9b`, `gemma4:12b-it`, `gpt-oss:20b` with thinking off / low [L§1,§4] |
-| medium | A `claude-sonnet-5` $2/$10 [MT]. C `claude-sonnet-5-5` medium / medium / high, $2/$10 [A§1,§5] | C `gemini-3.8-flash` low→medium / medium / medium, $0.75/$3.75 until 2026-12-31 [G§1,§5] | C `gpt-6-luna` high (cartographer); `gpt-6.1-sol` medium (proposer, verifier, judge), $2/$10 [O§5] | C only: 24-36B at Q4 with 64K context (e.g. `qwen3.8:27b-q4_K_M`), never measured here [L§2,§4] |
-| large | A `claude-opus-5` $5/$25 [MT]. C `claude-opus-5-5` high / xhigh, $4/$20 [A§1,§5] | C `gemini-4-argon` high, $2/$10 → $4/$20 from 2026-12-01 [G§0,§5] | C `gpt-6-astra` high, $10/$50; cheaper trial `gpt-6.1-sol` xhigh [O§5] | none: "Not a fit" [L§4] |
-| orchestrator | A `claude-fable-5-1` high, $10/$50 [MT][A§1]. C `claude-opus-5-5` high [A§5] | C `gemini-4-argon` medium, not through Gemini CLI [G§5] | C `gpt-6-astra` medium [O§5] | none [L§4] |
+| small | A `claude-haiku-5-5` low / medium, $0.10/$0.50 for prompts ≤100K (owner decision L5) [A§1,§5]; legacy `claude-haiku-4-5` | C `gemini-3.5-flash-lite` minimal / medium, $0.30/$2.50 [G§1,§5] | C `gpt-6-luna` low / high, $0.10/$0.50 [O§1,§5] | C `qwen3.5:9b`, `gemma4:12b-it`, `gpt-oss:20b` with thinking off / low [L§1,§4] |
+| medium | A `claude-sonnet-5-5` medium / medium / high, $2/$10 (owner decision L5) [A§1,§5]; legacy `claude-sonnet-5` | C `gemini-3.8-flash` low→medium / medium / medium, $0.75/$3.75 until 2026-12-31 [G§1,§5] | C `gpt-6-luna` high (cartographer); `gpt-6.1-sol` medium (proposer, verifier, judge), $2/$10 [O§5] | C only: 24-36B at Q4 with 64K context (e.g. `qwen3.8:27b-q4_K_M`), never measured here [L§2,§4] |
+| large | A `claude-opus-5-5` high / xhigh, $4/$20 (owner decision L5) [A§1,§5]; legacy `claude-opus-5` | C `gemini-4-argon` high, $2/$10 → $4/$20 from 2026-12-01 [G§0,§5] | C `gpt-6-astra` high, $10/$50; cheaper trial `gpt-6.1-sol` xhigh [O§5] | none: "Not a fit" [L§4] |
+| orchestrator | A `claude-opus-5-5` high, $4/$20 (owner decision L5; Anthropic: matches Fable "for about a fifth of the cost per solved task" [A§5]); `claude-fable-5-1` $10/$50 stays available as an explicit escalation | C `gemini-4-argon` medium, not through Gemini CLI [G§5] | C `gpt-6-astra` medium [O§5] | none [L§4] |
 
 Catalog rules for R7 [Inferred]:
 - Replace the stale candidates in [MT]: `gemini-3.1-pro-preview` becomes `gemini-4-argon` ([G§1]: GA vs preview).
@@ -201,9 +201,9 @@ roster: [{role, tier, provider, model, effort, launch, mode, fanout, trial}], es
 
 ## 7. Open decisions for the owner
 
-1. **Orchestrator: Fable 5.1 or Opus 5.5?** Anthropic measured Opus 5.5 matching Fable "for about a fifth of the cost
+1. **[Decided L5: Opus 5.5] Orchestrator: Fable 5.1 or Opus 5.5?** Anthropic measured Opus 5.5 matching Fable "for about a fifth of the cost
    per solved task" ([A§5]). *Rec.:* keep Fable admitted; run Opus 5.5 through the §4 admission test; the owner decides.
-2. **Incumbent refresh to the 5.5 family.** *Rec.:* first run the admission test on Haiku 5.5 (Haiku 4.5's retirement
+2. **[Decided L5: yes, now] Incumbent refresh to the 5.5 family.** *Rec.:* first run the admission test on Haiku 5.5 (Haiku 4.5's retirement
    date has passed, [A§1]), then Sonnet 5.5 and Opus 5.5. No fast-track: [MPR§4] stays the law.
 3. **Router authority.** *Rec.:* the router is authoritative at launch (R9). Frontmatter is generated from admitted
    catalog defaults and is used only when the router has not run.
