@@ -1,7 +1,49 @@
 {
-  "_comment": "The kit's tiers and candidate models per provider. status: admitted (measured with the multi-provider-routing.md §4 protocol, or by an explicit owner decision recorded in `decision`), approval-only (never in a default roster; the router may only propose it and the owner approves each launch), candidate (unmeasured), rejected (measured and dropped, see minutes). Prices are USD per million input/output tokens, standard rate, read on the updated date; they expire. The final choice per role is made by the harness installer reading this file.",
+  "_comment": "The kit's tiers and candidate models per provider. status: admitted (measured with the multi-provider-routing.md §4 protocol, or by an explicit owner decision recorded in `decision`), approval-only (never in a default roster; the router may only propose it and the owner approves each launch), candidate (unmeasured), rejected (measured and dropped, see minutes). Prices are USD per million input/output tokens, standard rate, read on the updated date; they expire. The final choice per role is made by the harness installer reading this file. Router fields (R7, odd/tasks/model-router.md): price_schedule [{from, usd_in, usd_out}] where from=null means 'valid on the read date, start unknown' and the router picks the last entry whose from <= as_of; usd_in/usd_out mirror the first entry. effort_levels and effort_by_role use the provider's own level names. token_assumptions are Assumed (not measured) and are capped at max_context_tokens. launch gives the syntax per runtime; verified=false marks syntax never run on this machine.",
+  "version": "2026-10-16.r7",
   "updated": "2026-10-16",
-  "sources": "00-principles/multi-provider-routing.md §5",
+  "sources": "00-principles/multi-provider-routing.md §5; odd/research/model-router/routing-method.md §2",
+  "router": {
+    "max_parallel": 3,
+    "max_depth": 1,
+    "trial_slot": false,
+    "optional_drop_order": [
+      "trial-adversary",
+      "judge-zero-findings",
+      "stale-map-cartographer"
+    ],
+    "map_stale_days": 7,
+    "effort_ceiling": {
+      "tier": "large",
+      "effort": "xhigh"
+    },
+    "never_automatic_effort": [
+      "max"
+    ],
+    "tier_ladder": [
+      "small",
+      "medium",
+      "large"
+    ],
+    "default_tokens": {
+      "assumed_tokens_in": 30000,
+      "assumed_tokens_out": 4000,
+      "tag": "Assumed",
+      "basis": "role without an entry in token_assumptions"
+    },
+    "fable": {
+      "rule": "escalate-fable",
+      "model": "claude-fable-5-1",
+      "tier": "orchestrator",
+      "effort": "high",
+      "fallback": {
+        "model": "claude-opus-5-5",
+        "tier": "large",
+        "effort": "xhigh"
+      }
+    },
+    "log_default": "out/runs/routing.jsonl"
+  },
   "tiers": {
     "small": {
       "max_context_tokens": 15000,
@@ -9,64 +51,314 @@
         "generic-style-reviewer",
         "generic-comment-gate",
         "generic-human-reviewer",
-        "generic-mechanic"
+        "generic-mechanic",
+        "generic-cartographer"
       ],
       "candidates": [
         {
           "provider": "anthropic",
+          "id": "claude-haiku-5-5",
           "status": "admitted",
           "decision": "owner decision 2026-10-16: Claude 5.5 family by cost (odd/tasks/model-router.md L5)",
           "read": "2026-10-16",
-          "source": "odd/research/model-router/anthropic.md",
-          "id": "claude-haiku-5-5",
+          "source": "odd/research/model-router/anthropic.md §1, §5",
+          "price_schedule": [
+            {
+              "from": null,
+              "usd_in": 0.1,
+              "usd_out": 0.5
+            }
+          ],
           "usd_in": 0.1,
           "usd_out": 0.5,
           "context": 1000000,
-          "effort": "low (verdict roles) / medium (mechanic)",
-          "note": "$0.50/$2.50 for prompts >100K tokens"
+          "effort_levels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "effort_default": "medium",
+          "effort_by_role": {
+            "generic-style-reviewer": "low",
+            "generic-comment-gate": "low",
+            "generic-human-reviewer": "low",
+            "generic-mechanic": "medium",
+            "generic-cartographer": "medium"
+          },
+          "launch": {
+            "claude-code": {
+              "syntax": "model: claude-haiku-5-5 + effort: <effort>",
+              "verified": true,
+              "source": "odd/research/model-router/anthropic.md §3 (frontmatter or per-invocation model/effort, v2.1.292+)"
+            },
+            "pi": {
+              "syntax": "pi --model anthropic/claude-haiku-5-5:<thinking>",
+              "verified": false,
+              "note": "Unknown: no dossier lists Anthropic ids in pi"
+            }
+          },
+          "note": "$0.10/$0.50 for prompts <=100K tokens; $0.50/$2.50 above (anthropic.md §1): the 15k cap keeps the low rate"
         },
         {
           "provider": "google",
           "id": "gemini-3.5-flash-lite",
           "status": "candidate",
+          "decision": "unmeasured: admission test of 00-principles/multi-provider-routing.md §4 still required",
+          "read": "2026-10-16",
+          "source": "odd/research/model-router/google.md §1, §5",
+          "price_schedule": [
+            {
+              "from": null,
+              "usd_in": 0.3,
+              "usd_out": 2.5
+            }
+          ],
           "usd_in": 0.3,
-          "usd_out": 2.5
-        },
-        {
-          "provider": "google",
-          "id": "gemini-3.8-flash",
-          "status": "candidate",
-          "usd_in": 0.75,
-          "usd_out": 3.75,
+          "usd_out": 2.5,
           "context": 1048576,
-          "note": "1.50/7.50 from 2027-01-01"
+          "effort_levels": [
+            "minimal",
+            "low",
+            "medium",
+            "high"
+          ],
+          "effort_default": "minimal",
+          "effort_by_role": {
+            "generic-style-reviewer": "minimal",
+            "generic-comment-gate": "minimal",
+            "generic-human-reviewer": "minimal",
+            "generic-mechanic": "medium",
+            "generic-cartographer": "medium"
+          },
+          "launch": {
+            "claude-code": {
+              "syntax": null,
+              "verified": false,
+              "note": "Claude Code routes only Claude models (anthropic.md §3; local.md S20)"
+            },
+            "pi": {
+              "syntax": "pi --model google/gemini-3.5-flash-lite:<thinking>",
+              "verified": true,
+              "note": "id listed by `pi --list-models gemini` 2026-10-16 (google.md §3); mapping of pi thinking levels onto thinking_level is Unknown"
+            }
+          }
         },
         {
           "provider": "openai",
-          "id": "gpt-5.4-nano",
+          "id": "gpt-6-luna",
           "status": "candidate",
-          "usd_in": 0.2,
-          "usd_out": 1.25
-        },
-        {
-          "provider": "openai",
-          "id": "gpt-5.4-mini",
-          "status": "candidate",
-          "usd_in": 0.75,
-          "usd_out": 4.5,
-          "context": 400000
-        },
-        {
-          "provider": "openai",
-          "id": "gpt-5.6-luna",
-          "status": "candidate",
-          "usd_in": 0.2,
-          "usd_out": 1.2,
+          "decision": "unmeasured: admission test of 00-principles/multi-provider-routing.md §4 still required",
+          "read": "2026-10-16",
+          "source": "odd/research/model-router/openai.md §1, §5",
+          "price_schedule": [
+            {
+              "from": null,
+              "usd_in": 0.1,
+              "usd_out": 0.5
+            }
+          ],
+          "usd_in": 0.1,
+          "usd_out": 0.5,
           "context": 1050000,
           "max_output": 128000,
-          "note": "cached input 0.02; reasoning none..max; structured outputs; replaces gpt-5.4 nano/mini as the small candidate"
+          "effort_levels": [
+            "none",
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "effort_default": "medium",
+          "effort_by_role": {
+            "generic-style-reviewer": "low",
+            "generic-comment-gate": "low",
+            "generic-human-reviewer": "low",
+            "generic-mechanic": "high",
+            "generic-cartographer": "high"
+          },
+          "launch": {
+            "claude-code": {
+              "syntax": null,
+              "verified": false,
+              "note": "Claude Code routes only Claude models (anthropic.md §3; local.md S20)"
+            },
+            "pi": {
+              "syntax": "pi --model openai-codex/gpt-6-luna:<thinking>",
+              "verified": true,
+              "note": "id listed under provider openai-codex by pi 1.3.0 (openai.md §3); mapping of off/minimal onto OpenAI none is Unknown"
+            }
+          },
+          "note": "local Codex 0.154.0 does not list gpt-6-luna: Codex id Unknown until a run (openai.md §3)"
+        },
+        {
+          "provider": "local",
+          "id": "qwen3.5:9b-q4_K_M",
+          "status": "candidate",
+          "local": true,
+          "offline_only": true,
+          "decision": "owner decision L4: small tier only, offline or privacy repos only; admission needs a real run on this M1 Max (throughput and tool reliability Unknown)",
+          "read": "2026-10-16",
+          "source": "odd/research/model-router/local.md §1, §4",
+          "price_schedule": [
+            {
+              "from": null,
+              "usd_in": 0.0,
+              "usd_out": 0.0
+            }
+          ],
+          "usd_in": 0.0,
+          "usd_out": 0.0,
+          "effort_levels": [
+            "off",
+            "on"
+          ],
+          "effort_default": "off",
+          "effort_by_role": {
+            "generic-style-reviewer": "off",
+            "generic-comment-gate": "off",
+            "generic-human-reviewer": "off",
+            "generic-mechanic": "on",
+            "generic-cartographer": "on"
+          },
+          "launch": {
+            "claude-code": {
+              "syntax": null,
+              "verified": false,
+              "note": "Ollama documents ANTHROPIC_BASE_URL, Anthropic does not support it: avoid for kit roles (local.md §3)"
+            },
+            "pi": {
+              "syntax": "pi --model ollama/qwen3.5:9b-q4_K_M:<thinking>",
+              "verified": false,
+              "note": "needs an ollama provider in ~/.pi/agent/models.json (local.md §3); none active on this machine, never run"
+            }
+          },
+          "note": "thinking on by default, `enable_thinking` false per request; 6.6GB"
+        },
+        {
+          "provider": "local",
+          "id": "gemma4:12b-it-q4_K_M",
+          "status": "candidate",
+          "local": true,
+          "offline_only": true,
+          "decision": "owner decision L4: small tier only, offline or privacy repos only; admission needs a real run on this M1 Max (throughput and tool reliability Unknown)",
+          "read": "2026-10-16",
+          "source": "odd/research/model-router/local.md §1, §4",
+          "price_schedule": [
+            {
+              "from": null,
+              "usd_in": 0.0,
+              "usd_out": 0.0
+            }
+          ],
+          "usd_in": 0.0,
+          "usd_out": 0.0,
+          "effort_levels": [
+            "off",
+            "on"
+          ],
+          "effort_default": "off",
+          "effort_by_role": {
+            "generic-style-reviewer": "off",
+            "generic-comment-gate": "off",
+            "generic-human-reviewer": "off",
+            "generic-mechanic": "on",
+            "generic-cartographer": "on"
+          },
+          "launch": {
+            "claude-code": {
+              "syntax": null,
+              "verified": false,
+              "note": "Ollama documents ANTHROPIC_BASE_URL, Anthropic does not support it: avoid for kit roles (local.md §3)"
+            },
+            "pi": {
+              "syntax": "pi --model ollama/gemma4:12b-it-q4_K_M:<thinking>",
+              "verified": false,
+              "note": "needs an ollama provider in ~/.pi/agent/models.json (local.md §3); none active on this machine, never run"
+            }
+          },
+          "note": "thinking via `<|think|>` in the system prompt; 8.0GB"
+        },
+        {
+          "provider": "local",
+          "id": "gpt-oss:20b",
+          "status": "candidate",
+          "local": true,
+          "offline_only": true,
+          "decision": "owner decision L4: small tier only, offline or privacy repos only; admission needs a real run on this M1 Max (throughput and tool reliability Unknown)",
+          "read": "2026-10-16",
+          "source": "odd/research/model-router/local.md §1, §4",
+          "price_schedule": [
+            {
+              "from": null,
+              "usd_in": 0.0,
+              "usd_out": 0.0
+            }
+          ],
+          "usd_in": 0.0,
+          "usd_out": 0.0,
+          "effort_levels": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "effort_default": "low",
+          "effort_by_role": {
+            "generic-style-reviewer": "low",
+            "generic-comment-gate": "low",
+            "generic-human-reviewer": "low",
+            "generic-mechanic": "low",
+            "generic-cartographer": "low"
+          },
+          "launch": {
+            "claude-code": {
+              "syntax": null,
+              "verified": false,
+              "note": "Ollama documents ANTHROPIC_BASE_URL, Anthropic does not support it: avoid for kit roles (local.md §3)"
+            },
+            "pi": {
+              "syntax": "pi --model ollama/gpt-oss:20b:<thinking>",
+              "verified": false,
+              "note": "needs an ollama provider in ~/.pi/agent/models.json (local.md §3); none active on this machine, never run"
+            }
+          },
+          "note": "reasoning low/medium/high via system prompt or Ollama think; 14GB"
         }
-      ]
+      ],
+      "token_assumptions": {
+        "generic-style-reviewer": {
+          "assumed_tokens_in": 12000,
+          "assumed_tokens_out": 1500,
+          "tag": "Assumed",
+          "basis": "rulebook verdict under the 15k cap; output closed schema"
+        },
+        "generic-comment-gate": {
+          "assumed_tokens_in": 8000,
+          "assumed_tokens_out": 1000,
+          "tag": "Assumed",
+          "basis": "comment batch + rulebook; output closed schema"
+        },
+        "generic-human-reviewer": {
+          "assumed_tokens_in": 12000,
+          "assumed_tokens_out": 1500,
+          "tag": "Assumed",
+          "basis": "rulebook verdict under the 15k cap"
+        },
+        "generic-mechanic": {
+          "assumed_tokens_in": 15000,
+          "assumed_tokens_out": 4000,
+          "tag": "Assumed",
+          "basis": "scoped edit at the 15k cap; output a patch"
+        },
+        "generic-cartographer": {
+          "assumed_tokens_in": 28000,
+          "assumed_tokens_out": 3000,
+          "tag": "Assumed",
+          "basis": "scoped single-module cartography measured 26-30k (00-principles/model-routing.md); capped at max_context_tokens"
+        }
+      }
     },
     "medium": {
       "max_context_tokens": 60000,
@@ -75,7 +367,8 @@
         "generic-verifier",
         "generic-boundary-reviewer",
         "generic-judge",
-        "generic-proposer"
+        "generic-proposer",
+        "generic-challenger"
       ],
       "first_to_trial": [
         "generic-cartographer",
@@ -87,51 +380,237 @@
       "candidates": [
         {
           "provider": "anthropic",
+          "id": "claude-sonnet-5-5",
           "status": "admitted",
           "decision": "owner decision 2026-10-16: Claude 5.5 family by cost (odd/tasks/model-router.md L5)",
           "read": "2026-10-16",
-          "source": "odd/research/model-router/anthropic.md",
-          "id": "claude-sonnet-5-5",
+          "source": "odd/research/model-router/anthropic.md §1, §5",
+          "price_schedule": [
+            {
+              "from": null,
+              "usd_in": 2.0,
+              "usd_out": 10.0
+            }
+          ],
           "usd_in": 2.0,
           "usd_out": 10.0,
           "context": 1000000,
-          "effort": "medium; high for verifier and judge"
+          "effort_levels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "effort_default": "medium",
+          "effort_by_role": {
+            "generic-cartographer": "medium",
+            "generic-verifier": "high",
+            "generic-boundary-reviewer": "medium",
+            "generic-judge": "high",
+            "generic-proposer": "medium",
+            "generic-challenger": "high"
+          },
+          "launch": {
+            "claude-code": {
+              "syntax": "model: claude-sonnet-5-5 + effort: <effort>",
+              "verified": true,
+              "source": "odd/research/model-router/anthropic.md §3 (frontmatter or per-invocation model/effort, v2.1.292+)"
+            },
+            "pi": {
+              "syntax": "pi --model anthropic/claude-sonnet-5-5:<thinking>",
+              "verified": false,
+              "note": "Unknown: no dossier lists Anthropic ids in pi"
+            }
+          }
         },
         {
           "provider": "google",
           "id": "gemini-3.8-flash",
           "status": "candidate",
+          "decision": "unmeasured: admission test of 00-principles/multi-provider-routing.md §4 still required",
+          "read": "2026-10-16",
+          "source": "odd/research/model-router/google.md §1, §5",
+          "price_schedule": [
+            {
+              "from": null,
+              "usd_in": 0.75,
+              "usd_out": 3.75
+            },
+            {
+              "from": "2027-01-01",
+              "usd_in": 1.5,
+              "usd_out": 7.5
+            }
+          ],
           "usd_in": 0.75,
           "usd_out": 3.75,
           "context": 1048576,
-          "max_output": 65536
+          "effort_levels": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "effort_default": "medium",
+          "effort_by_role": {
+            "generic-cartographer": "low",
+            "generic-verifier": "medium",
+            "generic-boundary-reviewer": "medium",
+            "generic-judge": "medium",
+            "generic-proposer": "medium",
+            "generic-challenger": "medium"
+          },
+          "launch": {
+            "claude-code": {
+              "syntax": null,
+              "verified": false,
+              "note": "Claude Code routes only Claude models (anthropic.md §3; local.md S20)"
+            },
+            "pi": {
+              "syntax": "pi --model google/gemini-3.8-flash:<thinking>",
+              "verified": true,
+              "note": "id listed by `pi --list-models gemini` 2026-10-16 (google.md §3); mapping of pi thinking levels onto thinking_level is Unknown"
+            }
+          },
+          "note": "`minimal` is not supported and returns an error (google.md §1)"
         },
         {
           "provider": "openai",
-          "id": "gpt-5.4-mini",
+          "id": "gpt-6.1-sol",
           "status": "candidate",
-          "usd_in": 0.75,
-          "usd_out": 4.5,
-          "context": 400000,
-          "max_output": 128000
-        },
-        {
-          "provider": "openai",
-          "id": "gpt-5.6-terra",
-          "status": "candidate",
+          "decision": "unmeasured: admission test of 00-principles/multi-provider-routing.md §4 still required",
+          "read": "2026-10-16",
+          "source": "odd/research/model-router/openai.md §1, §5",
+          "price_schedule": [
+            {
+              "from": null,
+              "usd_in": 2.0,
+              "usd_out": 10.0
+            }
+          ],
           "usd_in": 2.0,
-          "usd_out": 12.0,
+          "usd_out": 10.0,
           "context": 1050000,
           "max_output": 128000,
-          "note": "4.00/18.00 at long context; reasoning low..ultra; incumbent in the owner's Codex CLI"
+          "effort_levels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "effort_default": "medium",
+          "effort_by_role": {
+            "generic-verifier": "medium",
+            "generic-boundary-reviewer": "medium",
+            "generic-judge": "medium",
+            "generic-proposer": "medium",
+            "generic-challenger": "medium"
+          },
+          "launch": {
+            "claude-code": {
+              "syntax": null,
+              "verified": false,
+              "note": "Claude Code routes only Claude models (anthropic.md §3; local.md S20)"
+            },
+            "pi": {
+              "syntax": "pi --model openai-codex/gpt-6.1-sol:<thinking>",
+              "verified": true,
+              "note": "id listed under provider openai-codex by pi 1.3.0 (openai.md §3); mapping of off/minimal onto OpenAI none is Unknown"
+            }
+          },
+          "note": "`none` returns HTTP 400; local Codex 0.154.0 does not list it (openai.md §1, §3)"
+        },
+        {
+          "provider": "openai",
+          "id": "gpt-6-luna",
+          "status": "candidate",
+          "decision": "unmeasured: admission test of 00-principles/multi-provider-routing.md §4 still required",
+          "read": "2026-10-16",
+          "source": "odd/research/model-router/openai.md §1, §5",
+          "price_schedule": [
+            {
+              "from": null,
+              "usd_in": 0.1,
+              "usd_out": 0.5
+            }
+          ],
+          "usd_in": 0.1,
+          "usd_out": 0.5,
+          "context": 1050000,
+          "max_output": 128000,
+          "effort_levels": [
+            "none",
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "effort_default": "medium",
+          "effort_by_role": {
+            "generic-cartographer": "high"
+          },
+          "launch": {
+            "claude-code": {
+              "syntax": null,
+              "verified": false,
+              "note": "Claude Code routes only Claude models (anthropic.md §3; local.md S20)"
+            },
+            "pi": {
+              "syntax": "pi --model openai-codex/gpt-6-luna:<thinking>",
+              "verified": true,
+              "note": "id listed under provider openai-codex by pi 1.3.0 (openai.md §3); mapping of off/minimal onto OpenAI none is Unknown"
+            }
+          },
+          "note": "medium-tier use: read-only cartographer at high (openai.md §5)"
         }
-      ]
+      ],
+      "token_assumptions": {
+        "generic-cartographer": {
+          "assumed_tokens_in": 100000,
+          "assumed_tokens_out": 6000,
+          "tag": "Assumed",
+          "basis": "full cartographers 96-110k (multi-provider-routing.md §2); capped at max_context_tokens"
+        },
+        "generic-verifier": {
+          "assumed_tokens_in": 40000,
+          "assumed_tokens_out": 4000,
+          "tag": "Assumed",
+          "basis": "verifier brief 40k (local.md §4 role caps)"
+        },
+        "generic-boundary-reviewer": {
+          "assumed_tokens_in": 40000,
+          "assumed_tokens_out": 4000,
+          "tag": "Assumed",
+          "basis": "same brief size as the verifier"
+        },
+        "generic-judge": {
+          "assumed_tokens_in": 30000,
+          "assumed_tokens_out": 4000,
+          "tag": "Assumed",
+          "basis": "findings + cited excerpts"
+        },
+        "generic-proposer": {
+          "assumed_tokens_in": 60000,
+          "assumed_tokens_out": 12000,
+          "tag": "Assumed",
+          "basis": "proposer cap 60k (local.md §4); output a patch"
+        },
+        "generic-challenger": {
+          "assumed_tokens_in": 50000,
+          "assumed_tokens_out": 5000,
+          "tag": "Assumed",
+          "basis": "one lens over the diff"
+        }
+      }
     },
     "large": {
       "max_context_tokens": 60000,
       "roles": [
         "generic-challenger",
-        "generic-blind-spot-adversary"
+        "generic-blind-spot-adversary",
+        "generic-judge"
       ],
       "judge_escalates_here_on": [
         "P0",
@@ -141,42 +620,229 @@
       "candidates": [
         {
           "provider": "anthropic",
+          "id": "claude-opus-5-5",
           "status": "admitted",
           "decision": "owner decision 2026-10-16: Claude 5.5 family by cost (odd/tasks/model-router.md L5)",
           "read": "2026-10-16",
-          "source": "odd/research/model-router/anthropic.md",
-          "id": "claude-opus-5-5",
+          "source": "odd/research/model-router/anthropic.md §1, §5",
+          "price_schedule": [
+            {
+              "from": null,
+              "usd_in": 4.0,
+              "usd_out": 20.0
+            }
+          ],
           "usd_in": 4.0,
           "usd_out": 20.0,
           "context": 1000000,
-          "effort": "high; xhigh on a critical path at the high tier"
+          "effort_levels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "effort_default": "high",
+          "effort_by_role": {
+            "generic-challenger": "high",
+            "generic-blind-spot-adversary": "high",
+            "generic-judge": "high"
+          },
+          "launch": {
+            "claude-code": {
+              "syntax": "model: claude-opus-5-5 + effort: <effort>",
+              "verified": true,
+              "source": "odd/research/model-router/anthropic.md §3 (frontmatter or per-invocation model/effort, v2.1.292+)"
+            },
+            "pi": {
+              "syntax": "pi --model anthropic/claude-opus-5-5:<thinking>",
+              "verified": false,
+              "note": "Unknown: no dossier lists Anthropic ids in pi"
+            }
+          },
+          "note": "xhigh on a critical path at the high tier; max never automatic (routing-method.md §3)"
         },
         {
           "provider": "google",
-          "id": "gemini-3.1-pro-preview",
+          "id": "gemini-4-argon",
           "status": "candidate",
+          "decision": "unmeasured: admission test of 00-principles/multi-provider-routing.md §4 still required",
+          "read": "2026-10-16",
+          "source": "odd/research/model-router/google.md §1, §5",
+          "price_schedule": [
+            {
+              "from": null,
+              "usd_in": 2.0,
+              "usd_out": 10.0
+            },
+            {
+              "from": "2026-12-01",
+              "usd_in": 4.0,
+              "usd_out": 20.0
+            }
+          ],
           "usd_in": 2.0,
-          "usd_out": 12.0,
-          "note": "4.00/18.00 above 200k prompt; preview"
+          "usd_out": 10.0,
+          "context": 1048576,
+          "effort_levels": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "effort_default": "medium",
+          "effort_by_role": {
+            "generic-challenger": "high",
+            "generic-blind-spot-adversary": "high",
+            "generic-judge": "high"
+          },
+          "launch": {
+            "claude-code": {
+              "syntax": null,
+              "verified": false,
+              "note": "Claude Code routes only Claude models (anthropic.md §3; local.md S20)"
+            },
+            "pi": {
+              "syntax": "pi --model google/gemini-4-argon:<thinking>",
+              "verified": true,
+              "note": "id listed by `pi --list-models gemini` 2026-10-16 (google.md §3); mapping of pi thinking levels onto thinking_level is Unknown"
+            }
+          },
+          "note": "GA 2026-10-13; replaces gemini-3.1-pro-preview as the Google large candidate (L4); not optimized for Gemini CLI, use the API or pi"
         },
         {
           "provider": "openai",
-          "id": "gpt-5.4",
+          "id": "gpt-6-astra",
           "status": "candidate",
-          "usd_in": 2.5,
-          "usd_out": 15.0,
-          "context": 400000
-        },
-        {
-          "provider": "openai",
-          "id": "gpt-5.6-sol",
-          "status": "candidate",
-          "usd_in": 5.0,
-          "usd_out": 30.0,
+          "decision": "unmeasured: admission test of 00-principles/multi-provider-routing.md §4 still required",
+          "read": "2026-10-16",
+          "source": "odd/research/model-router/openai.md §1, §5",
+          "price_schedule": [
+            {
+              "from": null,
+              "usd_in": 10.0,
+              "usd_out": 50.0
+            }
+          ],
+          "usd_in": 10.0,
+          "usd_out": 50.0,
           "context": 1050000,
-          "note": "the gpt-5.6 alias routes to sol: always ask for the full id"
+          "max_output": 128000,
+          "effort_levels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "effort_default": "low",
+          "effort_by_role": {
+            "generic-challenger": "high",
+            "generic-blind-spot-adversary": "high",
+            "generic-judge": "high"
+          },
+          "launch": {
+            "claude-code": {
+              "syntax": null,
+              "verified": false,
+              "note": "Claude Code routes only Claude models (anthropic.md §3; local.md S20)"
+            },
+            "pi": {
+              "syntax": "pi --model openai-codex/gpt-6-astra:<thinking>",
+              "verified": true,
+              "note": "id listed under provider openai-codex by pi 1.3.0 (openai.md §3); mapping of off/minimal onto OpenAI none is Unknown"
+            }
+          }
+        },
+        {
+          "provider": "openai",
+          "id": "gpt-6.1-sol",
+          "status": "candidate",
+          "decision": "unmeasured: admission test of 00-principles/multi-provider-routing.md §4 still required",
+          "read": "2026-10-16",
+          "source": "odd/research/model-router/openai.md §1, §5",
+          "price_schedule": [
+            {
+              "from": null,
+              "usd_in": 2.0,
+              "usd_out": 10.0
+            }
+          ],
+          "usd_in": 2.0,
+          "usd_out": 10.0,
+          "context": 1050000,
+          "max_output": 128000,
+          "effort_levels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "effort_default": "medium",
+          "effort_by_role": {
+            "generic-challenger": "xhigh",
+            "generic-blind-spot-adversary": "xhigh",
+            "generic-judge": "xhigh"
+          },
+          "launch": {
+            "claude-code": {
+              "syntax": null,
+              "verified": false,
+              "note": "Claude Code routes only Claude models (anthropic.md §3; local.md S20)"
+            },
+            "pi": {
+              "syntax": "pi --model openai-codex/gpt-6.1-sol:<thinking>",
+              "verified": true,
+              "note": "id listed under provider openai-codex by pi 1.3.0 (openai.md §3); mapping of off/minimal onto OpenAI none is Unknown"
+            }
+          },
+          "note": "cheaper large trial at xhigh (openai.md §5)"
         }
-      ]
+      ],
+      "token_assumptions": {
+        "generic-challenger": {
+          "assumed_tokens_in": 126000,
+          "assumed_tokens_out": 8000,
+          "tag": "Assumed",
+          "basis": "large adversaries 106-146k (routing-method.md §4); capped at max_context_tokens"
+        },
+        "generic-blind-spot-adversary": {
+          "assumed_tokens_in": 126000,
+          "assumed_tokens_out": 8000,
+          "tag": "Assumed",
+          "basis": "large adversaries 106-146k; capped at max_context_tokens"
+        },
+        "generic-judge": {
+          "assumed_tokens_in": 60000,
+          "assumed_tokens_out": 6000,
+          "tag": "Assumed",
+          "basis": "findings + cited excerpts on a P0 or critical property"
+        },
+        "generic-verifier": {
+          "assumed_tokens_in": 40000,
+          "assumed_tokens_out": 4000,
+          "tag": "Assumed",
+          "basis": "escalated verifier, same brief"
+        },
+        "generic-proposer": {
+          "assumed_tokens_in": 60000,
+          "assumed_tokens_out": 12000,
+          "tag": "Assumed",
+          "basis": "escalated proposer, same brief"
+        },
+        "generic-cartographer": {
+          "assumed_tokens_in": 100000,
+          "assumed_tokens_out": 6000,
+          "tag": "Assumed",
+          "basis": "escalated cartographer; capped at max_context_tokens"
+        },
+        "owner-named-task": {
+          "assumed_tokens_in": 100000,
+          "assumed_tokens_out": 15000,
+          "tag": "Assumed",
+          "basis": "Fable fallback on an owner-named task"
+        }
+      }
     },
     "orchestrator": {
       "max_context_tokens": 150000,
@@ -187,28 +853,198 @@
       "candidates": [
         {
           "provider": "anthropic",
+          "id": "claude-opus-5-5",
           "status": "admitted",
           "decision": "owner decision 2026-10-16: Claude 5.5 family by cost (odd/tasks/model-router.md L5)",
           "read": "2026-10-16",
-          "source": "odd/research/model-router/anthropic.md",
-          "id": "claude-opus-5-5",
+          "source": "odd/research/model-router/anthropic.md §1, §5",
+          "price_schedule": [
+            {
+              "from": null,
+              "usd_in": 4.0,
+              "usd_out": 20.0
+            }
+          ],
           "usd_in": 4.0,
           "usd_out": 20.0,
           "context": 1000000,
-          "effort": "high"
+          "effort_levels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "effort_default": "high",
+          "effort_by_role": {
+            "orchestrator": "high",
+            "voice to the owner": "high"
+          },
+          "launch": {
+            "claude-code": {
+              "syntax": "model: claude-opus-5-5 + effort: <effort>",
+              "verified": true,
+              "source": "odd/research/model-router/anthropic.md §3 (frontmatter or per-invocation model/effort, v2.1.292+)"
+            },
+            "pi": {
+              "syntax": "pi --model anthropic/claude-opus-5-5:<thinking>",
+              "verified": false,
+              "note": "Unknown: no dossier lists Anthropic ids in pi"
+            }
+          },
+          "note": "matches Fable 5.1 for about a fifth of the cost per solved task (anthropic.md §5)"
         },
         {
           "provider": "anthropic",
           "id": "claude-fable-5-1",
           "status": "approval-only",
+          "decision": "owner decision 2026-10-16 (L6): never in a default roster; router rule escalate-fable proposes it for one-off owner-named tasks and highest-reasoning verification, each launch approved by the owner",
+          "read": "2026-10-16",
+          "source": "odd/research/model-router/anthropic.md §1, §5",
+          "price_schedule": [
+            {
+              "from": null,
+              "usd_in": 10.0,
+              "usd_out": 50.0
+            }
+          ],
           "usd_in": 10.0,
           "usd_out": 50.0,
           "context": 1000000,
-          "effort": "high",
+          "effort_levels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "effort_default": "high",
+          "effort_by_role": {
+            "orchestrator": "high",
+            "owner-named-task": "high",
+            "generic-judge": "high"
+          },
+          "launch": {
+            "claude-code": {
+              "syntax": "model: claude-fable-5-1 + effort: <effort>",
+              "verified": true,
+              "source": "odd/research/model-router/anthropic.md §3 (frontmatter or per-invocation model/effort, v2.1.292+)"
+            },
+            "pi": {
+              "syntax": "pi --model anthropic/claude-fable-5-1:<thinking>",
+              "verified": false,
+              "note": "Unknown: no dossier lists Anthropic ids in pi"
+            }
+          }
+        },
+        {
+          "provider": "google",
+          "id": "gemini-4-argon",
+          "status": "candidate",
+          "decision": "unmeasured: admission test of 00-principles/multi-provider-routing.md §4 still required",
           "read": "2026-10-16",
-          "decision": "owner decision 2026-10-16 (L6): one-off owner-named tasks and verification of processes that warrant the highest reasoning, each launch approved by the owner"
+          "source": "odd/research/model-router/google.md §1, §5",
+          "price_schedule": [
+            {
+              "from": null,
+              "usd_in": 2.0,
+              "usd_out": 10.0
+            },
+            {
+              "from": "2026-12-01",
+              "usd_in": 4.0,
+              "usd_out": 20.0
+            }
+          ],
+          "usd_in": 2.0,
+          "usd_out": 10.0,
+          "context": 1048576,
+          "effort_levels": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "effort_default": "medium",
+          "effort_by_role": {
+            "orchestrator": "medium"
+          },
+          "launch": {
+            "claude-code": {
+              "syntax": null,
+              "verified": false,
+              "note": "Claude Code routes only Claude models (anthropic.md §3; local.md S20)"
+            },
+            "pi": {
+              "syntax": "pi --model google/gemini-4-argon:<thinking>",
+              "verified": true,
+              "note": "id listed by `pi --list-models gemini` 2026-10-16 (google.md §3); mapping of pi thinking levels onto thinking_level is Unknown"
+            }
+          },
+          "note": "not through Gemini CLI (google.md §5)"
+        },
+        {
+          "provider": "openai",
+          "id": "gpt-6-astra",
+          "status": "candidate",
+          "decision": "unmeasured: admission test of 00-principles/multi-provider-routing.md §4 still required",
+          "read": "2026-10-16",
+          "source": "odd/research/model-router/openai.md §1, §5",
+          "price_schedule": [
+            {
+              "from": null,
+              "usd_in": 10.0,
+              "usd_out": 50.0
+            }
+          ],
+          "usd_in": 10.0,
+          "usd_out": 50.0,
+          "context": 1050000,
+          "max_output": 128000,
+          "effort_levels": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "effort_default": "low",
+          "effort_by_role": {
+            "orchestrator": "medium"
+          },
+          "launch": {
+            "claude-code": {
+              "syntax": null,
+              "verified": false,
+              "note": "Claude Code routes only Claude models (anthropic.md §3; local.md S20)"
+            },
+            "pi": {
+              "syntax": "pi --model openai-codex/gpt-6-astra:<thinking>",
+              "verified": true,
+              "note": "id listed under provider openai-codex by pi 1.3.0 (openai.md §3); mapping of off/minimal onto OpenAI none is Unknown"
+            }
+          }
         }
-      ]
+      ],
+      "token_assumptions": {
+        "orchestrator": {
+          "assumed_tokens_in": 150000,
+          "assumed_tokens_out": 20000,
+          "tag": "Assumed",
+          "basis": "orchestrator cap 150k"
+        },
+        "owner-named-task": {
+          "assumed_tokens_in": 100000,
+          "assumed_tokens_out": 15000,
+          "tag": "Assumed",
+          "basis": "one-off owner-named task"
+        },
+        "generic-judge": {
+          "assumed_tokens_in": 60000,
+          "assumed_tokens_out": 6000,
+          "tag": "Assumed",
+          "basis": "highest-reasoning verification"
+        }
+      }
     }
   },
   "harness": {
@@ -217,7 +1053,8 @@
       "format": "md+frontmatter",
       "budget": "hooks/budget.py",
       "output_validation": "hooks/validate_subagent_output.py",
-      "installer": "03-tools/bin/install-claude.sh"
+      "installer": "03-tools/bin/install-claude.sh",
+      "effort": "frontmatter `effort:` or per-invocation `effort` param; never export CLAUDE_CODE_EFFORT_LEVEL (it beats frontmatter); refuse CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1"
     },
     "gemini-cli": {
       "agent_dir": ".gemini/agents",
@@ -253,6 +1090,20 @@
       "output_validation": "orquestador via lib/round_output.py",
       "installer": "pending: install-codex.sh",
       "headless": "codex exec -m <id> --skip-git-repo-check <prompt>; measured 15-sep-2026 (gpt-5.6-luna, 4,398 tokens, PONG)"
+    },
+    "pi": {
+      "model_flag": "pi --model <provider>/<id>:<thinking>",
+      "thinking_levels": [
+        "off",
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "note": "levels are clamped to the model's capabilities; provider mapping Unknown for google/openai (routing-method.md §6)",
+      "installer": "03-tools/bin/install-pi.sh"
     }
   },
   "admission": {
