@@ -5,13 +5,14 @@ discovered by scanning directories.
 """
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
 from mcp import registry
 from mcp.registry import Ctx, ToolSpec
 
-from lib import base_ref  # noqa: E402  (registry puts the tools root on sys.path)
+from lib import base_ref, baseline, router  # noqa: E402  (registry puts the tools root on sys.path)
 
 S = {"type": "string"}
 B = {"type": "boolean"}
@@ -132,6 +133,48 @@ def _reply_lint(args: dict, ctx: Ctx) -> dict:
     if lint_err or cite_err:
         raise registry.ToolError(f"output_lint: {lint.get('error') if lint_err else 'ok'}; cite_check: {cite.get('error') if cite_err else 'ok'}")
     return {"output_lint": lint, "cite_check": cite}
+
+
+# --------------------------------------------------------------------------- route (lib/router.py, in-process)
+
+APPROVALS = {"type": "array", "items": {"type": "string", "enum": [router.FABLE_RULE]}}
+ROUTE_PRIOR = _obj({"stalls": I, "truncated": {"type": ["boolean", "integer"]}, "role": S, "tier": S, "effort": S,
+                    "schema_fail": I, "p0_from_lower_tier": {"type": ["string", "boolean"]}, "disagreement": B,
+                    "verifier": S, "findings": I, "judge_tier": S, "escalated_count": I})
+ROUTE_TASK = _obj({"task_kind": {"type": "string", "enum": list(router.TASK_KINDS)},
+                   "tier": {"type": "string", "enum": list(router.RDD_TIERS)},
+                   "lane": S, "critical_hit": B, "owner_gate": B, "changed_lines": I, "modules": {"type": ["integer", "array"]},
+                   "full_required": B, "map_age_days": {"type": ["integer", "null"]}, "offline": B, "owner_named": B,
+                   "prior": ROUTE_PRIOR, "approvals": APPROVALS, "budget_usd": {"type": "number"}, "lens_focus": S,
+                   "new_comments": I, "repo": S}, ("task_kind", "tier"))
+
+
+def _inside(path: Path, root: Path) -> bool:
+    return path == root or root in path.parents
+
+
+def _route(args: dict, ctx: Ctx) -> dict:
+    """router.route() on the tools root's catalog; offline from the task, the
+    active project config or METODO_OFFLINE (router.resolve_offline); one
+    line appended to <tools>/out/runs/routing.jsonl, refused inside the repo."""
+    task = dict(args["task"])
+    approvals = sorted(set(task.get("approvals") or []) | set(args.get("approvals") or []))
+    if approvals or "approvals" in task:
+        task["approvals"] = approvals
+    try:
+        catalog = baseline.load_json(ctx.tools_root / "config" / "model-tiers.json")
+    except (OSError, ValueError) as exc:
+        raise registry.ToolError(f"cannot read <tools>/config/model-tiers.json: {exc}")
+    task = router.resolve_offline(task, router.load_project_config(ctx.tools_root, os.environ), os.environ)
+    log_path = (ctx.out_dir / "runs" / "routing.jsonl").resolve()
+    for root in (ctx.repo, router._worktree_root(str(task["repo"])) if task.get("repo") else None):
+        if root is not None and _inside(log_path, Path(root).resolve()):
+            raise registry.ToolError(f"refusing to log inside the target repo ({root}); use a tools instance outside it")
+    result = router.route(task, catalog, args["as_of"])
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with log_path.open("a", encoding="utf-8") as handle:
+        handle.write(router.log_line(result) + "\n")
+    return dict(result, log_path=str(log_path))
 
 
 def _sanitize_range(value: str) -> str:
@@ -274,6 +317,8 @@ TOOLS: tuple[ToolSpec, ...] = (
              argv=_receipt("acknowledge", ("--tree", "tree", "str"), ("--decision", "decision", "str"), ("--reason", "reason", "str"),
                            ("--repo", "repo", "repo"), ("--round-dir", "round_dir", "str")),
              ok_exit=frozenset({0, 2})),
+    ToolSpec("route", "Decide the roster to launch (role, model, effort, step) for a task descriptor; owner approvals only via `approvals`. Logs one line.",
+             _obj({"task": ROUTE_TASK, "as_of": S, "approvals": APPROVALS}, ("task", "as_of")), mode="internal", handler=_route),
     ToolSpec("receipt_validate", "Validate a receipt file: schema plus sha256 of every captured artifact.",
              _obj({"receipt_path": S}, ("receipt_path",)), argv=_receipt("validate", ("--receipt", "receipt_path", "str")),
              ok_exit=frozenset({0, 1})),

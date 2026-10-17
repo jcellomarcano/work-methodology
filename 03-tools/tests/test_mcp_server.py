@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from mcp import catalog, registry, server
 
@@ -179,6 +180,101 @@ class InProcessCallTests(unittest.TestCase):
         result = self._call("test_sectors", {})["result"]
         self.assertFalse(result["isError"], result["structuredContent"])
         self.assertIn("full_required", result["structuredContent"])
+
+
+REVIEW_TASK = {"task_kind": "review", "tier": "medium", "lane": "sonnet", "modules": 1, "map_age_days": 1,
+               "prior": {"findings": 2}}
+
+
+class RouteToolTests(unittest.TestCase):
+    """`route` (mcp__metodo__route): the router's roster in-process, one log
+    line in <tools>/out/runs/routing.jsonl, never inside the target repo.
+    A temporary tools root keeps the kit's own out/ untouched."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="mcp-route-"))
+        self.tools = self.tmp / "tools"
+        (self.tools / "config").mkdir(parents=True)
+        shutil.copy(TOOLS_ROOT / "config" / "model-tiers.json", self.tools / "config" / "model-tiers.json")
+        self.repo = self.tmp / "repo"
+        self.repo.mkdir()
+        _git(self.repo, "init", "-q")
+        self.ctx = registry.Ctx(tools_root=self.tools, repo=self.repo, project_config={})
+        self.log = self.tools / "out" / "runs" / "routing.jsonl"
+        env = mock.patch.dict(os.environ, {}, clear=False)
+        env.start()
+        self.addCleanup(env.stop)
+        os.environ.pop("METODO_OFFLINE", None)
+        os.environ.pop("METODO_PROJECT_CONFIG", None)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _call(self, arguments, ctx=None):
+        return server.handle(_rpc(9, "tools/call", {"name": "route", "arguments": arguments}), ctx or self.ctx)
+
+    def test_tools_list_contains_route_with_a_task_schema(self):
+        listed = server.handle(_rpc(1, "tools/list"), self.ctx)["result"]["tools"]
+        tool = next(t for t in listed if t["name"] == "route")
+        schema = tool["inputSchema"]
+        self.assertEqual(sorted(schema["required"]), ["as_of", "task"])
+        self.assertIn("approvals", schema["properties"])
+        self.assertIs(schema["properties"]["task"]["additionalProperties"], False)
+
+    def test_call_returns_the_roster_and_appends_one_log_line(self):
+        result = self._call({"task": REVIEW_TASK, "as_of": "2026-10-16"})["result"]
+        self.assertFalse(result["isError"], result["structuredContent"])
+        payload = result["structuredContent"]
+        self.assertEqual((payload["rule"], payload["status"]), ("B5", "ok"))
+        self.assertEqual([e["role"] for e in payload["roster"]],
+                         ["generic-challenger", "generic-verifier", "generic-judge"])
+        lines = self.log.read_text(encoding="utf-8").splitlines()
+        self.assertEqual(len(lines), 1)
+        self.assertEqual(json.loads(lines[0])["inputs_hash"], payload["inputs_hash"])
+        # same roster as the CLI's pure route()
+        from lib import baseline, router
+        direct = router.route(REVIEW_TASK, baseline.load_json(TOOLS_ROOT / "config" / "model-tiers.json"), "2026-10-16")
+        self.assertEqual(payload["roster"], direct["roster"])
+        self._call({"task": REVIEW_TASK, "as_of": "2026-10-16"})
+        self.assertEqual(len(self.log.read_text(encoding="utf-8").splitlines()), 2)
+
+    def test_approvals_reach_the_router_and_the_log(self):
+        task = dict(REVIEW_TASK, owner_named=True)
+        denied = self._call({"task": task, "as_of": "2026-10-16"})["result"]["structuredContent"]
+        fable = [e for e in denied["roster"] if e["requires_approval"]]
+        self.assertEqual([e["launch"] for e in fable], ["skip"])
+        approved = self._call({"task": task, "as_of": "2026-10-16", "approvals": ["escalate-fable"]})["result"]["structuredContent"]
+        self.assertEqual([e["launch"] for e in approved["roster"] if e["requires_approval"]], ["run"])
+        last = json.loads(self.log.read_text(encoding="utf-8").splitlines()[-1])
+        self.assertEqual(last["approvals"], ["escalate-fable"])
+
+    def test_offline_comes_from_the_active_project_config(self):
+        config = self.tmp / "project.json"
+        config.write_text(json.dumps({"offline": True}), encoding="utf-8")
+        os.environ["METODO_PROJECT_CONFIG"] = str(config)
+        payload = self._call({"task": REVIEW_TASK, "as_of": "2026-10-16"})["result"]["structuredContent"]
+        self.assertEqual(payload["status"], "blocked")
+        # the task's own key wins over the config
+        payload = self._call({"task": dict(REVIEW_TASK, offline=False), "as_of": "2026-10-16"})["result"]["structuredContent"]
+        self.assertEqual(payload["status"], "ok")
+
+    def test_bad_input_is_invalid_params_and_logs_nothing(self):
+        for arguments in ({"task": REVIEW_TASK},
+                          {"task": dict(REVIEW_TASK, task_kind="dance"), "as_of": "2026-10-16"},
+                          {"task": dict(REVIEW_TASK, rpeo="x"), "as_of": "2026-10-16"},
+                          {"task": REVIEW_TASK, "as_of": "2026-10-16", "approvals": ["anything"]}):
+            with self.subTest(arguments=arguments):
+                self.assertEqual(self._call(arguments)["error"]["code"], server.INVALID_PARAMS)
+        self.assertFalse(self.log.exists())
+
+    def test_log_inside_the_target_repo_is_refused(self):
+        inside = self.repo / "tools"
+        shutil.copytree(self.tools, inside)
+        ctx = registry.Ctx(tools_root=inside, repo=self.repo, project_config={})
+        result = self._call({"task": REVIEW_TASK, "as_of": "2026-10-16"}, ctx)["result"]
+        self.assertTrue(result["isError"])
+        self.assertIn("inside the target repo", result["structuredContent"]["error"])
+        self.assertFalse((inside / "out" / "runs" / "routing.jsonl").exists())
 
 
 class ReceiptStartBaseTests(unittest.TestCase):

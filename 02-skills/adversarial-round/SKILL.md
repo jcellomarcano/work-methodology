@@ -7,7 +7,7 @@ triggers:
   - attack this change
   - challenger and blind spots
   - two adversaries on the same card
-allowed-tools: [Read, Agent, mcp__metodo__domain_invariants, mcp__metodo__dep_boundaries, mcp__metodo__change_card_validate, mcp__metodo__receipt_status, mcp__metodo__output_validate, mcp__metodo__receipt_capture]
+allowed-tools: [Read, Agent, mcp__metodo__domain_invariants, mcp__metodo__dep_boundaries, mcp__metodo__change_card_validate, mcp__metodo__receipt_status, mcp__metodo__output_validate, mcp__metodo__receipt_capture, mcp__metodo__route]
 ---
 
 **IRON LAW**: ABIERTO beats OK until the judge rules. A truncated round is not a silent PASS, it is INCOMPLETE.
@@ -20,7 +20,7 @@ allowed-tools: [Read, Agent, mcp__metodo__domain_invariants, mcp__metodo__dep_bo
 
 1. Facts, the same for both adversaries: `mcp__metodo__domain_invariants` and `mcp__metodo__dep_boundaries` on `<repo>`; the facts file is `out/<repo_sha>/domain-invariants.json` plus `deps.json` (paths in the brief, never content pasted in).
 2. Lane and tier: `mcp__metodo__change_card_validate` with `card_path` and read `routing`. If a receipt is open, `mcp__metodo__receipt_status` returns the frozen tier and lenses: those rule. Opus lane also applies if the diff touches `critical_paths`, whatever the card says.
-3. Medium tier: only `generic-challenger` (sonnet) with the receipt's `lens_focus` lens. High tier: in parallel and with the same facts file, `generic-challenger` and `generic-blind-spot-adversary` (Agent) on opus, and only with `risk.consent: granted` in the receipt.
+3. Route BEFORE launching any adversary: `mcp__metodo__route` with `as_of` (today, typed by the orchestrator) and `task`: `task_kind: review`, `tier` from `receipt_start`, `lane`, `critical_hit`, `lens_focus`, and `prior` (findings, disagreement, truncated, escalations so far). Launch exactly the roster's `launch: run` entries (Agent) with their `model` and `effort`, in their `step` order; parallel entries share the same facts file. Medium tier: the roster's `generic-challenger` with the receipt's `lens_focus` lens. High tier: only with `risk.consent: granted` in the receipt. A `requires_approval: true` entry never launches without the owner's explicit OK relayed by the orchestrator (then route again with `approvals`). Write `ROUTE: <rule> <inputs_hash>` in the round context; a status other than `ok` goes to the owner.
 4. Each adversary writes its document with `mcp__metodo__output_write` (its Stop hook validates it on close). If a loose file reaches you, `mcp__metodo__output_validate` with `schema=findings` or `schema=blindspots`.
 5. If either output arrives with `truncated: true`, the whole round is INCOMPLETE, never PASS.
 6. Tie each output to the receipt with `mcp__metodo__receipt_capture` (`tree`, `role`, `artifact_path`, `handoff_to=judge`); the script leaves the numbered handoff, with its shas.

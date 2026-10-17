@@ -19,6 +19,8 @@ truth: roles, skills, scripts, hooks and rules live here once and get rendered i
   <repo>` (the receipt loop end to end on a throwaway clone).
 - Unplug: `03-tools/bin/init.sh <repo> --uninstall`; it removes only what the kit installed and keeps
   the instance and audit folder unless `--purge` is given with the owner's OK.
+- Route: `03-tools/bin/route.sh <task.json> --as-of <date>` prints the roster (role, model, effort) to
+  launch; skills call it as `mcp__metodo__route` before any launch, and Fable 5.1 needs the owner's OK.
 
 ## Rules when changing this kit
 

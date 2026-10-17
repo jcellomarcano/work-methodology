@@ -5,8 +5,11 @@ input, no Fable launch without approval, offline never yields a remote
 provider, no step above the fan-out cap. B7 is the fail-closed fallthrough
 that no valid input reaches once B8 (verify) exists; a patched kind proves
 it still fails closed."""
+import contextlib
 import copy
+import io
 import json
+import os
 import subprocess
 import tempfile
 import unittest
@@ -423,7 +426,8 @@ class LogTests(unittest.TestCase):
             lines = log_path.read_text(encoding="utf-8").splitlines()
             self.assertEqual(len(lines), 1)
             line = json.loads(lines[0])
-            self.assertEqual(set(line), {"as_of", "catalog_version", "inputs_hash", "rule", "status", "roster"})
+            self.assertEqual(set(line), {"approvals", "as_of", "catalog_version", "inputs_hash", "rule", "status", "roster"})
+            self.assertEqual(line["approvals"], [])
             self.assertEqual((line["rule"], line["status"], line["as_of"]), ("B6", "ok", AS_OF))
             self.assertEqual(json.loads(proc.stdout)["inputs_hash"], line["inputs_hash"])
 
@@ -438,6 +442,87 @@ class LogTests(unittest.TestCase):
             code = router.main([str(task_path), "--as-of", AS_OF, "--log", str(log_path)])
             self.assertEqual(code, 2)
             self.assertFalse(log_path.exists())
+
+    def test_log_line_records_the_owner_approval(self):
+        result = _route(owner_named=True, approvals=["escalate-fable"])
+        line = json.loads(router.log_line(result))
+        self.assertEqual(line["approvals"], ["escalate-fable"])
+        self.assertIn(FABLE, [e["model"] for e in line["roster"] if e["launch"] == "run"])
+
+
+class OfflineSourceTests(unittest.TestCase):
+    """L4: offline comes from the task, else the active project config, else
+    METODO_OFFLINE=1; input wins over config wins over env. route() stays pure:
+    only main() (and the MCP tool) resolve the source."""
+
+    def test_task_key_wins_over_config_and_env(self):
+        for value in (False, True):
+            with self.subTest(task=value):
+                task = router.resolve_offline({"offline": value}, {"offline": not value}, {"METODO_OFFLINE": "1"})
+                self.assertIs(task["offline"], value)
+
+    def test_config_wins_over_env(self):
+        task = router.resolve_offline({}, {"offline": False}, {"METODO_OFFLINE": "1"})
+        self.assertFalse(task.get("offline"))
+        task = router.resolve_offline({}, {"offline": True}, {})
+        self.assertIs(task["offline"], True)
+
+    def test_env_applies_only_without_task_or_config_key(self):
+        self.assertIs(router.resolve_offline({}, {}, {"METODO_OFFLINE": "1"})["offline"], True)
+        self.assertIs(router.resolve_offline({}, None, {"METODO_OFFLINE": "1"})["offline"], True)
+        # negative controls: any other env value, or no source at all, leaves the task untouched
+        self.assertNotIn("offline", router.resolve_offline({}, {}, {"METODO_OFFLINE": "0"}))
+        self.assertNotIn("offline", router.resolve_offline({}, {}, {}))
+
+    def test_resolve_does_not_mutate_the_input(self):
+        task = {"task_kind": "map"}
+        router.resolve_offline(task, {"offline": True}, {})
+        self.assertEqual(task, {"task_kind": "map"})
+
+    def test_project_config_path_prefers_the_env_then_the_tools_root(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tools = Path(tmp) / "tools"
+            (tools / "config").mkdir(parents=True)
+            (tools / "config" / "project.json").write_text(json.dumps({"offline": True}), encoding="utf-8")
+            other = Path(tmp) / "other.json"
+            other.write_text(json.dumps({"offline": False}), encoding="utf-8")
+            self.assertEqual(router.load_project_config(tools, {}), {"offline": True})
+            self.assertEqual(router.load_project_config(tools, {"METODO_PROJECT_CONFIG": str(other)}), {"offline": False})
+            # unreadable config is no config: the env source still applies
+            self.assertEqual(router.load_project_config(tools, {"METODO_PROJECT_CONFIG": str(Path(tmp) / "nope.json")}), {})
+
+    def _main(self, task: dict, env: dict) -> tuple[int, dict]:
+        with tempfile.TemporaryDirectory() as tmp:
+            task_path = Path(tmp) / "task.json"
+            task_path.write_text(json.dumps(task), encoding="utf-8")
+            clean = {k: v for k, v in env.items()}
+            with mock.patch.dict("os.environ", clean, clear=False):
+                for key in ("METODO_OFFLINE", "METODO_PROJECT_CONFIG"):
+                    if key not in clean:
+                        os.environ.pop(key, None)
+                out = io.StringIO()
+                with contextlib.redirect_stdout(out):
+                    code = router.main([str(task_path), "--as-of", AS_OF])
+            return code, json.loads(out.getvalue())
+
+    def test_main_reads_offline_from_the_active_project_config(self):
+        task = {k: v for k, v in _task(task_kind="map").items() if k != "offline"}
+        with tempfile.TemporaryDirectory() as tmp:
+            config = Path(tmp) / "project.json"
+            config.write_text(json.dumps({"offline": True}), encoding="utf-8")
+            code, result = self._main(task, {"METODO_PROJECT_CONFIG": str(config)})
+            self.assertEqual((code, result["status"]), (1, "blocked"))
+            # config offline:false beats METODO_OFFLINE=1
+            config.write_text(json.dumps({"offline": False}), encoding="utf-8")
+            code, result = self._main(task, {"METODO_PROJECT_CONFIG": str(config), "METODO_OFFLINE": "1"})
+            self.assertEqual((code, result["status"]), (0, "ok"))
+            # no key in the config: the env applies
+            config.write_text(json.dumps({}), encoding="utf-8")
+            code, result = self._main(task, {"METODO_PROJECT_CONFIG": str(config), "METODO_OFFLINE": "1"})
+            self.assertEqual((code, result["status"]), (1, "blocked"))
+            # the task's own key wins over both
+            code, result = self._main(dict(task, offline=False), {"METODO_PROJECT_CONFIG": str(config), "METODO_OFFLINE": "1"})
+            self.assertEqual((code, result["status"]), (0, "ok"))
 
 
 if __name__ == "__main__":

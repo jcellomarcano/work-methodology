@@ -61,7 +61,14 @@ orchestrator's job. No claiming "deterministic" without the exact command per cr
 Per run, log tokens, calls, rounds to verdict, first-pass acceptance, and errors caught by the verifier.
 Without these figures, no protocol change gets defended.
 
-## 9. Comments in code (DOC-001)
+## 9. Routing: the orchestrator calls the router, the owner approves
+
+Before launching any role, the orchestrator (or the skill it runs) calls `route` and launches exactly the
+roster it returns, with its model and effort; frontmatter `model:` is only the fallback when the router is
+down. No agent calls the router. A `requires_approval` entry (Fable 5.1) launches only after the owner's
+explicit OK, relayed by the orchestrator as `approvals`; the rule id goes in the round context.
+
+## 10. Comments in code (DOC-001)
 
 The proposer doesn't write comments: if it thinks one's needed, it leaves
 `// NEEDS-COMMENT: <reason>` on the line before the statement. `comment_gate.py` lists and measures the

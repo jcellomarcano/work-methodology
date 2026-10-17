@@ -106,7 +106,7 @@ class DoctorTests(unittest.TestCase):
         for expected in ("repo.git", "tools.layout", "tools.is_kit", "config.project", "config.base_ref",
                          "claude.agents", "claude.skills", "claude.mcp", "claude.hooks", "hooks.fire",
                          "git.exclude", "pi.agents", "pi.skills", "pi.mcp", "pi.extension", "memory.engram",
-                         "vendor.tools", "baseline.latest", "personal.absent"):
+                         "vendor.tools", "baseline.latest", "personal.absent", "router.catalog"):
             self.assertIn(expected, ids)
         for c in report["checks"]:
             self.assertEqual(set(c), {"id", "status", "detail", "fix"})
@@ -120,6 +120,7 @@ class DoctorTests(unittest.TestCase):
         # the kit's own 03-tools carries the shared template, not an instance
         self.assertEqual(self.check(report, "tools.is_kit")["status"], "WARN")
         self.assertEqual(self.check(report, "memory.engram")["status"], "SKIP")
+        self.assertEqual(self.check(report, "router.catalog")["status"], "PASS")
 
     def test_runtime_filter(self):
         _, claude = self.run_doctor(self.fixture, "--runtime", "claude")
@@ -275,6 +276,54 @@ class DoctorTests(unittest.TestCase):
         self.assertEqual(self.check(report, "tools.is_kit")["status"], "PASS")
         for needle in (str(self.tmp), str(TOOLS_ROOT)):
             self.assertNotIn(needle, default_out.read_text(encoding="utf-8"))
+
+
+class RouterCatalogCheckTests(unittest.TestCase):
+    """router.catalog (model-router R9): the catalog parses, carries a version,
+    every admitted model has a price at the catalog's own date (no clock), and
+    the router returns ok for a canonical B5 review. In-process, no install."""
+
+    def setUp(self):
+        from lib import doctor
+        self.doctor = doctor
+        self.tmp = Path(tempfile.mkdtemp(prefix="doctor-router-"))
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.catalog = json.loads((TOOLS_ROOT / "config" / "model-tiers.json").read_text(encoding="utf-8"))
+
+    def _check(self, catalog_text: str | None) -> dict:
+        tools = self.tmp / f"tools-{len(list(self.tmp.iterdir()))}"
+        (tools / "config").mkdir(parents=True)
+        if catalog_text is not None:
+            (tools / "config" / "model-tiers.json").write_text(catalog_text, encoding="utf-8")
+        return self.doctor.check_router_catalog(self.doctor.Ctx(self.tmp, tools, "all"))
+
+    def test_kit_catalog_passes(self):
+        found = self.doctor.check_router_catalog(self.doctor.Ctx(self.tmp, TOOLS_ROOT, "all"))
+        self.assertEqual(found["status"], "PASS", found)
+        self.assertIsNone(found["fix"])
+        self.assertIn(self.catalog["version"], found["detail"])
+        self.assertIn("B5", found["detail"])
+
+    def test_broken_catalog_fails_with_a_fix(self):
+        no_version = dict(self.catalog)
+        del no_version["version"]
+        no_price = json.loads(json.dumps(self.catalog))
+        for entry in no_price["tiers"]["medium"]["candidates"]:
+            if entry["status"] == "admitted":
+                entry["price_schedule"] = [{"from": "2099-01-01", "usd_in": 1.0, "usd_out": 1.0}]
+        no_admitted = json.loads(json.dumps(self.catalog))
+        for entry in no_admitted["tiers"]["medium"]["candidates"]:
+            entry["status"] = "candidate"
+        cases = {"missing": None, "unparseable": "{not json", "no version": json.dumps(no_version),
+                 "no price at the catalog date": json.dumps(no_price), "router not ok": json.dumps(no_admitted)}
+        for name, text in cases.items():
+            with self.subTest(case=name):
+                found = self._check(text)
+                self.assertEqual(found["status"], "FAIL", found)
+                self.assertTrue(found["fix"])
+                self.assertNotIn(str(self.tmp), found["detail"])
+        # negative control: the same copy, unbroken, passes
+        self.assertEqual(self._check(json.dumps(self.catalog))["status"], "PASS")
 
 
 if __name__ == "__main__":

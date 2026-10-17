@@ -7,7 +7,7 @@
 #
 # Prints the roster as deterministic JSON. --log appends one JSON line to
 # PATH (default <tools>/out/runs/routing.jsonl) and refuses a path inside
-# the target repo's worktree (task.repo). METODO_OFFLINE=1 forces offline.
+# the target repo's worktree (task.repo). offline comes from the task, else project.json `offline`, else METODO_OFFLINE=1.
 # Exit 0 status ok, 1 any other status, 2 usage or refused log path.
 set -euo pipefail
 

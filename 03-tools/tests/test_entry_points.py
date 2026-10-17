@@ -39,6 +39,7 @@ class EntryPointTests(unittest.TestCase):
         text = AGENTS.read_text(encoding="utf-8")
         commands = sorted({m.group(1) for m in COMMAND_RE.finditer(text)})
         self.assertIn("03-tools/bin/init.sh", commands)
+        self.assertIn("03-tools/bin/route.sh", commands)
         self.assertEqual([c for c in commands if not (KIT_ROOT / c).is_file()], [])
 
     def test_personal_assets_are_never_named_as_something_to_read(self):

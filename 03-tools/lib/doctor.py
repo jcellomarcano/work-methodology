@@ -462,6 +462,61 @@ def check_vendor_tools(ctx: Ctx) -> dict:
     return _check("vendor.tools", "PASS", f"{len(lock)} pinned tools present")
 
 
+# Canonical B5 review (routing-method.md §3): a medium review with findings.
+ROUTER_PROBE = {"task_kind": "review", "tier": "medium", "lane": "sonnet", "modules": 1, "map_age_days": 1,
+                "offline": False, "prior": {"findings": 1}}
+DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _unpriced(catalog: dict, as_of: str) -> list[str]:
+    """Admitted entries without a price row valid on as_of (from null or <= as_of)."""
+    missing = []
+    for tier_name, tier in sorted((catalog.get("tiers") or {}).items()):
+        for entry in (tier or {}).get("candidates") or []:
+            if entry.get("status") != "admitted":
+                continue
+            rows = [r for r in entry.get("price_schedule") or [] if isinstance(r, dict)
+                    and (r.get("from") is None or str(r["from"]) <= as_of)
+                    and isinstance(r.get("usd_in"), (int, float)) and isinstance(r.get("usd_out"), (int, float))]
+            if not rows:
+                missing.append(f"{tier_name}/{entry.get('id')}")
+    return missing
+
+
+def check_router_catalog(ctx: Ctx) -> dict:
+    """The routing catalog parses, has a version, every admitted model has a
+    price on the catalog's own date (`updated`, never the clock), and the
+    router answers ok for a canonical B5 review."""
+    fix = ("<tools>/config/model-tiers.json" if ctx.is_kit_tools
+           else "<tools>/config/model-tiers.json (compare with the kit's 03-tools/config/model-tiers.json)")
+    try:
+        catalog = json.loads((ctx.tools / "config" / "model-tiers.json").read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return _check("router.catalog", "FAIL", "<tools>/config/model-tiers.json is missing", fix)
+    except (OSError, json.JSONDecodeError) as exc:
+        return _check("router.catalog", "FAIL", f"<tools>/config/model-tiers.json does not parse ({type(exc).__name__})", fix)
+    if not isinstance(catalog, dict) or not catalog.get("version"):
+        return _check("router.catalog", "FAIL", "model-tiers.json has no version", fix)
+    as_of = str(catalog.get("updated") or catalog.get("read") or "")
+    if not DATE_RE.match(as_of):
+        return _check("router.catalog", "FAIL", f"model-tiers.json has no updated date (got {as_of!r})", fix)
+    unpriced = _unpriced(catalog, as_of)
+    if unpriced:
+        return _check("router.catalog", "FAIL", f"admitted models without a price on {as_of}: " + ", ".join(unpriced), fix)
+    if str(KIT_TOOLS) not in sys.path:
+        sys.path.insert(0, str(KIT_TOOLS))
+    from lib import router  # noqa: E402  (the kit's router judges any tools root's catalog)
+    try:
+        result = router.route(ROUTER_PROBE, catalog, as_of)
+    except Exception as exc:  # noqa: BLE001 - a malformed catalog must surface as FAIL, not a crash
+        return _check("router.catalog", "FAIL", f"router crashed on the B5 probe ({type(exc).__name__})", fix)
+    if result.get("status") != "ok" or result.get("rule") != "B5" or not result.get("roster"):
+        return _check("router.catalog", "FAIL", f"router B5 probe returned rule {result.get('rule')} status "
+                      f"{result.get('status')}: " + "; ".join(result.get("reasons") or []), fix)
+    return _check("router.catalog", "PASS", f"catalog {catalog['version']} as of {as_of}: B5 probe ok "
+                  f"({len(result['roster'])} roles)")
+
+
 def check_baseline_latest(ctx: Ctx) -> dict:
     if not (ctx.tools / "baselines" / "latest").exists():
         return _check("baseline.latest", "WARN", "<tools>/baselines/latest is missing", "bin/metrics.sh <repo> --save")
@@ -516,7 +571,8 @@ def build_report(repo: Path, tools: Path, runtime: str) -> dict:
     tool_sha = tool_head.stdout.strip() if tool_head.returncode == 0 and tool_head.stdout.strip() else None
     checks = [check_repo_git(ctx), check_tools_git(ctx, tool_sha), check_tools_layout(ctx), check_tools_is_kit(ctx),
               check_config_project(ctx), check_config_base_ref(ctx), check_hooks_fire(ctx), check_git_exclude(ctx),
-              check_memory_engram(ctx), check_vendor_tools(ctx), check_baseline_latest(ctx), check_personal_absent(ctx)]
+              check_memory_engram(ctx), check_vendor_tools(ctx), check_baseline_latest(ctx), check_personal_absent(ctx),
+              check_router_catalog(ctx)]
     runtimes = ("claude", "pi") if runtime == "all" else (runtime,)
     if "claude" in runtimes:
         checks += [_check_agents(ctx, "claude.agents", ".claude/agents", True, "claude"),

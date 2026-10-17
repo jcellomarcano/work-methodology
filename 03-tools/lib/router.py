@@ -15,6 +15,11 @@ Fable 5.1 (owner decision L6) is never in a default roster. Only the rule
 launches only when `escalate-fable` is in `approvals`, otherwise Opus 5.5
 at xhigh runs instead.
 
+Offline (decision L4, R9): when the task has no `offline` key, main()
+reads `offline` from the active project config (METODO_PROJECT_CONFIG, else
+<tools>/config/project.json), else METODO_OFFLINE=1; the task wins over the
+config, the config over the env (resolve_offline). route() never does.
+
 Usage:
     lib/router.py <task.json> [--as-of YYYY-MM-DD] [--log [PATH]] [--config PATH]
 
@@ -108,6 +113,41 @@ def _normalized(task: dict) -> dict:
 def inputs_hash(task: dict) -> str:
     text = json.dumps(_normalized(task), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def load_project_config(tools_root: Path = TOOLS_ROOT, env=None) -> dict:
+    """The active project config: METODO_PROJECT_CONFIG, else
+    <tools_root>/config/project.json (the hooks' rule); unreadable = {}."""
+    env = os.environ if env is None else env
+    path = Path(env.get("METODO_PROJECT_CONFIG") or Path(tools_root) / "config" / "project.json")
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def resolve_offline(task: dict, config: dict | None, env) -> dict:
+    """A copy of task with the effective `offline`: the task's own key, else
+    the config's, else METODO_OFFLINE=1. Absent everywhere = untouched."""
+    if "offline" in task:
+        return dict(task)
+    if isinstance(config, dict) and "offline" in config:
+        return dict(task, offline=bool(config["offline"]))
+    if (env or {}).get("METODO_OFFLINE") == "1":
+        return dict(task, offline=True)
+    return dict(task)
+
+
+def fallback_model(catalog: dict, role: str) -> str | None:
+    """The model a role's frontmatter pins: the first admitted, non-local
+    Anthropic entry of the role's default tier (ROLE_TIER), i.e. what the
+    router launches when nothing raises the tier. None if there is none."""
+    tier = ROLE_TIER.get(role)
+    for entry in _candidates(catalog, tier) if tier else []:
+        if entry.get("status") == "admitted" and entry.get("provider") == "anthropic" and not entry.get("local"):
+            return entry.get("id")
+    return None
 
 
 def _cfg(catalog: dict) -> dict:
@@ -504,7 +544,9 @@ def route(task: dict, catalog: dict, as_of: str) -> dict:
         if status == "ok" and task.get("budget_usd") is not None:
             status = _budget(catalog, roster, float(task["budget_usd"]), as_of, reasons)
     cost = _cost(catalog, roster, as_of) if roster and rule and not rule.startswith("guard:") else 0.0
+    approvals = task.get("approvals")
     return {
+        "approvals": sorted(set(approvals)) if isinstance(approvals, list) else [],
         "as_of": as_of,
         "catalog_version": catalog.get("version"),
         "cost_estimate_usd": cost,
@@ -522,6 +564,8 @@ def log_line(result: dict) -> str:
     summary = [{k: e[k] for k in ("role", "tier", "model", "effort", "launch", "step")} for e in result["roster"]]
     line = {k: result[k] for k in ("as_of", "catalog_version", "inputs_hash", "rule", "status")}
     line["roster"] = summary
+    # L6: an owner approval (e.g. escalate-fable) is recorded in the log itself.
+    line["approvals"] = list(result.get("approvals") or [])
     return json.dumps(line, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
@@ -551,8 +595,7 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, ValueError) as exc:
         print(f"route: cannot read input: {exc}", file=sys.stderr)
         return 2
-    if os.environ.get("METODO_OFFLINE") == "1":
-        task = dict(task, offline=True)
+    task = resolve_offline(task, load_project_config(TOOLS_ROOT, os.environ), os.environ)
     as_of = args.as_of or task.get("as_of")
     if not as_of:
         print("route: pass --as-of YYYY-MM-DD (the router never reads the clock)", file=sys.stderr)

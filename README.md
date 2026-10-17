@@ -89,10 +89,10 @@ Pick the path that fits you:
 <!-- kit-status:start -->
 | Kit status (`03-tools/bin/kit-status.sh --write`, never by hand) | Value | Tag |
 |---|---|---|
-| measured_at | `9599e47`, dirty: yes | [Measured] |
-| code_fingerprint | `sha256:7adad181210ba2f6` over 236 files (roles, skills, tools, tests) | [Measured] |
-| structure | 11 agents, 16 skills (16 installed), 30 MCP tools, 7 Claude hooks, 850 test cases | [Measured] |
-| kit suite | OK: ran 850, failures 0, errors 0, skipped 5, expected failures 2 | [Tested] |
+| measured_at | `f6b2684`, dirty: yes | [Measured] |
+| code_fingerprint | `sha256:d874d97ebec7bb63` over 237 files (roles, skills, tools, tests) | [Measured] |
+| structure | 11 agents, 16 skills (16 installed), 31 MCP tools, 7 Claude hooks, 870 test cases | [Measured] |
+| kit suite | OK: ran 870, failures 0, errors 0, skipped 5, expected failures 2 | [Tested] |
 | docs caps | 0 offenders, 0 missing (`config/docs-caps.json` over this checkout) | [Measured] |
 | init on a Gradle/Kotlin fixture | doctor PASS, kit_installed true, smoke PASS, loop_ran true, ready_for_benchmark true; 25 pending human steps | [Tested] |
 | init suggestions | 0 missing, 1 unknown of 6 suggested helpers (temp HOME) | [Measured, this machine] |
@@ -122,7 +122,7 @@ flowchart TD
     D --> SC["audit folder scaffolds<br/>invariants, context pack, conventions"]
     SC --> IN["install for Claude Code and pi<br/>agents, skills, MCP server, hooks"]
     IN --> B["first baseline + first map"]
-    B --> DR["doctor: 21 wiring checks"]
+    B --> DR["doctor: 22 wiring checks"]
     DR --> SM["smoke: card → receipt → captures → finalize"]
     SM --> R["report: steps, pending human steps with their file,<br/>helper suggestions, ready_for_benchmark"]
 ```
