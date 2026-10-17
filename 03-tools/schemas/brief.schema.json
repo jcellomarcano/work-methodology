@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "required": ["ROLE", "OBJECTIVE", "INPUTS", "CONSTRAINTS", "OUTPUT", "STOP", "BUDGET", "EVIDENCE"],
+  "properties": {
+    "ROLE": {"type": "string"},
+    "OBJECTIVE": {"type": "string"},
+    "INPUTS": {"type": "array", "items": {"type": "string"}},
+    "CONSTRAINTS": {"type": "array", "items": {"type": "string"}},
+    "OUTPUT": {"type": "string"},
+    "STOP": {"type": "string"},
+    "BUDGET": {
+      "type": "object",
+      "required": ["max_context_tokens", "max_tool_calls"],
+      "properties": {
+        "max_context_tokens": {"type": "integer"},
+        "max_tool_calls": {"type": "integer"}
+      }
+    },
+    "EVIDENCE": {"type": "string"}
+  }
+}

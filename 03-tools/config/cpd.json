@@ -1,0 +1,5 @@
+{
+  "calibrated_on": null,
+  "min_tokens": 100,
+  "note": "uncalibrated: the script's own default when no threshold meets <=40 clusters. Run 'lib/duplication_cpd.py <repo> --calibrate' over the targets in config/duplication-targets.json to set a real one; recalibrating is a change that needs a change card"
+}

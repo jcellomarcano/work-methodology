@@ -1,0 +1,4 @@
+{
+  "_comment": ".kt files that are candidates for critical duplication, used by 'lib/duplication_cpd.py <repo> --calibrate' to sweep the PMD CPD thresholds (50/75/100/150 tokens) and set config/cpd.json. Empty on purpose: each project declares its own candidates here (typically 2-4 files already suspected of sharing structure, e.g. several ViewModels of the same pattern). Without targets, '--calibrate' fails clean with a clear message instead of inventing a list. Real example in config/examples/critical-flow/duplication-targets.json.",
+  "targets": []
+}

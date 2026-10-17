@@ -1,0 +1,51 @@
+{
+  "type": "object",
+  "required": [
+    "seq",
+    "from_role",
+    "to_role",
+    "artifact_path",
+    "repo_sha",
+    "tools_sha",
+    "summary",
+    "residual_risks"
+  ],
+  "properties": {
+    "seq": {
+      "type": "integer"
+    },
+    "from_role": {
+      "type": "string"
+    },
+    "to_role": {
+      "type": "string"
+    },
+    "artifact_path": {
+      "type": "string"
+    },
+    "repo_sha": {
+      "type": "string"
+    },
+    "tools_sha": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "residual_risks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    },
+    "not_covered": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "_comment": "Recibo de revision (RDD). Identidad = tree_sha (git rev-parse HEAD^{tree}), nunca el commit. Lo escribe solo lib/rdd_receipt.py; ningun campo lo rellena un agente. Sin timestamps ni rutas absolutas: el reloj va en run-meta.json.",
+  "type": "object",
+  "required": [
+    "schema_version", "tool_sha", "tool_versions", "repo_sha", "repo_dirty",
+    "tree_sha", "base_ref", "base_sha", "merge_base", "change_card", "risk",
+    "touched_paths", "diff_stats", "scope_globs", "budget", "round_dir", "state",
+    "captures", "correction_index", "supersedes", "superseded_by", "inherited_from",
+    "verdict", "verdict_reasons", "owner_ack"
+  ],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "tool_sha": {"type": "string"},
+    "tool_versions": {"type": "object"},
+    "repo_sha": {"type": "string"},
+    "repo_dirty": {"type": "boolean"},
+    "tree_sha": {"type": "string"},
+    "base_ref": {"type": "string"},
+    "base_sha": {"type": "string"},
+    "merge_base": {"type": "string"},
+    "change_card": {
+      "type": ["object", "null"],
+      "required": ["path", "sha256", "verdict", "routing"],
+      "properties": {
+        "path": {"type": "string"},
+        "sha256": {"type": "string"},
+        "verdict": {"type": "string", "enum": ["PASS", "FAIL"]},
+        "routing": {"type": "string", "enum": ["opus", "sonnet"]}
+      }
+    },
+    "risk": {
+      "type": "object",
+      "required": ["tier", "reasons", "lenses", "lens_focus", "owner_gate", "consent", "inputs"],
+      "properties": {
+        "tier": {"type": "string", "enum": ["exempt", "low", "medium", "high"]},
+        "reasons": {"type": "array", "items": {"type": "string"}},
+        "lenses": {"type": "array", "items": {"type": "string"}},
+        "lens_focus": {"type": ["string", "null"]},
+        "owner_gate": {"type": "boolean"},
+        "consent": {"type": "string", "enum": ["n/a", "pending", "granted"]},
+        "inputs": {"type": "object"}
+      }
+    },
+    "touched_paths": {"type": "array", "items": {"type": "string"}},
+    "diff_stats": {
+      "type": "object",
+      "required": ["files", "added", "removed"],
+      "properties": {
+        "files": {"type": "integer"},
+        "added": {"type": "integer"},
+        "removed": {"type": "integer"}
+      }
+    },
+    "scope_globs": {"type": "array", "items": {"type": "string"}},
+    "budget": {
+      "type": "object",
+      "required": ["roles"],
+      "properties": {"roles": {"type": "object"}}
+    },
+    "round_dir": {"type": "string"},
+    "state": {"type": "string", "enum": ["started", "captured", "finalized"]},
+    "captures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["seq", "role", "artifact", "sha256", "schema", "validation", "summary", "handoff"],
+        "properties": {
+          "seq": {"type": "integer"},
+          "role": {"type": "string"},
+          "artifact": {"type": "string"},
+          "sha256": {"type": "string"},
+          "schema": {"type": ["string", "null"]},
+          "validation": {"type": "string", "enum": ["PASS", "INCOMPLETE"]},
+          "summary": {"type": "object"},
+          "handoff": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "correction_index": {"type": "integer", "enum": [0, 1]},
+    "supersedes": {"type": ["string", "null"]},
+    "superseded_by": {"type": ["string", "null"]},
+    "inherited_from": {"type": ["string", "null"]},
+    "verdict": {"type": ["string", "null"], "enum": ["approved", "rejected", "escalated", "inconclusive", null]},
+    "verdict_reasons": {"type": "array", "items": {"type": "string"}},
+    "owner_ack": {
+      "type": ["object", "null"],
+      "required": ["decision", "reason"],
+      "properties": {
+        "decision": {"type": "string", "enum": ["consent", "push-without-receipt", "accept-escalation", "unreviewed"]},
+        "reason": {"type": "string"}
+      }
+    }
+  }
+}

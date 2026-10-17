@@ -1,0 +1,14 @@
+{
+  "_comment": "Salida del generic-verifier. Antes vivia inline en el cuerpo del agente; se extrae para que capture, output_write y el hook de salida puedan validarla.",
+  "type": "object",
+  "required": ["change_card_id", "battery", "verdict", "evidence"],
+  "properties": {
+    "change_card_id": {"type": "string"},
+    "battery": {"type": "array", "items": {"type": "string"}},
+    "commands_executed": {"type": "array", "items": {"type": "string"}},
+    "verdict": {"type": "string", "enum": ["PASS", "FAIL", "INCONCLUSIVE"]},
+    "evidence": {"type": "array", "items": {"type": "string"}},
+    "truncated": {"type": "boolean"},
+    "not_covered": {"type": "array", "items": {"type": "string"}}
+  }
+}

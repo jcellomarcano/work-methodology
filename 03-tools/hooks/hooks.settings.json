@@ -1,0 +1,27 @@
+{
+  "_comment": "The kit's hook entries for <repo>/.claude/settings.local.json. Merged in by lib/settings_merge.py, which substitutes __TOOLS_DEFAULT__ and recognizes its own entries by the ': metodo-hook;' marker. validate_subagent_output does not go here: it travels in each schema-bearing role's frontmatter.",
+  "hooks": {
+    "PreToolUse": [
+      {"matcher": "Edit|Write|MultiEdit", "hooks": [{"type": "command", "timeout": 10,
+        "command": ": metodo-hook; H=\"${METODO_TOOLS:-__TOOLS_DEFAULT__}/hooks\"; [ -f \"$H/guard_paths.py\" ] || exit 0; exec python3 \"$H/guard_paths.py\""}]},
+      {"matcher": "Bash|mcp__metodo__receipt_start|mcp__metodo__receipt_finalize|mcp__metodo__receipt_acknowledge", "hooks": [{"type": "command", "timeout": 10,
+        "command": ": metodo-hook; H=\"${METODO_TOOLS:-__TOOLS_DEFAULT__}/hooks\"; [ -f \"$H/guard_gates.py\" ] || exit 0; exec python3 \"$H/guard_gates.py\""}]},
+      {"matcher": "", "hooks": [{"type": "command", "timeout": 10,
+        "command": ": metodo-hook; H=\"${METODO_TOOLS:-__TOOLS_DEFAULT__}/hooks\"; [ -f \"$H/budget.py\" ] || exit 0; exec python3 \"$H/budget.py\""}]}
+    ],
+    "PostToolUse": [
+      {"matcher": "Bash", "hooks": [{"type": "command", "timeout": 10,
+        "command": ": metodo-hook; H=\"${METODO_TOOLS:-__TOOLS_DEFAULT__}/hooks\"; [ -f \"$H/guard_gates.py\" ] || exit 0; exec python3 \"$H/guard_gates.py\""}]},
+      {"matcher": "Edit|Write|MultiEdit", "hooks": [{"type": "command", "timeout": 10,
+        "command": ": metodo-hook; H=\"${METODO_TOOLS:-__TOOLS_DEFAULT__}/hooks\"; [ -f \"$H/touched_paths.py\" ] || exit 0; exec python3 \"$H/touched_paths.py\""}]}
+    ],
+    "SessionStart": [
+      {"matcher": "startup|resume|compact|clear", "hooks": [{"type": "command", "timeout": 10,
+        "command": ": metodo-hook; H=\"${METODO_TOOLS:-__TOOLS_DEFAULT__}/hooks\"; [ -f \"$H/session_start_status.py\" ] || exit 0; exec python3 \"$H/session_start_status.py\""}]}
+    ],
+    "Stop": [
+      {"matcher": "", "hooks": [{"type": "command", "timeout": 10,
+        "command": ": metodo-hook; H=\"${METODO_TOOLS:-__TOOLS_DEFAULT__}/hooks\"; [ -f \"$H/reply_lint.py\" ] || exit 0; exec python3 \"$H/reply_lint.py\""}]}
+    ]
+  }
+}

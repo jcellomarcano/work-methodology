@@ -1,0 +1,15 @@
+{
+  "_comment": "Shape of a code review comment (skill review-comment). One paragraph with four parts in this order, a path:line reference, and the proposal in the file's language. Changing a cap is a change that needs a change card.",
+  "labels": {
+    "es": ["qué sucede:", "por qué sucede:", "cómo afecta:", "cómo solucionar:"],
+    "en": ["what happens:", "why it happens:", "impact:", "how to fix:"]
+  },
+  "max_chars_total": 600,
+  "max_chars_per_part": 200,
+  "language_by_extension": {
+    "kt": "kotlin", "kts": "kotlin", "java": "java", "swift": "swift", "py": "python", "sql": "sql",
+    "hs": "haskell", "go": "go", "rs": "rust", "ts": "typescript", "tsx": "tsx", "js": "javascript",
+    "jsx": "jsx", "sh": "bash", "bash": "bash", "yml": "yaml", "yaml": "yaml", "json": "json",
+    "gradle": "groovy", "xml": "xml", "md": "markdown", "c": "c", "h": "c", "cpp": "cpp", "cs": "csharp", "rb": "ruby"
+  }
+}

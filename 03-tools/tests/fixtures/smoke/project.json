@@ -1,0 +1,24 @@
+{
+  "_comment": "Instance config for test_smoke_loop: tests_globs matches the low-tier path the smoke derives (tests/**), base_ref resolves in a local clone (origin/main is the source repo's main).",
+  "shared_build_files": ["build.gradle"],
+  "critical_paths": ["booking/"],
+  "property_order": ["Integrity", "Auditability", "UX"],
+  "critical_properties": ["Integrity"],
+  "invariant_prefix": "INV",
+  "extra_invariant_tokens": [],
+  "ticket_keys": ["DEV"],
+  "rdd": {
+    "enabled": true,
+    "mode": "warn",
+    "exempt_globs": ["**/*.md", "docs/**"],
+    "tests_globs": ["tests/**"],
+    "low_max_changed_lines": 120,
+    "lens_paths": {}
+  },
+  "memory": {"enabled": false, "engram_project": ""},
+  "test_sectors": {
+    "base_ref": "origin/main",
+    "full_required_globs": [],
+    "sectors": []
+  }
+}

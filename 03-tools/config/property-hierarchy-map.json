@@ -1,0 +1,16 @@
+{
+  "_comment": "Maps each rule/finding id to ONE of the properties declared in config/project.json:property_order (the kit's default hierarchy is Data integrity/State correctness/Identity-uniqueness/Auditability/Recoverability/Security/Performance/UX, but any project declares its own). 'rules' empty on purpose: v1 unreviewed until the project owner fills it in, rule by rule, with its own epistemic 'why'. Full example instantiated over a critical-flow domain (32 real rules) in config/examples/critical-flow/property-hierarchy-map.json.",
+  "property_order": [
+    "Data integrity",
+    "State correctness",
+    "Identity/uniqueness",
+    "Auditability",
+    "Recoverability",
+    "Security",
+    "Performance",
+    "UX"
+  ],
+  "rules": {},
+  "schema_version": "1.0",
+  "status": "v1 unreviewed (Asumido)"
+}
