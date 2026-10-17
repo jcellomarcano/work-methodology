@@ -1,0 +1,30 @@
+{
+  "as_of": "2026-10-16",
+  "expect": {
+    "cost_max_usd": 0.36,
+    "roster": [
+      {
+        "effort": "medium",
+        "launch": "run",
+        "model": "claude-sonnet-5-5",
+        "role": "generic-proposer"
+      },
+      {
+        "effort": "high",
+        "launch": "run",
+        "model": "claude-sonnet-5-5",
+        "role": "generic-verifier"
+      }
+    ],
+    "rule": "B3",
+    "status": "ok"
+  },
+  "input": {
+    "lane": "sonnet",
+    "map_age_days": 1,
+    "modules": 1,
+    "task_kind": "implement",
+    "tier": "medium"
+  },
+  "name": "b3-implement-medium"
+}

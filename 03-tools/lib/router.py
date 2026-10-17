@@ -4,7 +4,7 @@
 From a task descriptor it returns the roster to launch: role, model tier,
 provider, model, effort, run or skip, parallel or sequential, step. The
 rules are the first-match table of odd/research/model-router/routing-method.md
-§3: guards, then the P-rows (react to the previous step), then the B-rows
+§3 plus B8 (task_kind verify, decision L7): guards, then the P-rows (react to the previous step), then the B-rows
 (base case), then two post-passes (offline, budget). The catalog is
 config/model-tiers.json; prices come from each entry's price_schedule at
 `as_of`, which is an input: route() never reads the clock, the filesystem
@@ -41,6 +41,14 @@ TASK_KINDS = ("map", "implement", "review", "docs", "comment", "verify")
 RDD_TIERS = ("exempt", "low", "medium", "high")
 MAX_PARALLEL = 3
 FABLE_RULE = "escalate-fable"
+# Every rule id route() can emit, in table order; the evaluator measures its
+# fixture coverage against this one constant so the two cannot drift.
+RULE_IDS = ("guard:as_of", "guard:task_kind", "guard:tier", "guard:lane", "guard:full_required",
+            "P1", FABLE_RULE, "P2", "P3", "P4", "P5", "P6",
+            "B0", "B1", "B2", "B3", "B4", "B5", "B6", "B8", "B7", "error")
+# Fail-closed fallthrough that no input passing the guards reaches since B8
+# (tests/test_router.py proves it over the kind x tier grid).
+UNREACHABLE_RULES = ("B7",)
 DEFAULT_LOG = TOOLS_ROOT / "out" / "runs" / "routing.jsonl"
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
@@ -407,6 +415,20 @@ def _rows(task: dict, prior: dict, catalog: dict, reasons: list[str]) -> tuple[s
         return "B5", roster, "ok"
     if kind in ("review", "docs") and tier == "high":
         return "B6", _review_high(task, catalog, prior, 1, reasons), "ok"
+    if kind == "verify" and tier in ("medium", "high"):
+        # L7: verification is routable; the large judge only when findings exist.
+        roster = [_entry(catalog, "generic-verifier", "medium", "high", step=1)]
+        reasons.append("verify: verifier medium/high")
+        if tier == "high":
+            effort = "xhigh" if task.get("critical_hit") else "high"
+            if int(prior.get("findings") or 0) > 0:
+                roster.append(_entry(catalog, "generic-judge", "large", effort, step=2))
+                reasons.append(f"verify high with findings: large judge at {effort}")
+            else:
+                roster.append(_entry(catalog, "generic-judge", "large", effort, step=2,
+                                     optional="judge-zero-findings", launch="skip"))
+                reasons.append("verify high without prior findings: large judge skipped")
+        return "B8", roster, "ok"
     reasons.append(f"no row for task_kind={kind} at tier={tier}: fail closed")
     return "B7", [], "error"
 

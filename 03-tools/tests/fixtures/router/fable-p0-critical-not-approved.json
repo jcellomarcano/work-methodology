@@ -1,0 +1,33 @@
+{
+  "as_of": "2026-10-16",
+  "expect": {
+    "roster": [
+      {
+        "effort": "high",
+        "launch": "skip",
+        "model": "claude-fable-5-1",
+        "role": "generic-judge"
+      },
+      {
+        "effort": "xhigh",
+        "launch": "run",
+        "model": "claude-opus-5-5",
+        "role": "generic-judge"
+      }
+    ],
+    "rule": "escalate-fable",
+    "status": "ok"
+  },
+  "input": {
+    "critical_hit": true,
+    "lane": "opus",
+    "map_age_days": 1,
+    "modules": 1,
+    "prior": {
+      "p0_from_lower_tier": "medium"
+    },
+    "task_kind": "review",
+    "tier": "high"
+  },
+  "name": "fable-p0-critical-not-approved"
+}

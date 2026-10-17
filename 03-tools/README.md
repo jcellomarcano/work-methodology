@@ -79,6 +79,8 @@ python3 lib/role_contract_validator.py --contract <c>.contract.json --repo <r> (
 python3 lib/findings_schema_validator.py <json> --schema schemas/<name>.schema.json
 python3 lib/change_card_validator.py [--extract] <file|->
 python3 lib/docs_lint.py config/docs-caps.json
+bin/route.sh <task.json> --as-of YYYY-MM-DD [--log [PATH]]   # roster: role, model, effort, when (JSON)
+python3 lib/router_eval.py [--fixtures DIR] [--out FILE]       # router vs tests/fixtures/router; exit 1 on a miss
 bin/metrics.sh <repo> [--save]           # shape_metrics + duplication_cpd + delta vs baselines/latest;
                                          # --save: baseline for the sha (clean tree only)
 bin/cartography.sh <repo>                # + hotspots (90d) + merge-tree vs the integration branch

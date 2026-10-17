@@ -1,0 +1,16 @@
+{
+  "as_of": "2026-10-16",
+  "expect": {
+    "roster": [],
+    "rule": "guard:lane",
+    "status": "error"
+  },
+  "input": {
+    "lane": "opus",
+    "map_age_days": 1,
+    "modules": 1,
+    "task_kind": "implement",
+    "tier": "medium"
+  },
+  "name": "guard-lane"
+}

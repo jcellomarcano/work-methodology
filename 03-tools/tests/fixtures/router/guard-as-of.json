@@ -1,0 +1,17 @@
+{
+  "as_of": "16/10/2026",
+  "expect": {
+    "roster": [],
+    "rule": "guard:as_of",
+    "status": "error"
+  },
+  "input": {
+    "lane": "sonnet",
+    "map_age_days": 1,
+    "modules": 1,
+    "task_kind": "implement",
+    "tier": "medium"
+  },
+  "name": "guard-as-of",
+  "note": "as_of must be YYYY-MM-DD"
+}

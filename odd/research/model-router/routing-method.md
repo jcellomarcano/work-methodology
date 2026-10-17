@@ -97,7 +97,8 @@ role tier/effort.
 | B4 | `implement`, `tier=high` | as B3, with proposer medium/high; after the verifier, run B6 on the diff | 1 |
 | B5 | `review`/`docs`, `tier=medium` | challenger medium/high with `lens_focus` + sector verifier medium/medium, parallel; judge medium/high only if `findings>0` ([RR§3]) | 2 |
 | B6 | `review`/`docs`, `tier=high` | owner consent first; challenger and blind-spot adversary large/high (xhigh if `critical_hit`), parallel; verifier medium/high; judge medium/high, large/xhigh on a P0 or critical property ([RR§3]; [M§5]) | 2 (+1 trial) |
-| B7 | none of the above | `status: error` (fail closed) | 0 |
+| B8 | verify at medium / high (L7) | generic-verifier on Sonnet 5.5 `high`; at high a large judge (Opus 5.5, `xhigh` on a critical path) only when `prior.findings` > 0 | 1-2 |
+| B7 | none of the above | `status: error` (fail closed) | 0 | (unreachable once B8 exists; kept as the fail-closed fallback)
 
 **Model resolution**, per roster entry [Inferred]: the provider order comes from the `admitted` entries for the role's
 tier, in catalog order. Today that is Anthropic only. A `candidate` fills only the B6 trial slot: one third adversary
@@ -140,7 +141,7 @@ Evaluator (R8), deterministic, scored against fixtures `tests/fixtures/router/*.
   tokens_out × usd_out, with prices from the catalog schedule at `as_of`. Token estimates are seeded from kit
   measurements and capped at `max_context_tokens`: cartographers 96-110k ([MPR§2]), large adversaries 106-146k, scoped
   small cartography 26-30k ([MR]).
-- **Rule coverage**: every row P1-B7, every guard and both post-passes fired by at least one fixture. Boundaries
+- **Rule coverage**: every row P1-B8 (B7 reported as unreachable), every guard and both post-passes fired by at least one fixture. Boundaries
   included: `changed_lines` = `low_max_changed_lines` and +1, no card, shared build touched, offline with and without a
   local model, and the `as_of` dates on either side of 2026-12-01.
 - **Negative controls**: the same input gives byte-identical output; shuffled paths give the same output; a

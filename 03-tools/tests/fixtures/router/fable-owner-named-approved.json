@@ -1,0 +1,27 @@
+{
+  "as_of": "2026-10-16",
+  "expect": {
+    "roster": [
+      {
+        "effort": "high",
+        "launch": "run",
+        "model": "claude-fable-5-1",
+        "role": "owner-named-task"
+      }
+    ],
+    "rule": "escalate-fable",
+    "status": "ok"
+  },
+  "input": {
+    "approvals": [
+      "escalate-fable"
+    ],
+    "lane": "sonnet",
+    "map_age_days": 1,
+    "modules": 1,
+    "owner_named": true,
+    "task_kind": "implement",
+    "tier": "medium"
+  },
+  "name": "fable-owner-named-approved"
+}

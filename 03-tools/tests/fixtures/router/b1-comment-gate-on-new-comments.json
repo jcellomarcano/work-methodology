@@ -1,0 +1,24 @@
+{
+  "as_of": "2026-10-16",
+  "expect": {
+    "roster": [
+      {
+        "effort": "low",
+        "launch": "run",
+        "model": "claude-haiku-5-5",
+        "role": "generic-comment-gate"
+      }
+    ],
+    "rule": "B1",
+    "status": "ok"
+  },
+  "input": {
+    "lane": "opus",
+    "map_age_days": 1,
+    "modules": 1,
+    "new_comments": 2,
+    "task_kind": "comment",
+    "tier": "high"
+  },
+  "name": "b1-comment-gate-on-new-comments"
+}

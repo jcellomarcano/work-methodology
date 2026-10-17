@@ -1,0 +1,38 @@
+{
+  "as_of": "2026-10-16",
+  "expect": {
+    "roster": [
+      {
+        "effort": "high",
+        "launch": "run",
+        "model": "claude-sonnet-5-5",
+        "role": "generic-challenger"
+      },
+      {
+        "effort": "medium",
+        "launch": "run",
+        "model": "claude-sonnet-5-5",
+        "role": "generic-verifier"
+      },
+      {
+        "effort": "high",
+        "launch": "skip",
+        "model": "claude-sonnet-5-5",
+        "role": "generic-judge"
+      }
+    ],
+    "rule": "B5",
+    "status": "ok"
+  },
+  "input": {
+    "lane": "sonnet",
+    "map_age_days": 1,
+    "modules": 1,
+    "prior": {
+      "findings": 0
+    },
+    "task_kind": "docs",
+    "tier": "medium"
+  },
+  "name": "b5-docs-medium-zero-findings"
+}

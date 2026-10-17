@@ -1,0 +1,54 @@
+{
+  "as_of": "2026-10-16",
+  "expect": {
+    "roster": [
+      {
+        "effort": "medium",
+        "launch": "run",
+        "model": "claude-sonnet-5-5",
+        "role": "generic-cartographer"
+      },
+      {
+        "effort": "medium",
+        "launch": "run",
+        "model": "claude-sonnet-5-5",
+        "role": "generic-cartographer"
+      },
+      {
+        "effort": "medium",
+        "launch": "run",
+        "model": "claude-sonnet-5-5",
+        "role": "generic-cartographer"
+      },
+      {
+        "effort": "medium",
+        "launch": "run",
+        "model": "claude-sonnet-5-5",
+        "role": "generic-cartographer"
+      },
+      {
+        "effort": "medium",
+        "launch": "run",
+        "model": "claude-sonnet-5-5",
+        "role": "generic-cartographer"
+      }
+    ],
+    "rule": "P2",
+    "status": "ok"
+  },
+  "input": {
+    "lane": "sonnet",
+    "map_age_days": 1,
+    "modules": 5,
+    "prior": {
+      "effort": "medium",
+      "role": "generic-cartographer",
+      "tier": "medium",
+      "truncated": true
+    },
+    "task_kind": "map",
+    "tier": "medium"
+  },
+  "name": "p2-truncated-split",
+  "note": "same role, tier and effort, split by module"
+}

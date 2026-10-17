@@ -1,0 +1,24 @@
+{
+  "as_of": "2026-10-16",
+  "expect": {
+    "cost_max_usd": 0.12,
+    "roster": [
+      {
+        "effort": "high",
+        "launch": "run",
+        "model": "claude-sonnet-5-5",
+        "role": "generic-verifier"
+      }
+    ],
+    "rule": "B8",
+    "status": "ok"
+  },
+  "input": {
+    "lane": "sonnet",
+    "map_age_days": 1,
+    "modules": 1,
+    "task_kind": "verify",
+    "tier": "medium"
+  },
+  "name": "b8-verify-medium"
+}

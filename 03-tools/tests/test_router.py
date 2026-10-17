@@ -1,14 +1,17 @@
 """router.route() is pure: one test per guard, per decision row (P1-P6,
-B0-B7), per post-pass, the escalation ladder, the Fable approval rule (L6)
+B0-B8), per post-pass, the escalation ladder, the Fable approval rule (L6)
 and the routing log. Negative controls: byte-identical output for the same
 input, no Fable launch without approval, offline never yields a remote
-provider, no step above the fan-out cap."""
+provider, no step above the fan-out cap. B7 is the fail-closed fallthrough
+that no valid input reaches once B8 (verify) exists; a patched kind proves
+it still fails closed."""
 import copy
 import json
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from lib import baseline, router
 
@@ -248,9 +251,49 @@ class BaseRowTests(unittest.TestCase):
         plain = _route(task_kind="review", tier="high")
         self.assertIn(("generic-judge", "medium", "claude-sonnet-5-5", "high"), _roles(plain))
 
-    def test_b7_kind_without_a_base_row_fails_closed(self):
+    def test_b8_verify_medium_is_one_verifier_at_sonnet_high(self):
         result = _route(task_kind="verify", tier="medium")
-        self.assertEqual((result["rule"], result["status"]), ("B7", "error"))
+        self.assertEqual((result["rule"], result["status"]), ("B8", "ok"))
+        self.assertEqual(_roles(result), [("generic-verifier", "medium", "claude-sonnet-5-5", "high")])
+        self.assertEqual(result["roster"][0]["order"], "sequential")
+
+    def test_b8_verify_high_adds_the_large_judge_only_on_prior_findings(self):
+        verifier = ("generic-verifier", "medium", "claude-sonnet-5-5", "high")
+        judge = ("generic-judge", "large", "claude-opus-5-5", "high")
+        found = _route(task_kind="verify", tier="high", lane="opus", prior={"findings": 2})
+        self.assertEqual((found["rule"], found["status"]), ("B8", "ok"))
+        self.assertEqual(_roles(found), [verifier, judge])
+        self.assertEqual([e["step"] for e in found["roster"]], [1, 2])
+        self.assertIsNone(found["roster"][1]["optional"])
+        for prior in ({"findings": 0}, {}):
+            with self.subTest(prior=prior):
+                result = _route(task_kind="verify", tier="high", lane="opus", prior=prior)
+                self.assertEqual(result["rule"], "B8")
+                self.assertEqual(_roles(result), [verifier])
+                skipped = [e for e in result["roster"] if e["launch"] == "skip"]
+                self.assertEqual([(e["role"], e["model"]) for e in skipped], [("generic-judge", "claude-opus-5-5")])
+        critical = _route(task_kind="verify", tier="high", lane="opus", critical_hit=True, prior={"findings": 1})
+        self.assertEqual(_roles(critical)[1], ("generic-judge", "large", "claude-opus-5-5", "xhigh"))
+
+    def test_b7_is_unreachable_from_valid_input_but_still_fails_closed(self):
+        for kind in router.TASK_KINDS:
+            for tier in router.RDD_TIERS:
+                lane = "opus" if tier == "high" else "sonnet"
+                with self.subTest(kind=kind, tier=tier):
+                    self.assertNotEqual(_route(task_kind=kind, tier=tier, lane=lane)["rule"], "B7")
+        self.assertIn("B7", router.UNREACHABLE_RULES)
+        with mock.patch.object(router, "TASK_KINDS", router.TASK_KINDS + ("audit",)):
+            result = _route(task_kind="audit", tier="medium")
+        self.assertEqual((result["rule"], result["status"], result["roster"]), ("B7", "error", []))
+
+    def test_rule_ids_constant_lists_every_rule_the_router_emits(self):
+        ids = router.RULE_IDS
+        self.assertEqual(len(ids), len(set(ids)))
+        expected = {"guard:as_of", "guard:task_kind", "guard:tier", "guard:lane", "guard:full_required",
+                    "P1", "P2", "P3", "P4", "P5", "P6", router.FABLE_RULE,
+                    "B0", "B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "error"}
+        self.assertEqual(set(ids), expected)
+        self.assertTrue(set(router.UNREACHABLE_RULES) <= set(ids))
 
 
 class PostPassTests(unittest.TestCase):

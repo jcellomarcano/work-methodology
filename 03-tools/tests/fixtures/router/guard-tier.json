@@ -1,0 +1,15 @@
+{
+  "as_of": "2026-10-16",
+  "expect": {
+    "roster": [],
+    "rule": "guard:tier",
+    "status": "error"
+  },
+  "input": {
+    "lane": "sonnet",
+    "map_age_days": 1,
+    "modules": 1,
+    "task_kind": "implement"
+  },
+  "name": "guard-tier"
+}

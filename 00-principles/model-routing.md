@@ -41,6 +41,15 @@ An L-sized implementation train: 562k tokens and 268 calls (nine times its cap):
 into units with their own STOP. Cartography runs scoped to one module with a small model: 26k-30k,
 dominated by file reading, not by the brief.
 
+## Router
+
+`03-tools/bin/route.sh` decides model and effort at launch (owner decision L4 in
+`odd/tasks/model-router.md`): a first-match table over the task descriptor and the dated catalog
+`03-tools/config/model-tiers.json`; agent frontmatter is only the fallback. Fable 5.1 never enters a
+default roster: the router only proposes it (`escalate-fable`) and it runs with the owner's approval
+(L6). `03-tools/lib/router_eval.py` and its fixtures in `03-tools/tests/fixtures/router/` guard the
+decision table: every reachable rule is covered and a miss fails the run.
+
 ## Other providers
 
 The tiers above are kinds of intelligence, not brands. Which Google or OpenAI models can occupy each
