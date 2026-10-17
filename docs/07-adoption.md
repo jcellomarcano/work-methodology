@@ -9,11 +9,11 @@ How to bring this methodology into a new or existing project.
 - [ ] List critical paths (the ones that trigger the High review tier)
 - [ ] Pick or confirm risk-tier rules for your project
 - [ ] Define owner gates and an emergency lane
-- [ ] Copy `templates/` into your project
+- [ ] Copy `04-templates/` into your project
 - [ ] Run one real change through the full loop as a pilot
 - [ ] Retro after 2 weeks: what worked, what felt heavy, what to adjust
 
-Record all of this in your project's copy of [templates/project-profile.md](../templates/project-profile.md).
+Record all of this in your project's copy of [04-templates/project-profile.md](../04-templates/project-profile.md).
 
 ## Minimum viable adoption vs. full adoption
 
@@ -46,7 +46,7 @@ If it's deterministic, it should be a script: same input hash should produce the
 
 ### Agent brief
 
-Every agent gets a narrow role, minimal tools, and a fixed brief. Use [templates/agent-brief.md](../templates/agent-brief.md):
+Every agent gets a narrow role, minimal tools, and a fixed brief. Use [04-templates/agent-brief.md](../04-templates/agent-brief.md):
 
 - **ROLE** — the one thing this agent does
 - **OBJECTIVE** — what "done" looks like

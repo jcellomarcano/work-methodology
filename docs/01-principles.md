@@ -31,7 +31,7 @@ Tag claims with how sure you are. A tag can only drop when its evidence stops ho
 
 Code is a means. What the system protects is the point.
 
-Each project keeps a **ranked list of protected properties** in its `project-profile.md` (see [templates/project-profile.md](../templates/project-profile.md)). A neutral example:
+Each project keeps a **ranked list of protected properties** in its `project-profile.md` (see [04-templates/project-profile.md](../04-templates/project-profile.md)). A neutral example:
 
 1. Data integrity
 2. Correctness
