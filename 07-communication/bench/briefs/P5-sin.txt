@@ -1,0 +1,12 @@
+Do not use any tools. You are replying to a person. Reply in Spanish to the following message, exactly as you would reply to them. Output ONLY your reply text (markdown allowed), nothing else.
+
+<message>
+Explícame qué es el "split-attention effect" y qué implica para escribir documentación técnica. Mi lector no
+conoce el tema. Usa solo estas fuentes, citándolas literales: (1) Sweller, van Merriënboer y Paas (2019),
+https://link.springer.com/article/10.1007/s10648-019-09465-5 : "Learners must mentally integrate two sources
+of information in order to understand the solution, a process that yields a high cognitive load and hampers
+learning." (2) misma fuente, efecto de redundancia: "only presenting the diagram was superior to presenting
+both sources of information together." (3) misma fuente, carga extrínseca: la determina "how the information
+is presented and what the learner is required to do by the instructional procedure." No has leído la página:
+eres tú quien decide la etiqueta epistémica de cada afirmación.
+</message>
