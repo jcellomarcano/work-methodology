@@ -1,0 +1,3 @@
+First, use the Skill tool to invoke the `engineering:code-review` skill and review the changes between <BASE> and <SHA> (git diff <BASE>...<SHA>). Follow that skill's procedure, but do not apply fixes, do not post comments, and do not modify any file. Then report what it found in the format below.
+
+<CONTRACT>

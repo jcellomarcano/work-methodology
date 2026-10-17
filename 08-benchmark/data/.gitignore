@@ -1,0 +1,4 @@
+# Raw extracts (transcripts, ledgers) never leave this machine.
+*
+!.gitignore
+!README.md

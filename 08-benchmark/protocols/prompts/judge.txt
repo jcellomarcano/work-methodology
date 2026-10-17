@@ -1,0 +1,24 @@
+You are judging two code reviews of the same pull request. You will receive the diff, Review A and Review B. The reviews come from two different setups; you are not told which is which and must not guess.
+
+For every finding in both reviews, decide one of: "valid" (the defect exists at the cited location and the evidence supports it), "invalid" (the claim is wrong or the evidence does not support it), "unverifiable" (you cannot decide from the diff alone). Then list defects that are visible in the diff and that neither review reported.
+
+Output one JSON object in a fenced ```json block with:
+  "A": {"valid": n, "invalid": n, "unverifiable": n, "per_finding": {"F1": "valid", ...}},
+  "B": {same shape},
+  "missed_by_both": [{"file": ..., "line": ..., "claim": ...}],
+  "clearer": "A" or "B" or "tie", "clearer_why": one sentence,
+  "preferred": "A" or "B", "preferred_why": one sentence.
+
+Do not reward length. A review with fewer findings and no invalid ones beats a longer review with one invalid finding. Do not use any tool; judge from the text below.
+
+<diff>
+<DIFF>
+</diff>
+
+<review id="A">
+<REVIEW_A>
+</review>
+
+<review id="B">
+<REVIEW_B>
+</review>

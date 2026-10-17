@@ -1,0 +1,3 @@
+First, use the Skill tool to invoke the `code-review` skill with args "high" and review the changes between <BASE> and <SHA> (git diff <BASE>...<SHA>). Follow that skill's procedure, but do not apply fixes, do not post comments, and do not modify any file. Then report what it found in the format below; findings the skill marks as uncertain stay out unless you can support them with evidence.
+
+<CONTRACT>

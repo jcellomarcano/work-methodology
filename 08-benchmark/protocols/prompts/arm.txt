@@ -1,0 +1,19 @@
+Review the pull request <PR> of this repository at commit <SHA> (base <BASE>). Work only from the diff and the files it touches; do not modify any file and do not post anything.
+
+Deliver two things, in this order:
+
+1. A findings list as one JSON array in a fenced ```json block. One object per finding with exactly these fields:
+   - "id": "F1", "F2", ...
+   - "file": repository-relative path
+   - "line": integer line number in the new version, or null
+   - "severity": one of "blocker", "major", "minor", "nit"
+   - "category": one of "correctness", "security", "concurrency", "performance", "tests", "readability", "standards", "docs"
+   - "claim": one sentence stating the defect or improvement
+   - "evidence": the exact code fragment or test output that supports the claim (quote, do not paraphrase)
+   - "fix": one sentence on the smallest change that resolves it
+   - "label": one of "Measured", "Tested", "Inferred", "Assumed" — how you know the claim is true
+   Report only what you can support with evidence from this repository. If you ran a test or a lint, say so in "evidence". If you did not run anything, say so once above the JSON.
+
+2. A verdict line: "VERDICT: approve" or "VERDICT: request-changes", followed by at most three sentences explaining it.
+
+Nothing else: no summary of the PR, no praise, no restatement of the diff.
