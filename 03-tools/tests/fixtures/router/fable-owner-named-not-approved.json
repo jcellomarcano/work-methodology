@@ -1,18 +1,25 @@
 {
   "as_of": "2026-10-16",
   "expect": {
+    "cost_max_usd": 0.36,
     "roster": [
+      {
+        "effort": "medium",
+        "launch": "run",
+        "model": "claude-sonnet-5-5",
+        "role": "generic-proposer"
+      },
+      {
+        "effort": "high",
+        "launch": "run",
+        "model": "claude-sonnet-5-5",
+        "role": "generic-verifier"
+      },
       {
         "effort": "high",
         "launch": "skip",
         "model": "claude-fable-5-1",
-        "role": "owner-named-task"
-      },
-      {
-        "effort": "xhigh",
-        "launch": "run",
-        "model": "claude-opus-5-5",
-        "role": "owner-named-task"
+        "role": "fable-deep-reasoning"
       }
     ],
     "rule": "escalate-fable",
@@ -27,5 +34,5 @@
     "tier": "medium"
   },
   "name": "fable-owner-named-not-approved",
-  "note": "Fable awaits approval; Opus xhigh runs"
+  "note": "L11: Fable awaits approval and is skipped; no Opus substitute; the cost is the B3 team only"
 }

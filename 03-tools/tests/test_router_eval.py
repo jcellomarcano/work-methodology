@@ -80,6 +80,13 @@ class ShippedFixtureTests(unittest.TestCase):
         fable = [fx for fx in fixtures if fx["expect"]["rule"] == router.FABLE_RULE]
         launches = {e["launch"] for fx in fable for e in fx["expect"]["roster"] if e["model"] == "claude-fable-5-1"}
         self.assertEqual(launches, {"run", "skip"})
+        for fx in fable:
+            # L11: Fable joins the team (never alone), as FABLE_ROLE, at most high, on request only.
+            with self.subTest(fixture=fx["name"]):
+                self.assertIs(fx["input"].get("owner_named"), True)
+                extra = [e for e in fx["expect"]["roster"] if e["model"] == "claude-fable-5-1"]
+                self.assertEqual([(e["role"], e["effort"]) for e in extra], [(router.FABLE_ROLE, "high")])
+                self.assertTrue([e for e in fx["expect"]["roster"] if e["role"] != router.FABLE_ROLE])
         for fx in fixtures:
             if fx["expect"]["rule"] != router.FABLE_RULE:
                 self.assertNotIn("claude-fable-5-1", [e["model"] for e in fx["expect"]["roster"]], fx["name"])

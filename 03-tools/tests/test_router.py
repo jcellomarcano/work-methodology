@@ -1,7 +1,9 @@
 """router.route() is pure: one test per guard, per decision row (P1-P6,
-B0-B8), per post-pass, the escalation ladder, the Fable approval rule (L6)
-and the routing log. Negative controls: byte-identical output for the same
-input, no Fable launch without approval, offline never yields a remote
+B0-B8), per post-pass, the escalation ladder, the Fable rule (L11: only on
+the owner's request, joining the team, effort <= high, bounded context, run
+only on approval) and the routing log. Negative controls: byte-identical
+output for the same input, no Fable without a request and no launch without
+approval, offline never yields a remote
 provider, no step above the fan-out cap. B7 is the fail-closed fallthrough
 that no valid input reaches once B8 (verify) exists; a patched kind proves
 it still fails closed."""
@@ -370,47 +372,152 @@ class DeterminismTests(unittest.TestCase):
         self.assertEqual(before["inputs_hash"], after["inputs_hash"])
 
 
+def _fable_entries(result):
+    return [e for e in result["roster"] if e["model"] == FABLE or e["role"] == router.FABLE_ROLE]
+
+
 class FableTests(unittest.TestCase):
+    """L11: Fable only on demand (owner_named), joins the team in its own
+    final step, never replaces it, effort capped at high, bounded context."""
+
+    PRIORS = ({}, {"p0_from_lower_tier": "medium"}, {"p0_from_lower_tier": "small"},
+              {"disagreement": True}, {"disagreement": True, "judge_tier": "large"},
+              {"disagreement": True, "judge_tier": "large", "effort": "xhigh"}, {"escalated_count": 2},
+              {"escalated_count": 3, "disagreement": True, "judge_tier": "large", "p0_from_lower_tier": "medium"})
+
     def _grid(self):
         for kind in router.TASK_KINDS:
             for tier in router.RDD_TIERS:
                 lane = "opus" if tier == "high" else "sonnet"
-                yield _task(task_kind=kind, tier=tier, lane=lane)
-                yield _task(task_kind=kind, tier=tier, lane=lane, critical_hit=True, map_age_days=None)
+                for prior in self.PRIORS:
+                    for critical in (False, True):
+                        for approvals in ([], ["escalate-fable"]):
+                            yield _task(task_kind=kind, tier=tier, lane=lane, critical_hit=critical,
+                                        map_age_days=None, prior=prior, approvals=approvals)
 
-    def test_no_default_row_proposes_fable(self):
+    def test_no_input_without_a_fable_request_yields_fable(self):
         for task in self._grid():
             result = router.route(task, CATALOG, AS_OF)
-            with self.subTest(kind=task["task_kind"], tier=task["tier"]):
-                self.assertNotIn(FABLE, [e["model"] for e in result["roster"]])
+            with self.subTest(kind=task["task_kind"], tier=task["tier"], prior=task["prior"],
+                              critical=task["critical_hit"], approvals=task["approvals"]):
+                self.assertEqual(_fable_entries(result), [])
+                self.assertNotEqual(result["rule"], router.FABLE_RULE)
+                self.assertEqual(result["approvals"], [])
 
-    def test_unapproved_fable_never_runs_and_opus_xhigh_runs_instead(self):
-        result = _route(owner_named=True)
-        self.assertEqual(result["rule"], "escalate-fable")
-        fable = [e for e in result["roster"] if e["model"] == FABLE]
-        self.assertEqual([(e["launch"], e["requires_approval"]) for e in fable], [("skip", True)])
-        self.assertIn(("large", "claude-opus-5-5", "xhigh"), [r[1:] for r in _roles(result)])
+    def test_p0_on_a_critical_path_escalates_to_opus_xhigh_not_fable(self):
+        result = _route(task_kind="review", tier="high", lane="opus", critical_hit=True,
+                        prior={"p0_from_lower_tier": "medium"})
+        self.assertEqual((result["rule"], result["status"]), ("P4", "ok"))
+        self.assertEqual(_roles(result), [("generic-judge", "large", "claude-opus-5-5", "xhigh")])
 
-    def test_approved_fable_runs(self):
-        result = _route(owner_named=True, approvals=["escalate-fable"])
-        fable = [e for e in _running(result) if e["model"] == FABLE]
-        self.assertEqual(len(fable), 1)
-        self.assertTrue(fable[0]["requires_approval"])
-        self.assertNotIn("claude-opus-5-5", [e["model"] for e in _running(result)])
+    def test_disagreement_after_the_large_judge_goes_to_xhigh_then_the_owner(self):
+        first = _route(task_kind="review", tier="high", lane="opus",
+                       prior={"disagreement": True, "judge_tier": "large", "effort": "high"})
+        self.assertEqual((first["rule"], first["status"]), ("P5", "ok"))
+        self.assertEqual(_roles(first), [("generic-judge", "large", "claude-opus-5-5", "xhigh")])
+        exhausted = _route(task_kind="review", tier="high", lane="opus",
+                           prior={"disagreement": True, "judge_tier": "large", "effort": "xhigh"})
+        self.assertEqual((exhausted["rule"], exhausted["status"], exhausted["roster"]), ("P5", "owner", []))
+        critical = _route(task_kind="review", tier="high", lane="opus", critical_hit=True,
+                          prior={"disagreement": True, "judge_tier": "large"})
+        self.assertEqual((critical["rule"], critical["status"]), ("P5", "owner"))
 
-    def test_fable_triggers_for_highest_reasoning_verification(self):
-        cases = [
-            dict(task_kind="review", tier="high", critical_hit=True, prior={"p0_from_lower_tier": "medium"}),
-            dict(task_kind="review", tier="high", prior={"disagreement": True, "judge_tier": "large"}),
-            dict(task_kind="review", tier="high", prior={"escalated_count": 2}),
-        ]
+    def test_high_receipt_escalated_twice_goes_to_the_owner(self):
+        result = _route(task_kind="review", tier="high", lane="opus", prior={"escalated_count": 2})
+        self.assertEqual((result["rule"], result["status"], result["roster"]), ("P1", "owner", []))
+        lower = _route(task_kind="review", tier="medium", prior={"escalated_count": 2})
+        self.assertEqual(lower["rule"], "B5")
+
+    def test_requested_and_approved_joins_the_full_team_at_high(self):
+        cases = [dict(), dict(task_kind="review", tier="high", lane="opus", critical_hit=True),
+                 dict(task_kind="implement", tier="high", lane="opus", critical_hit=True),
+                 dict(task_kind="verify", tier="high", lane="opus", prior={"findings": 1}),
+                 dict(task_kind="map", modules=4)]
         for case in cases:
             with self.subTest(case=case):
-                result = _route(**case)
-                self.assertEqual(result["rule"], "escalate-fable")
-                self.assertEqual([e for e in _running(result) if e["model"] == FABLE], [])
-        lower = _route(task_kind="review", tier="medium", prior={"escalated_count": 2})
-        self.assertNotEqual(lower["rule"], "escalate-fable")
+                base = _route(**case)
+                result = _route(owner_named=True, approvals=["escalate-fable"], **case)
+                self.assertEqual((result["rule"], result["status"]), (router.FABLE_RULE, "ok"))
+                team = [e for e in result["roster"] if e["role"] != router.FABLE_ROLE]
+                self.assertEqual(team, base["roster"])
+                fable = _fable_entries(result)
+                self.assertEqual(len(fable), 1)
+                f = fable[0]
+                self.assertEqual((f["role"], f["model"], f["launch"], f["effort"], f["requires_approval"]),
+                                 (router.FABLE_ROLE, FABLE, "run", "high", True))
+                self.assertEqual(f["step"], max([e["step"] for e in team], default=0) + 1)
+                self.assertIs(result["roster"][-1], f)
+                self.assertEqual(result["approvals"], ["escalate-fable"])
+
+    def test_requested_not_approved_keeps_the_team_skips_fable_without_substitute(self):
+        for case in (dict(), dict(task_kind="review", tier="high", lane="opus")):
+            with self.subTest(case=case):
+                base = _route(**case)
+                result = _route(owner_named=True, **case)
+                self.assertEqual((result["rule"], result["status"]), (router.FABLE_RULE, "ok"))
+                self.assertEqual([e for e in result["roster"] if e["role"] != router.FABLE_ROLE], base["roster"])
+                fable = _fable_entries(result)
+                self.assertEqual([(e["launch"], e["requires_approval"]) for e in fable], [("skip", True)])
+                self.assertEqual(len(result["roster"]), len(base["roster"]) + 1)
+                self.assertEqual(_roles(result), _roles(base))
+                self.assertIn("fable requested, awaiting owner approval", " ".join(result["reasons"]))
+                self.assertEqual(result["approvals"], [])
+        medium = _route(owner_named=True)
+        self.assertNotIn(("large", "claude-opus-5-5", "xhigh"), [r[1:] for r in _roles(medium)])
+
+    def test_fable_effort_never_above_high(self):
+        cat = copy.deepcopy(CATALOG)
+        cat["router"]["fable"]["effort"] = "max"
+        cat["router"]["effort_ceiling"] = {"tier": "orchestrator", "effort": "max"}
+        for catalog in (CATALOG, cat):
+            for approvals in ([], ["escalate-fable"]):
+                result = _route(catalog, task_kind="review", tier="high", lane="opus", critical_hit=True,
+                                owner_named=True, approvals=approvals)
+                with self.subTest(tampered=catalog is cat, approvals=approvals):
+                    self.assertEqual([e["effort"] for e in _fable_entries(result)], ["high"])
+        lowered = copy.deepcopy(CATALOG)
+        entry = next(e for e in lowered["tiers"]["orchestrator"]["candidates"] if e["id"] == FABLE)
+        entry["effort_ceiling"] = "medium"
+        result = _route(lowered, owner_named=True, approvals=["escalate-fable"])
+        self.assertEqual([e["effort"] for e in _fable_entries(result)], ["medium"])
+
+    def test_catalog_caps_fable_effort_and_context(self):
+        entry = next(e for e in CATALOG["tiers"]["orchestrator"]["candidates"] if e["id"] == FABLE)
+        self.assertEqual(entry["effort_ceiling"], "high")
+        self.assertEqual(entry["max_context_tokens"], 120000)
+        self.assertIn("Assumed", entry["_comment"])
+        self.assertNotIn("fallback", CATALOG["router"]["fable"])
+
+    def test_fable_entry_carries_max_context_tokens_from_the_catalog(self):
+        result = _route(owner_named=True, approvals=["escalate-fable"])
+        self.assertEqual([e["max_context_tokens"] for e in _fable_entries(result)], [120000])
+        cat = copy.deepcopy(CATALOG)
+        next(e for e in cat["tiers"]["orchestrator"]["candidates"] if e["id"] == FABLE)["max_context_tokens"] = 50000
+        tuned = _route(cat, owner_named=True)
+        self.assertEqual([e["max_context_tokens"] for e in _fable_entries(tuned)], [50000])
+
+    def test_cost_counts_fable_only_when_approved_and_at_the_context_cap(self):
+        base = _route()
+        denied = _route(owner_named=True)
+        self.assertEqual(denied["cost_estimate_usd"], base["cost_estimate_usd"])
+        approved = _route(owner_named=True, approvals=["escalate-fable"])
+        tokens_in, tokens_out = router._tokens(CATALOG, "orchestrator", router.FABLE_ROLE, FABLE)
+        self.assertLessEqual(tokens_in, 120000)
+        expected = round(base["cost_estimate_usd"] + (tokens_in * 10.0 + tokens_out * 50.0) / 1_000_000, 6)
+        self.assertAlmostEqual(approved["cost_estimate_usd"], expected, places=6)
+        cat = copy.deepcopy(CATALOG)
+        next(e for e in cat["tiers"]["orchestrator"]["candidates"] if e["id"] == FABLE)["max_context_tokens"] = 10000
+        self.assertEqual(router._tokens(cat, "orchestrator", router.FABLE_ROLE, FABLE)[0], 10000)
+
+    def test_owner_request_does_not_rescue_a_step_that_goes_to_the_owner(self):
+        result = _route(owner_named=True, approvals=["escalate-fable"], prior={"stalls": 2})
+        self.assertEqual((result["rule"], result["status"], result["roster"]), ("P1", "owner", []))
+
+    def test_offline_blocks_an_approved_fable(self):
+        result = _route(_fixture_catalog(local_small=True), task_kind="map", offline=True,
+                        owner_named=True, approvals=["escalate-fable"])
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(_running(result), [])
 
 
 class LogTests(unittest.TestCase):
@@ -611,7 +718,8 @@ class HardLimitTests(unittest.TestCase):
         cat = self._tampered()
         tasks = [_task(task_kind=k, tier=t, lane="opus" if t == "high" else "sonnet")
                  for k in router.TASK_KINDS for t in router.RDD_TIERS]
-        tasks += [_task(owner_named=True), _task(task_kind="map", modules=4),
+        tasks += [_task(owner_named=True), _task(owner_named=True, task_kind="review", tier="high", lane="opus",
+                                                 critical_hit=True), _task(task_kind="map", modules=4),
                   _task(prior={"truncated": True, "role": "generic-proposer"}),
                   _task(prior={"schema_fail": 2, "role": "generic-verifier"})]
         for task in tasks:
@@ -622,24 +730,29 @@ class HardLimitTests(unittest.TestCase):
                     if e["model"] == FABLE:
                         self.assertEqual((e["launch"], e["requires_approval"]), ("skip", True))
 
-    def test_tampered_fallback_to_fable_does_not_launch_it(self):
+    def test_a_legacy_fallback_in_the_catalog_is_ignored(self):
         cat = copy.deepcopy(CATALOG)
-        cat["router"]["fable"]["fallback"] = {"model": FABLE, "tier": "orchestrator", "effort": "high"}
+        cat["router"]["fable"]["fallback"] = {"model": "claude-opus-5-5", "tier": "large", "effort": "xhigh"}
         result = router.route(_task(owner_named=True), cat, AS_OF)
-        self.assertEqual([e for e in _running(result) if e["model"] == FABLE], [])
-        self.assertTrue(all(e["requires_approval"] for e in result["roster"] if e["model"] == FABLE))
+        self.assertEqual(result["rule"], router.FABLE_RULE)
+        self.assertNotIn(("large", "claude-opus-5-5", "xhigh"), [r[1:] for r in _roles(result)])
 
-    def test_non_admitted_model_named_by_the_catalog_needs_approval(self):
-        cat = copy.deepcopy(CATALOG)
-        cat["router"]["fable"]["fallback"] = {"model": "gpt-6-astra", "tier": "large", "effort": "high"}
-        result = router.route(_task(owner_named=True), cat, AS_OF)
-        astra = [e for e in result["roster"] if e["model"] == "gpt-6-astra"]
-        self.assertEqual([(e["launch"], e["requires_approval"]) for e in astra], [("skip", True)])
+    def test_any_model_in_the_fable_slot_needs_approval(self):
+        for model, tier in (("gpt-6-astra", "large"), ("claude-opus-5-5", "large")):
+            cat = copy.deepcopy(CATALOG)
+            cat["router"]["fable"].update(model=model, tier=tier)
+            with self.subTest(model=model):
+                result = router.route(_task(owner_named=True), cat, AS_OF)
+                slot = [e for e in result["roster"] if e["role"] == router.FABLE_ROLE]
+                self.assertEqual([(e["model"], e["launch"], e["requires_approval"]) for e in slot],
+                                 [(model, "skip", True)])
 
     def test_approved_fable_in_a_tampered_catalog_runs_only_on_the_escalation(self):
         cat = self._tampered()
         approved = router.route(_task(owner_named=True, approvals=["escalate-fable"]), cat, AS_OF)
         self.assertEqual(len([e for e in _running(approved) if e["model"] == FABLE]), 1)
+        self.assertEqual([e["role"] for e in _running(approved) if e["model"] == FABLE], [router.FABLE_ROLE])
+        self.assertEqual([e["effort"] for e in _running(approved) if e["model"] == FABLE], ["high"])
         default = router.route(_task(task_kind="review", tier="high", lane="opus", approvals=["escalate-fable"]), cat, AS_OF)
         self.assertEqual([e for e in _running(default) if e["model"] == FABLE], [])
 

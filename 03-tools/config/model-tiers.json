@@ -1,6 +1,6 @@
 {
-  "_comment": "The kit's tiers and candidate models per provider. status: admitted (measured with the multi-provider-routing.md §4 protocol, or by an explicit owner decision recorded in `decision`), approval-only (never in a default roster; the router may only propose it and the owner approves each launch), candidate (unmeasured), rejected (measured and dropped, see minutes). Prices are USD per million input/output tokens, standard rate, read on the updated date; they expire. The final choice per role is made by the harness installer reading this file. Router fields (R7, odd/tasks/model-router.md): price_schedule [{from, usd_in, usd_out}] where from=null means 'valid on the read date, start unknown' and the router picks the last entry whose from <= as_of; usd_in/usd_out mirror the first entry. effort_levels and effort_by_role use the provider's own level names. token_assumptions are Assumed (not measured) and are capped at max_context_tokens. launch gives the syntax per runtime; verified=false marks syntax never run on this machine.",
-  "version": "2026-10-16.r7",
+  "_comment": "The kit's tiers and candidate models per provider. status: admitted (measured with the multi-provider-routing.md §4 protocol, or by an explicit owner decision recorded in `decision`), approval-only (never in a default roster; L11: it joins a roster only when the owner requests it with the task field owner_named and approves each launch), candidate (unmeasured), rejected (measured and dropped, see minutes). Prices are USD per million input/output tokens, standard rate, read on the updated date; they expire. The final choice per role is made by the harness installer reading this file. Router fields (R7, odd/tasks/model-router.md): price_schedule [{from, usd_in, usd_out}] where from=null means 'valid on the read date, start unknown' and the router picks the last entry whose from <= as_of; usd_in/usd_out mirror the first entry. effort_levels and effort_by_role use the provider's own level names. token_assumptions are Assumed (not measured) and are capped at max_context_tokens. launch gives the syntax per runtime; verified=false marks syntax never run on this machine.",
+  "version": "2026-10-18.r11",
   "updated": "2026-10-16",
   "sources": "00-principles/multi-provider-routing.md §5; odd/research/model-router/routing-method.md §2",
   "router": {
@@ -36,11 +36,9 @@
       "model": "claude-fable-5-1",
       "tier": "orchestrator",
       "effort": "high",
-      "fallback": {
-        "model": "claude-opus-5-5",
-        "tier": "large",
-        "effort": "xhigh"
-      }
+      "role": "fable-deep-reasoning",
+      "request_field": "owner_named",
+      "note": "L11: on demand only; joins the matched roster as one extra final step, never replaces it; no substitute while unapproved; effort capped at the entry's effort_ceiling (router hard cap high)"
     },
     "log_default": "out/runs/routing.jsonl"
   },
@@ -835,12 +833,6 @@
           "assumed_tokens_out": 6000,
           "tag": "Assumed",
           "basis": "escalated cartographer; capped at max_context_tokens"
-        },
-        "owner-named-task": {
-          "assumed_tokens_in": 100000,
-          "assumed_tokens_out": 15000,
-          "tag": "Assumed",
-          "basis": "Fable fallback on an owner-named task"
         }
       }
     },
@@ -898,7 +890,10 @@
           "provider": "anthropic",
           "id": "claude-fable-5-1",
           "status": "approval-only",
-          "decision": "owner decision 2026-10-16 (L6): never in a default roster; router rule escalate-fable proposes it for one-off owner-named tasks and highest-reasoning verification, each launch approved by the owner",
+          "_comment": "effort_ceiling high is the owner's cap (L11, excessive token use). max_context_tokens 120000 is Assumed (not measured): the bounded context budget for one long, reasoning-heavy task; the owner can tune it.",
+          "decision": "owner decision 2026-10-18 (L11, supersedes L6's automatic proposals): never in a default roster and never proposed by the router; it joins the team only when the owner requests it (task owner_named: true) and approves the launch (approvals: escalate-fable)",
+          "effort_ceiling": "high",
+          "max_context_tokens": 120000,
           "read": "2026-10-16",
           "source": "odd/research/model-router/anthropic.md §1, §5",
           "price_schedule": [
@@ -921,8 +916,7 @@
           "effort_default": "high",
           "effort_by_role": {
             "orchestrator": "high",
-            "owner-named-task": "high",
-            "generic-judge": "high"
+            "fable-deep-reasoning": "high"
           },
           "launch": {
             "claude-code": {
@@ -1032,17 +1026,11 @@
           "tag": "Assumed",
           "basis": "orchestrator cap 150k"
         },
-        "owner-named-task": {
-          "assumed_tokens_in": 100000,
-          "assumed_tokens_out": 15000,
+        "fable-deep-reasoning": {
+          "assumed_tokens_in": 120000,
+          "assumed_tokens_out": 20000,
           "tag": "Assumed",
-          "basis": "one-off owner-named task"
-        },
-        "generic-judge": {
-          "assumed_tokens_in": 60000,
-          "assumed_tokens_out": 6000,
-          "tag": "Assumed",
-          "basis": "highest-reasoning verification"
+          "basis": "owner-requested Fable step (L11); capped at the Fable entry's max_context_tokens"
         }
       }
     }

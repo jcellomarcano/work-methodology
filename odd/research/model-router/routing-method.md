@@ -39,7 +39,8 @@ Prices are USD/MTok, standard tier, and expire.
    then the cheapest roster under budget. Budget never removes a mandatory role ([M§4]; [RR§3]).
 8. **Catalog refresh.** The owner admitted the Claude 5.5 family by decision (L5, cost), not by the [MPR§4] test:
    Haiku, Sonnet and Opus 5.5 replace Haiku 4.5, Sonnet 5 and Opus 5, and Opus 5.5 becomes the orchestrator. The
-   new Google, OpenAI and local models still enter as `candidate` ([MPR§4]).
+   new Google, OpenAI and local models still enter as `candidate` ([MPR§4]). Fable 5.1 is never routed by itself:
+   it joins a roster only on the owner's request and approval, at ≤ high with a bounded context (L11, §3).
 9. **Prices carry dates, and the router takes `as_of` as an input** (never the system clock). Argon doubles on
    2026-12-01 and the Flash tiers on 2027-01-01 ([G§1]).
 10. **Every decision writes one log line** so cost and quality per tier can be attributed ([M§4]; §5 below).
@@ -54,7 +55,7 @@ default / critical path at the high tier.
 | small | A `claude-haiku-5-5` low / medium, $0.10/$0.50 for prompts ≤100K (owner decision L5) [A§1,§5]; legacy `claude-haiku-4-5` | C `gemini-3.5-flash-lite` minimal / medium, $0.30/$2.50 [G§1,§5] | C `gpt-6-luna` low / high, $0.10/$0.50 [O§1,§5] | C `qwen3.5:9b`, `gemma4:12b-it`, `gpt-oss:20b` with thinking off / low [L§1,§4] |
 | medium | A `claude-sonnet-5-5` medium / medium / high, $2/$10 (owner decision L5) [A§1,§5]; legacy `claude-sonnet-5` | C `gemini-3.8-flash` low→medium / medium / medium, $0.75/$3.75 until 2026-12-31 [G§1,§5] | C `gpt-6-luna` high (cartographer); `gpt-6.1-sol` medium (proposer, verifier, judge), $2/$10 [O§5] | C only: 24-36B at Q4 with 64K context (e.g. `qwen3.8:27b-q4_K_M`), never measured here [L§2,§4] |
 | large | A `claude-opus-5-5` high / xhigh, $4/$20 (owner decision L5) [A§1,§5]; legacy `claude-opus-5` | C `gemini-4-argon` high, $2/$10 → $4/$20 from 2026-12-01 [G§0,§5] | C `gpt-6-astra` high, $10/$50; cheaper trial `gpt-6.1-sol` xhigh [O§5] | none: "Not a fit" [L§4] |
-| orchestrator | A `claude-opus-5-5` high, $4/$20 (owner decision L5; Anthropic: matches Fable "for about a fifth of the cost per solved task" [A§5]); `claude-fable-5-1` $10/$50: an owner-approved escalation only (L6) | C `gemini-4-argon` medium, not through Gemini CLI [G§5] | C `gpt-6-astra` medium [O§5] | none [L§4] |
+| orchestrator | A `claude-opus-5-5` high, $4/$20 (owner decision L5; Anthropic: matches Fable "for about a fifth of the cost per solved task" [A§5]); `claude-fable-5-1` $10/$50: on the owner's request and approval only, joining the team at ≤ high (L11) | C `gemini-4-argon` medium, not through Gemini CLI [G§5] | C `gpt-6-astra` medium [O§5] | none [L§4] |
 
 Catalog rules for R7 [Inferred]:
 - Replace the stale candidates in [MT]: `gemini-3.1-pro-preview` becomes `gemini-4-argon` ([G§1]: GA vs preview).
@@ -83,12 +84,12 @@ roster; P-rows react to the previous step and are checked before the base rows. 
 | guard:catalog | catalog not an object; a `tier_ladder` or Fable-slot tier missing; a candidate not an object or without `provider`, `id`, `usd_in`; `max_parallel` not an int ≥ 1 | none; CLI exit 2, MCP isError | 0 |
 | guard:as_of | `as_of` not a real calendar date (`datetime.date.fromisoformat`: 2026-13-45 fails) | none; CLI exit 2, MCP isError | 0 |
 | guard:task_kind, guard:tier, guard:lane, guard:full_required | unknown `task_kind`; missing `tier`; `lane=opus` or `full_required` with `tier≠high` (stale input: rdd_risk maps opus to high; [RR§3] "bumps the layer to high") | none | 0 |
-| P1 | `prior.stalls ≥ 2` on this step | none; `status: owner` ([MR] "two stalls") | 0 |
-| escalate-fable | (L6) an owner-named one-off task, or a verification that warrants the highest reasoning: a P0 on a critical path, a disagreement unresolved after the large judge, a high-tier receipt escalated twice | Fable 5.1 orchestrator/high, `requires_approval: true`; runs only when the list `approvals` holds exactly `escalate-fable`; unapproved → Fable skipped and Opus 5.5 large/xhigh runs instead | 1 |
+| P1 | `prior.stalls ≥ 2` on this step, or (L11) `prior.escalated_count ≥ 2` at `tier=high` | none; `status: owner` ([MR] "two stalls"; two escalations exhaust the ladder) | 0 |
+| escalate-fable | (L11, supersedes L6's automatic triggers) not a first-match row: applied after the matched row resolves `ok`, only when the owner requests Fable with `owner_named: true`; the router never proposes it on its own | the matched roster unchanged (every mandatory role kept) + one `fable-deep-reasoning` entry on Fable 5.1 in its own final step, effort ≤ `high` (catalog `effort_ceiling`), `max_context_tokens` from the catalog (120k, Assumed), `requires_approval: true`; runs only when the list `approvals` holds exactly `escalate-fable`; unapproved → skipped with reason "fable requested, awaiting owner approval", no substitute; costed only when it runs | +1 |
 | P2 | `prior.truncated` | same role, same tier/effort, scope split by module; once ([AP§2]) | 3 |
 | P3 | `prior.schema=FAIL` | same role, effort +1; a second FAIL → tier +1 ([M§3] diligence) | 1 |
-| P4 | `prior.p0_from_tier ∈ {small, medium}` | same role, one tier up, to confirm the P0 before it counts ([MR]) | 1 |
-| P5 | `prior.disagreement` between adversaries | judge large/high; large/xhigh if `critical_hit` ([M§4] D6) | 1 |
+| P4 | `prior.p0_from_tier ∈ {small, medium}` | same role, one tier up, to confirm the P0 before it counts ([MR]); at xhigh on a critical path (L11, never Fable) | 1 |
+| P5 | `prior.disagreement` between adversaries | judge large/high; large/xhigh if `critical_hit` ([M§4] D6); after the large judge (`judge_tier=large`): large/xhigh once, then `status: owner` (L11, never Fable) | 1 |
 | P6 | `prior.verdict=FAIL` from the verifier | proposer again, same tier/effort, once; second FAIL → P1 ([M§4] D3) | 1 |
 | B0 | `tier=exempt` (any kind) | skip all subagents; scripts only (`docs_lint`) ([RR§3]) | 0 |
 | B1 | `tier=low`, or `task_kind=comment` | scripts (contract, `comment_gate.py`); comment-gate small/low only if new comments > 0 | 1 |
@@ -104,7 +105,7 @@ roster; P-rows react to the previous step and are checked before the base rows. 
 **Model resolution**, per roster entry [Inferred]: the provider order comes from the `admitted` entries for the role's
 tier, in catalog order. Today that is Anthropic only. A `candidate` fills only the B6 trial slot: one third adversary
 from another provider, tagged `trial`, rated by a blind judge ([MPR§2]; [M§5] rule 8; cross-family judge bias [M§1]). The proposer stays on the incumbent until a low-risk trial ([MPR§2]). The availability fallback is the next admitted model, at most 3 ([A§3] `--fallback-model`).
-**Hard limits no catalog value overrides:** at most min(`max_parallel`, 3) roles per step; `claude-fable-5-1`, or any model whose status is not `admitted` (the owner-enabled trial `candidate` excepted), never runs without the owner's `escalate-fable` approval and always carries `requires_approval: true`; no automatic step (P2, P3, P6, the ladder) keeps or sets `max`.
+**Hard limits no catalog value overrides:** at most min(`max_parallel`, 3) roles per step; `claude-fable-5-1`, or any model whose status is not `admitted` (the owner-enabled trial `candidate` excepted), never runs without the owner's `escalate-fable` approval and always carries `requires_approval: true`; Fable never runs above `high` (L11); no automatic step (P2, P3, P6, the ladder) keeps or sets `max`.
 
 **Post-passes** (in order, after the row):
 1. **Offline**: if `offline=true`, keep only local admitted models. A mandatory role with no admitted local model →
@@ -201,7 +202,7 @@ roster: [{role, tier, provider, model, effort, launch, mode, fanout, trial}], es
 
 ## 7. Open decisions for the owner
 
-1. **[Decided L5: Opus 5.5] Orchestrator.** Opus 5.5 matches Fable "for about a fifth of the cost per solved task" ([A§5]); Fable 5.1 is an approved escalation only (L6).
+1. **[Decided L5: Opus 5.5] Orchestrator.** Opus 5.5 matches Fable "for about a fifth of the cost per solved task" ([A§5]); Fable 5.1 joins only on the owner's request and approval, never proposed by the router, at ≤ high with a bounded context (L11, superseding L6).
 2. **[Decided L5: yes, now] Incumbent refresh to the 5.5 family**, by owner decision on cost, not by the [MPR§4] admission test.
 3. **Router authority.** *Rec.:* the router is authoritative at launch (R9). Frontmatter is generated from admitted
    catalog defaults and is used only when the router has not run.

@@ -46,8 +46,9 @@ dominated by file reading, not by the brief.
 `03-tools/bin/route.sh` decides model and effort at launch (owner decision L4 in
 `odd/tasks/model-router.md`): a first-match table over the task descriptor and the dated catalog
 `03-tools/config/model-tiers.json`; agent frontmatter is only the fallback. Fable 5.1 never enters a
-default roster: the router only proposes it (`escalate-fable`) and it runs with the owner's approval
-(L6). `03-tools/lib/router_eval.py` and its fixtures in `03-tools/tests/fixtures/router/` guard the
+default roster and the router never proposes it (L11): the owner requests it (`owner_named`), it
+joins the team as one extra step at most `high` with a bounded context, and runs only on approval.
+`03-tools/lib/router_eval.py` and its fixtures in `03-tools/tests/fixtures/router/` guard the
 decision table: every reachable rule is covered and a miss fails the run.
 
 ## Other providers

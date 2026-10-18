@@ -3,19 +3,13 @@
   "expect": {
     "roster": [
       {
-        "effort": "high",
-        "launch": "skip",
-        "model": "claude-fable-5-1",
-        "role": "generic-judge"
-      },
-      {
         "effort": "xhigh",
         "launch": "run",
         "model": "claude-opus-5-5",
         "role": "generic-judge"
       }
     ],
-    "rule": "escalate-fable",
+    "rule": "P4",
     "status": "ok"
   },
   "input": {
@@ -29,5 +23,6 @@
     "task_kind": "review",
     "tier": "high"
   },
-  "name": "fable-p0-critical-not-approved"
+  "name": "fable-p0-critical-not-approved",
+  "note": "L11: a P0 on a critical path no longer proposes Fable; P4 confirms it one tier up on Opus 5.5 at xhigh"
 }

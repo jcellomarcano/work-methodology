@@ -1,0 +1,22 @@
+{
+  "as_of": "2026-10-16",
+  "expect": {
+    "roster": [],
+    "rule": "P5",
+    "status": "owner"
+  },
+  "input": {
+    "lane": "opus",
+    "map_age_days": 1,
+    "modules": 1,
+    "prior": {
+      "disagreement": true,
+      "effort": "xhigh",
+      "judge_tier": "large"
+    },
+    "task_kind": "review",
+    "tier": "high"
+  },
+  "name": "fable-not-proposed-disagreement-at-ceiling-owner",
+  "note": "L11: disagreement after the large judge at xhigh: the ladder is exhausted, the owner decides"
+}

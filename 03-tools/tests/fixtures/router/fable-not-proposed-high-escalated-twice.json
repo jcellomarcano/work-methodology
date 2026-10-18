@@ -1,0 +1,20 @@
+{
+  "as_of": "2026-10-16",
+  "expect": {
+    "roster": [],
+    "rule": "P1",
+    "status": "owner"
+  },
+  "input": {
+    "lane": "opus",
+    "map_age_days": 1,
+    "modules": 1,
+    "prior": {
+      "escalated_count": 2
+    },
+    "task_kind": "review",
+    "tier": "high"
+  },
+  "name": "fable-not-proposed-high-escalated-twice",
+  "note": "L11: a high-tier receipt escalated twice goes to the owner, never to Fable"
+}

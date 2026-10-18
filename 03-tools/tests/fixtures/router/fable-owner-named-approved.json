@@ -3,10 +3,22 @@
   "expect": {
     "roster": [
       {
+        "effort": "medium",
+        "launch": "run",
+        "model": "claude-sonnet-5-5",
+        "role": "generic-proposer"
+      },
+      {
+        "effort": "high",
+        "launch": "run",
+        "model": "claude-sonnet-5-5",
+        "role": "generic-verifier"
+      },
+      {
         "effort": "high",
         "launch": "run",
         "model": "claude-fable-5-1",
-        "role": "owner-named-task"
+        "role": "fable-deep-reasoning"
       }
     ],
     "rule": "escalate-fable",
@@ -23,5 +35,6 @@
     "task_kind": "implement",
     "tier": "medium"
   },
-  "name": "fable-owner-named-approved"
+  "name": "fable-owner-named-approved",
+  "note": "L11: owner-requested and approved; the B3 team runs and Fable joins in its own final step at high"
 }
