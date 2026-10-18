@@ -2,7 +2,7 @@
 maxTurns/max_turns; every mcp__metodo__X tool exists in the catalog;
 the roles the catalog lists for a tool carry it in their
 frontmatter; Bash only in proposer and verifier; every role carries the
-output hook; no body carries an em dash."""
+output hook; every body names its output schema; no body carries an em dash."""
 import json
 import re
 import unittest
@@ -91,11 +91,14 @@ class AgentsContractsSyncTests(unittest.TestCase):
             self.assertIn("metodo-hook", fm["_raw"], role)
             self.assertIn("mcp__metodo__output_write", contract["tools"], role)
 
-    def test_bodies_point_to_schema_files_and_have_no_em_dash(self):
+    def test_bodies_name_the_output_schema_and_have_no_em_dash(self):
+        # the schema by the name output_write validates, never a kit path that
+        # does not exist once the agent is installed in a target repo
         for role, (_, _, text) in self.pairs.items():
             self.assertNotIn("—", text, role)
             self.assertNotIn("Inline schema", text, role)
-            self.assertIn(f"schemas/{round_files.ROLE_SCHEMA[role]}.schema.json", text, role)
+            self.assertIn(f"mcp__metodo__output_write` (schema `{round_files.ROLE_SCHEMA[role]}`", text, role)
+            self.assertNotIn("schema.json", text, role)
 
     def test_negative_control_detects_a_missing_tool(self):
         fm, contract, _ = self.pairs["generic-judge"]

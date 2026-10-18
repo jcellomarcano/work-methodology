@@ -32,7 +32,7 @@ including what was left untested and everything irreversible.
    when there is something to do or decide, and `Not tested:` with what remains unverified. Everything
    irreversible (deletions, an order processed twice, lost data, forced pushes) is said here even if repeated below.
 4. Only when needed, `## Technical detail`: paths, commands, figures and quotes, every claim with its tag
-   (`[Medido]`, `[Probado]`, `[Inferido]`, `[Asumido]`, `[Desconocido]`), whether bullet, table row or
+   (`[Measured]`, `[Tested]`, `[Inferred]`, `[Assumed]`, `[Unknown]`), whether bullet, table row or
    paragraph. Only those five tags. The human layer carries none.
 
 ## Language

@@ -123,7 +123,8 @@ PY
     for root in "${ROOTS[@]}"; do
       mkdir -p "$RENDER_TMP/c$i"
       out="$RENDER_TMP/c$i/$(basename "$f")"
-      python3 "$TOOLS_ROOT/lib/render_agents.py" "$f" --target pi --tools-default "$root" --out "$out" >/dev/null
+      python3 "$TOOLS_ROOT/lib/render_agents.py" "$f" --target pi --tools-default "$root" \
+        --core-source "$KIT_ROOT/CONTEXT-PACK.md" --out "$out" >/dev/null
       cands+=("$out"); i=$((i + 1))
     done
     remove_if_rendered "$AGENTS_DST/$(basename "$f")" "${cands[@]}"
@@ -230,9 +231,12 @@ trap 'rm -rf "$RENDER_TMP"' EXIT
 
 echo "== generic-* agents -> $AGENTS_DST =="
 shopt -s nullglob
+# render_agents.py appends the subagent core of the kit's CONTEXT-PACK.md to
+# every agent, before the contract section and the role marker (last line).
 for f in "$AGENTS_SRC"/generic-*.md; do
   out="$RENDER_TMP/$(basename "$f")"
-  python3 "$TOOLS_ROOT/lib/render_agents.py" "$f" --target pi --tools-default "$TOOLS_DIR" --out "$out"
+  python3 "$TOOLS_ROOT/lib/render_agents.py" "$f" --target pi --tools-default "$TOOLS_DIR" \
+    --core-source "$KIT_ROOT/CONTEXT-PACK.md" --out "$out"
   copy_one "$out" "$AGENTS_DST/$(basename "$f")"
 done
 shopt -u nullglob

@@ -202,7 +202,7 @@ TOOLS: tuple[ToolSpec, ...] = (
              ok_exit=frozenset({0, 1}), timeout_s=30, roles=("proposer", "judge")),
     ToolSpec("change_card_extract", "Read a change card best-effort (never fails); for commit bodies and drafts.",
              _obj({"card_path": S, "card_text": S, "repo": S}), argv=_card_argv(True), stdin=_card_stdin, timeout_s=30),
-    ToolSpec("shape_metrics", "Kotlin shape metrics per module (files, functions, lengths); heuristic, labelled Inferido.",
+    ToolSpec("shape_metrics", "Kotlin shape metrics per module (files, functions, lengths); heuristic, so tag its figures Inferred.",
              _obj({"repo": S, "modules": A}),
              argv=lambda a, c: _py(c, "shape_metrics.py") + [_repo(a, c)] + (["--modules", ",".join(a["modules"])] if a.get("modules") else []),
              mode="outfile", outfile=lambda a, c, sha: _out(c, sha, "metrics.json"), timeout_s=120, roles=("cartographer",)),

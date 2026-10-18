@@ -35,10 +35,12 @@ tree, new receipt).
 
 ## 5. Cold-start context pack
 
-Fixed size: the kit's `CONTEXT-PACK.md` + the module map (paths and LOC, not content) + the role's
-contract + pointers to the project's conventions. Never the whole repo. The rest is read on demand within
-the brief's `scope`. Cost is dominated by file reading, not by the brief: the savings live in `scope` and
-`STOP`.
+Fixed size: the subagent core + the module map (paths and LOC, not content) + the role's contract +
+pointers to the project's conventions; never the whole repo. The core is the `CONTEXT-PACK.md` section
+between `<!-- subagent-core:start -->` and `<!-- subagent-core:end -->`; `lib/render_agents.py` appends
+it byte for byte to every agent the installers write (on pi, before the contract and the role marker),
+so no body copies it. The rest is read on demand within the brief's `scope`; the savings live in `scope`
+and `STOP`, since file reading dominates cost.
 
 ## 6. Role contract (machine-readable)
 

@@ -32,6 +32,23 @@ def _assert_second_pass_unchanged(test: unittest.TestCase, stdout: str) -> None:
     test.assertNotIn('"changed": true', stdout)
 
 
+def _source_core() -> str:
+    """The subagent core as CONTEXT-PACK.md holds it, read here on its own."""
+    text = (TOOLS_ROOT.parent / "CONTEXT-PACK.md").read_text(encoding="utf-8")
+    start = text.index("<!-- subagent-core:start -->") + len("<!-- subagent-core:start -->")
+    return text[start:text.index("<!-- subagent-core:end -->")].strip("\n")
+
+
+def _assert_agents_carry_the_core(test: unittest.TestCase, agents_dir: Path) -> None:
+    core = _source_core()
+    installed = sorted(agents_dir.glob("generic-*.md"))
+    test.assertEqual(len(installed), len(list((TOOLS_ROOT.parent / "01-roles" / "agents").glob("generic-*.md"))))
+    for path in installed:
+        text = path.read_text(encoding="utf-8")
+        test.assertEqual(text.count(core), 1, path.name)
+        test.assertNotIn("../", text, path.name)
+
+
 def _git(cwd: Path, *args: str) -> str:
     return subprocess.run(["git", "-C", str(cwd), *args], check=True, capture_output=True, text=True).stdout.strip()
 
@@ -63,6 +80,7 @@ class InstallClaudeTests(unittest.TestCase):
         self.assertIn("${METODO_TOOLS:-$HOME/metodologia-de-trabajo/03-tools}/hooks", judge)
         self.assertNotIn("__TOOLS_DEFAULT__", judge)
         self.assertTrue((agents / "generic-judge.contract.json").exists())
+        _assert_agents_carry_the_core(self, agents)
         self.assertEqual((agents / "domain-redteam.md").read_text(encoding="utf-8"), "---\nname: domain-redteam\n---\nother\n")
         self.assertTrue((self.repo / ".claude" / "skills" / "receipt-review" / "SKILL.md").exists())
         mcp = json.loads((self.repo / ".mcp.json").read_text(encoding="utf-8"))
@@ -184,6 +202,11 @@ class InstallPiTests(unittest.TestCase):
         skill = (self.repo / ".pi" / "skills" / PUBLISH_SKILL / "SKILL.md").read_text(encoding="utf-8")
         self.assertIn(f"${{METODO_TOOLS:-{TOOLS_ROOT}}}/lib/review_comment_post.py", skill)
         self.assertNotIn("__TOOLS_DEFAULT__", skill)
+        agents = self.repo / ".pi" / "agents"
+        _assert_agents_carry_the_core(self, agents)
+        for path in agents.glob("generic-*.md"):
+            # the extension reads the role marker as the last line
+            self.assertEqual(path.read_text(encoding="utf-8").rstrip("\n").splitlines()[-1], f"<!-- metodo-role: {path.stem} -->")
         second = self._run()
         self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
         _assert_second_pass_unchanged(self, second.stdout)

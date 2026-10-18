@@ -1,7 +1,6 @@
 # Context pack · read this first (≤ 120 lines)
 
-You are an agent entering a project that works under this methodology. This file gives you the full
-context in five minutes. The long material is linked; do not read it until a task calls for it.
+You are entering a project that works under this methodology. Linked material waits until a task needs it.
 
 ## 1. What we optimize
 
@@ -10,8 +9,7 @@ what is protected, in tie-break order (example, an invented bookings service: ca
 state, request identity, integrity, auditability, recoverability, security, UX). Speed yields to the
 properties above it. **Simplicity before over-engineering**: the simplest solution that satisfies the
 invariants wins; a new abstraction earns its cost only with a second real reason to change. The central
-question: how do we build systems that keep evolving without losing what makes them correct? Today's
-code is tomorrow's legacy.
+question: how do systems keep evolving without losing what makes them correct?
 
 ## 2. The rules that govern (summary of `00-principles/methodology.md`)
 
@@ -44,11 +42,9 @@ code is tomorrow's legacy.
   ordered JSON output, no timestamps, `tool_sha` and `repo_sha`, baseline per sha and delta. Same sha,
   same output. Every script ships with a negative control and a determinism test. Skills wrap scripts;
   the model interprets, never re-derives numbers.
-- **Benchmark per release.** No merge to the release branch without a benchmark (what improves, what
-  worsens, why, how, what was NOT measured), based on the last shipped tag. What's internal to the PR
-  goes inside `<!-- -->`.
-- **Measurement in a real environment**: one primary metric per arm, single-variable arms, medians,
-  negative control, declared observer effect, declared simulations.
+- **Benchmark per release.** No merge to the release branch without a benchmark against the last
+  shipped tag, including what was NOT measured.
+- **Real-environment measurement**: one primary metric per single-variable arm, medians, negative control.
 
 ## 3. How work is routed (`model-routing.md`)
 
@@ -61,20 +57,28 @@ code is tomorrow's legacy.
 | needs adversarial judgment or touches the irreversible | large model (challenger, blind spots, judge) | 60k |
 | is a high-impact decision | the owner | |
 
-Never a general-purpose agent: each role is an agent with `model`, minimal `tools`, a JSON contract
-(`forbidden_paths`, `may_write`, `may_spawn: []`, `max_context_tokens`). An agent returns JSON or a
-table, never dumps. A medium model orchestrates the routine work; the highest-judgment model designs,
-decides, and talks to the owner. Exceeding the cap is a protocol finding, not an agent failure.
+Never a general-purpose agent: each role has a model, minimal tools and a JSON contract; `bin/route.sh`
+picks model and effort per launch. Exceeding the cap is a protocol finding, not an agent failure.
 
 ## 4. How agents are briefed and how they answer (`agent-protocol.md`)
 
 Fixed-template brief in terse English: `ROLE · OBJECTIVE · INPUTS (paths) · CONSTRAINTS · OUTPUT
-(schema) · STOP · BUDGET · EVIDENCE`. You answer JSON against the schema, with an epistemic tag per
-claim and `truncated`/`not_covered` if you exhaust the cap. You cite the code **statement**, never a
-comment (measured: 5 of 6 agents called an imperative machine pure because its KDoc said so).
-Handoff via a numbered file; the script sets the sha. You do not reword the brief, you do not spawn
-subagents without `may_spawn`, you do not talk to the owner: that's the orchestrator's job. With the
-owner, use their language.
+(schema) · STOP · BUDGET · EVIDENCE`. Handoff via a numbered file; the script sets the sha. With the
+owner, use their language. The installers append this core, byte for byte, to every kit agent:
+
+<!-- subagent-core:start -->
+- The kit: a working method for AI-built software. Scripts measure; in each round's loop (cartographer,
+  proposer, comment gate, challenger with blind-spot adversary, judge, verifier, style and boundary
+  reviewers, mechanic) role agents map, build, attack, rule and verify one change card; the owner decides.
+- Evidence or silence: cite the code statement at `file:line`, never a comment; tag every claim
+  Measured, Tested, Inferred, Assumed or Unknown.
+- Answer JSON only, with `mcp__metodo__output_write` and your role's schema; a FAIL writes nothing,
+  so fix and retry. Zero findings is valid. Never reword the brief.
+- On a budget deny, stop and emit your JSON with `truncated: true` and `not_covered`.
+- Never edit shared build files or `.claude/**`, with any tool, Bash included.
+- Push, PR, merge, tags, external tickets, receipt start/finalize/acknowledge: the owner's; report
+  them, never run them. Never talk to the owner; never spawn agents.
+<!-- subagent-core:end -->
 
 ## 5. The full loop
 

@@ -2,23 +2,26 @@
 """Renders a kit role (01-roles/agents/generic-*.md plus its .contract.json)
 into the agent format a runtime understands.
 
-Two targets:
+Both targets append the subagent core: the block of the kit's CONTEXT-PACK.md
+between <!-- subagent-core:start --> and <!-- subagent-core:end -->, byte for
+byte, under a "## Kit core" heading. It is the one source of the cold-start
+rules every role shares (evidence tags, JSON output, budget deny, build files,
+owner gates, no subagents), so no body copies them by hand.
 
-    --target claude   the current Claude Code file, byte for byte, with only
-                      __TOOLS_DEFAULT__ replaced. Nothing else is touched, so
-                      install-claude.sh can adopt this later without any diff.
+    --target claude   the Claude Code file with __TOOLS_DEFAULT__ replaced and
+                      the core appended. install-claude.sh renders with it.
     --target pi       pi frontmatter (name, description, tools as a YAML list
-                      of lowercase built-ins) plus the original body and a
-                      rendered contract section. The kit's pi extension
-                      enforces only part of the contract (gates, budget per
-                      subagent, output check recorded but not blocked), so the
-                      whole contract also travels as prose there. The last line is a role
-                      marker (<!-- metodo-role: <name> -->) that
+                      of lowercase built-ins), the body, the core and a
+                      rendered contract section with what only the contract
+                      knows (tool-call cap, forbidden and writable paths,
+                      handoff targets): the kit's pi extension enforces only
+                      part of it, so it also travels as prose. The last line
+                      is a role marker (<!-- metodo-role: <name> -->) that
                       hooks/pi/metodo-hooks.ts reads to find the contract.
 
 Usage:
-    lib/render_agents.py --target pi <agent.md> [--tools-default EXPR]
-    lib/render_agents.py --target claude <agent.md> [--tools-default EXPR]
+    lib/render_agents.py --target pi <agent.md> [--tools-default EXPR] [--core-source FILE]
+    lib/render_agents.py --target claude <agent.md> [--tools-default EXPR] [--core-source FILE]
 
 Output goes to stdout, or to --out <file>.
 """
@@ -46,6 +49,10 @@ MCP_PREFIX = "mcp__metodo__"
 # hooks/pi/metodo-hooks.ts reads this line out of the system prompt and only
 # accepts [A-Za-z0-9_-] names: a role name is a contract file stem.
 ROLE_MARKER = "<!-- metodo-role: {name} -->"
+CORE_SOURCE = Path(__file__).resolve().parent.parent.parent / "CONTEXT-PACK.md"
+CORE_START = "<!-- subagent-core:start -->"
+CORE_END = "<!-- subagent-core:end -->"
+CORE_HEADING = "## Kit core"
 
 
 def split_frontmatter(text: str) -> tuple[str, str]:
@@ -85,14 +92,36 @@ def map_tools(claude_tools: list[str]) -> tuple[list[str], list[str]]:
     return kept, dropped
 
 
+def load_core(source: Path = CORE_SOURCE) -> str:
+    """The subagent core: the text between the two markers, without the
+    newlines around it. A missing file or marker is an error, never an
+    agent rendered without its cold-start rules."""
+    if not source.is_file():
+        raise ValueError(f"subagent core source not found: {source}")
+    text = source.read_text(encoding="utf-8")
+    start, end = text.find(CORE_START), text.find(CORE_END)
+    if start == -1 or end == -1 or end < start:
+        raise ValueError(f"{source} has no {CORE_START} ... {CORE_END} section")
+    core = text[start + len(CORE_START):end].strip("\n")
+    if not core:
+        raise ValueError(f"{source}: the subagent core section is empty")
+    return core
+
+
+def core_section(core: str) -> str:
+    return f"{CORE_HEADING}\n\n{core}\n"
+
+
 def contract_section(contract: dict) -> str:
-    """The part of the contract the Claude harness enforces with hooks and pi
-    cannot: budget, forbidden paths, output schema and handoff."""
+    """What only the contract knows and the pi harness cannot enforce: the
+    tool-call cap, forbidden and writable paths, handoff targets. The shared
+    rules (budget deny, build files, output FAIL, delivery) live in the core,
+    and the output_write call with its schema lives in the body: none is
+    repeated here."""
     cap = contract.get("max_tool_calls")
     forbidden = list(contract.get("forbidden_paths") or [])
     may_write = [g for g in (contract.get("may_write") or []) if "<" not in g]
     targets = list(contract.get("handoff_targets") or [])
-    writes_output = any(t.endswith("output_write") for t in (contract.get("tools") or []))
     writes_handoff = any(t.endswith("handoff_write") for t in (contract.get("tools") or []))
 
     lines = ["## Contract (partly enforced by the extension on this runtime)", ""]
@@ -100,30 +129,23 @@ def contract_section(contract: dict) -> str:
                  "Every rule below is yours to keep.")
     lines.append("")
     if cap:
-        lines.append(f"- Budget: at most {cap} tool calls. On reaching it, stop and emit your JSON "
-                     "with `truncated: true` and `not_covered` filled in.")
-    lines.append("- Forbidden paths: " + (", ".join(f"`{p}`" for p in forbidden) if forbidden else "none of its own")
-                 + ". The project's shared build files and `**/.claude/**` are always off-limits too.")
+        lines.append(f"- Budget: at most {cap} tool calls.")
+    lines.append("- Forbidden paths: " + (", ".join(f"`{p}`" for p in forbidden) if forbidden else "none of its own") + ".")
     if may_write:
         lines.append("- May write: " + ", ".join(f"`{g}`" for g in may_write) + ", and nothing else.")
     else:
         lines.append("- May write: nothing outside the round directory this role is given.")
-    if writes_output:
-        lines.append("- Output: write your document with `mcp__metodo__output_write` under the schema your "
-                     "protocol names. A FAIL validation writes nothing, so fix the document and write again.")
     if writes_handoff:
         handoff_to = ", ".join(f"`{t}`" for t in targets) if targets else "nobody (you are a terminal role)"
-        lines.append(f"- Handoff: close with `mcp__metodo__handoff_write` toward {handoff_to}.")
-    lines.append("- Delivery (push, PR, merge, tag) and receipt start/finalize/acknowledge belong to the owner. "
-                 "Report them in your output; never run them.")
+        lines.append(f"- Hand off to: {handoff_to}.")
     return "\n".join(lines) + "\n"
 
 
-def render_claude(text: str, tools_default: str) -> str:
-    return text.replace(TOOLS_DEFAULT_TOKEN, tools_default)
+def render_claude(text: str, tools_default: str, core: str) -> str:
+    return text.replace(TOOLS_DEFAULT_TOKEN, tools_default).rstrip("\n") + "\n\n" + core_section(core)
 
 
-def render_pi(text: str, contract: dict) -> str:
+def render_pi(text: str, contract: dict, core: str) -> str:
     frontmatter, body = split_frontmatter(text)
     name = frontmatter_field(frontmatter, "name")
     description = frontmatter_field(frontmatter, "description")
@@ -139,6 +161,7 @@ def render_pi(text: str, contract: dict) -> str:
     body = body.lstrip("\n")
     out.append(body.rstrip("\n"))
     out.append("")
+    out.append(core_section(core))
     out.append(contract_section(contract))
     if name:
         out.append(ROLE_MARKER.format(name=name) + "\n")
@@ -157,11 +180,13 @@ def load_contract(agent_path: Path, explicit: str | None) -> dict:
 
 
 def render(agent_path: Path, target: str, tools_default: str = DEFAULT_TOOLS_EXPR,
-           contract: dict | None = None) -> str:
+           contract: dict | None = None, core: str | None = None) -> str:
     text = agent_path.read_text(encoding="utf-8")
+    core = load_core() if core is None else core
     if target == "claude":
-        return render_claude(text, tools_default)
-    return render_pi(render_claude(text, tools_default), contract if contract is not None else load_contract(agent_path, None))
+        return render_claude(text, tools_default, core)
+    return render_pi(text.replace(TOOLS_DEFAULT_TOKEN, tools_default),
+                     contract if contract is not None else load_contract(agent_path, None), core)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -170,13 +195,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--target", choices=("claude", "pi"), required=True)
     parser.add_argument("--tools-default", default=DEFAULT_TOOLS_EXPR)
     parser.add_argument("--contract", default=None, help="contract JSON, defaults to <agent>.contract.json")
+    parser.add_argument("--core-source", default=str(CORE_SOURCE),
+                        help="file holding the subagent-core section, defaults to the kit's CONTEXT-PACK.md")
     parser.add_argument("--out", default=None)
     args = parser.parse_args(argv)
 
     agent_path = Path(args.agent)
     contract = load_contract(agent_path, args.contract)
     try:
-        text = render(agent_path, args.target, args.tools_default, contract)
+        text = render(agent_path, args.target, args.tools_default, contract, load_core(Path(args.core_source)))
     except ValueError as exc:
         print(json.dumps({"error": str(exc), "agent": str(agent_path)}, ensure_ascii=False), file=sys.stderr)
         return 2

@@ -107,14 +107,17 @@ copy_one() {
 }
 
 # Agent bodies carry the output hook with the __TOOLS_DEFAULT__ token; here
-# it's rendered to this repo's default tools path (or to [expr], into [dir]).
+# it's rendered to this repo's default tools path (or to [expr], into [dir]),
+# and lib/render_agents.py appends the subagent core of the kit's
+# CONTEXT-PACK.md, byte for byte, so no body copies it by hand.
 RENDER_TMP="$(mktemp -d)"
 trap 'rm -rf "$RENDER_TMP"' EXIT
 render_agent() {
   local src="$1" expr="${2:-$TOOLS_DEFAULT_EXPR}" dir="${3:-$RENDER_TMP}"
   mkdir -p "$dir"
   local out="$dir/$(basename "$src")"
-  sed "s|__TOOLS_DEFAULT__|$expr|g" "$src" > "$out"
+  python3 "$TOOLS_ROOT/lib/render_agents.py" "$src" --target claude --tools-default "$expr" \
+    --core-source "$KIT_ROOT/CONTEXT-PACK.md" --out "$out" >/dev/null
   echo "$out"
 }
 # Skill files that call a kit script carry the same token; the rest are
