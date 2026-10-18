@@ -15,6 +15,8 @@ Quoted fragments are the user's exact words (Spanish, 2026-10-18); the requireme
 
 - **S6 Whole-project text audit.** "recuerda que todo el proyecto debe ser evaluado tambien para todo el tema de contexto y si los textos que estamos usando van optimos para eso". Every text the kit puts into an agent's context (AGENTS.md, CLAUDE.md, CONTEXT-PACK.md, agent bodies and contracts, skill files, rendered pi agents, hook messages, MCP tool descriptions and schemas, identity block, principles the agents are told to read) is measured for size and load mode (always / on demand / never), duplication across files, and fitness for context, with concrete trims.
 
+- **S7 Balance and goal anchoring.** "de que manera podemos balancear que el uso de contexto de los subagentes sea optimo para no bajar la calidad de las respeustas? y siempre tener el target y objetivo claro. DE esa manera no gastar demasiado, pero si trabajar en la direccion correcta". Subagent context is sized per role and tier without starving evidence, every brief carries a verifiable goal tied to the S# it serves, and drift and over- or under-spending are measured deterministically.
+
 ## Tasks
 
 | ID | Specs | Route | Status | Evidence |
@@ -31,3 +33,4 @@ Quoted fragments are the user's exact words (Spanish, 2026-10-18); the requireme
 - **L1** (user, 2026-10-18, verbatim): "necesitio que lances agentes para hacer una investigacion /deepresearch, de como optimizar el uso de contexto algo actualziado par ahoy 18 oct 2026  donde se peuda ver realemnte, como optimizar los subagentes y la  conversacion principal a nivel de agentes y sacar potencialidad opcional en coo usar ENgram como ayuda aqui. para ahcer consultas. y que esta metodologia de trabajo de forma determinista permita ver cuando activar o desactivar los elementos, hooks, agentes, reglas, linterns,etc y me gustaria tambien una seccion estricta de lintern que permita levantar un flag antes de dar algo como hecho"
 - **L2** (decision, coordinator): no `/deepresearch` skill exists in this harness; four parallel research lanes, each fetching official/primary sources into its own temp dir and writing one dossier; research only, no code in this step.
 - **L3** (user, 2026-10-18, verbatim): "sobre lasrecuerda que todo el proyecto debe ser evaluado tambien para todo el tema de contexto y si los textos que estamos usando van optimos para eso,". Added S6 and C6.
+- **L4** (user, 2026-10-18, verbatim): "ahora de que manera podemos balancear que el uso de contexto de los subagentes sea optimo para no bajar la calidad de las respeustas? y siempre tener el target y objetivo claro. DE esa manera no gastar demasiado, pero si trabajar en la direccion correcta". Added S7; C5 worker steered to include a balance and goal-anchoring section.
