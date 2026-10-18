@@ -1,6 +1,6 @@
 ---
 name: clean-pass
-description: Sweeps the repo with clean-pass.sh (long files, long functions, var/lateinit, duplication, boundaries) and turns every flagged item into a change card for the proposer, one at a time. Use it for accumulated technical debt, never in the middle of an ongoing critical change.
+description: Sweeps the repo with clean-pass.sh (long files and functions, var/lateinit, duplication, boundaries) and turns each flag into a change card, one at a time. Use it for tech debt, never mid critical change.
 version: 1.0.0
 triggers:
   - clean pass

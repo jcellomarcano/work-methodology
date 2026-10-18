@@ -1,6 +1,6 @@
 ---
 name: human-review
-description: Briefs generic-human-reviewer (small model) to judge the communication rules no script decides - COM-07 defined terms, COM-12 and COM-13 analogies with a mapping and a limit, COM-16 list or prose, COM-17 keeping dependent things together - with 07-communication/rules.md as the rulebook. Use it after human-reply when the reply carries an analogy, a long list, a new technical term, or figures.
+description: Briefs generic-human-reviewer to judge the rules no script decides (COM-07 terms, COM-12/13 analogies, COM-16 list or prose, COM-17). Use it after human-reply when a reply has an analogy, long list, new term or figures.
 version: 1.0.0
 triggers:
   - human review

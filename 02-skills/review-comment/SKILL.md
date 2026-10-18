@@ -1,6 +1,6 @@
 ---
 name: review-comment
-description: Writes a code review comment with a fixed shape - first pr_scope.py separates the diffs that belong to the PR from base-branch noise, then the change's context is read (card, statement, and callers), and the comment is ONE short paragraph with What happens / Why it happens / Impact / How to fix plus the proposal in the code's language; review_comment_lint.py validates it. Use it on every PR review, your own or someone else's.
+description: Writes a code review comment: pr_scope.py splits PR diffs from base noise, the context is read, then ONE paragraph (What/Why/Impact/How to fix + code proposal) passes review_comment_lint.py. Use it on every PR review.
 version: 1.0.0
 triggers:
   - review comment

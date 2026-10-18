@@ -1,6 +1,6 @@
 ---
 name: post-review-comment
-description: Publishes a linted review comment on a PR in the form the author actually reads, one bullet per tag, through review_comment_post.py. The paragraph form is only review_comment_lint's input; this skill renders it and posts it, dry-run first. Use it right after review-comment gets a lint PASS, never before.
+description: Publishes a linted review comment on a PR, one bullet per tag, via review_comment_post.py, dry-run first. Use it right after review-comment gets a lint PASS, never before.
 version: 1.0.0
 triggers:
   - publish the comment

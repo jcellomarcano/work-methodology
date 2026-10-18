@@ -1,6 +1,6 @@
 ---
 name: human-reply
-description: Runs a reply addressed to a person through output_lint.py (form, rules COM-01..18) and cite_check.py (that what is cited exists, COM-19) before sending it; with judgment pending, chain human-review. Use it on every reply that matters - status, decision, failure, investigation, PR, minutes - and on any text that leaves the session.
+description: Lints a reply to a person with output_lint.py (COM-01..18) and cite_check.py (COM-19) before sending; chain human-review when judgment is pending. Use it on every reply that matters or leaves the session.
 version: 1.0.0
 triggers:
   - human reply

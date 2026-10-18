@@ -1,6 +1,6 @@
 ---
 name: cartography
-description: Photographs the repo as it stands (modules, LOC, hotspots, dependency boundaries) via cartography.sh; the reading of reuse, obsolescence, and merge candidates comes from the model. Use it when opening an audit, when you need to know how big a module is before touching it, or when you need to see which files would collide when merging with the integration branch.
+description: Maps the repo as it stands (modules, LOC, hotspots, boundaries, merge collisions) via cartography.sh; the model reads reuse and merge candidates. Use it to open an audit or size a module before touching it.
 version: 1.0.0
 triggers:
   - repo cartography

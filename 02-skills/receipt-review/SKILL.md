@@ -1,6 +1,6 @@
 ---
 name: receipt-review
-description: Review with receipt (RDD) - freezes the candidate by its tree with receipt_start, derives the tier (exempt, low, medium, high) and runs only the review that tier calls for; one correction at most; receipt_finalize closes from the captures. Use it on every candidate before pushing; approval never pushes or opens a PR.
+description: Review with receipt (RDD): freezes the candidate tree, derives the tier and runs only the review it calls for, one correction at most, then finalizes from captures. Use it on every candidate before pushing; never pushes.
 version: 1.0.0
 triggers:
   - review with receipt
@@ -29,7 +29,7 @@ allowed-tools: [Read, Agent, mcp__metodo__receipt_start, mcp__metodo__receipt_st
    - medium: the low-tier scripts, the roster's `generic-challenger` with the `lens_focus` lens (skill `adversarial-round`), and its `generic-verifier` that runs `mcp__metodo__verify_sectors`; the judge only if the roster runs it; all captured.
    - high: show the receipt to the owner (tier, reasons, lenses, budget) and wait for their OK; `mcp__metodo__receipt_acknowledge` with `decision=consent` records it. Then a full `adversarial-round`, `generic-judge`, and `generic-verifier` with `mcp__metodo__verify_commit` (`full=true`), at the roster's models and efforts.
 6. `mcp__metodo__receipt_finalize`: `approved`, `rejected`, `escalated`, or `inconclusive`, only from the captures. On `rejected`, one correction: the proposer fixes it, a new commit, `receipt_start` with `supersedes=<previous tree>`, and the tier repeats. A second `rejected` escalates to the owner; there is no third pass.
-7. After the push, `mcp__metodo__receipt_acknowledge` is not needed for an approved receipt: the push gate already read it. A push without an approved receipt stays in the ledger and in "What was NOT tested" on the PR (`pr-message`).
+7. An approved receipt needs no acknowledge after the push: the push gate already read it. A push without one stays in the ledger and in the PR's "What was NOT tested" (`pr-message`).
 
 ## What the model may add
 

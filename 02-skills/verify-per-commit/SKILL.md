@@ -1,6 +1,6 @@
 ---
 name: verify-per-commit
-description: Runs the verify.sh battery (or --full) commit by commit over a range, each one in a disposable worktree, via verify-commit.sh. Use it when you want to know at which exact commit on a branch something broke, not just whether the tip passes.
+description: Runs the verify.sh battery (or --full) on each commit of a range, each in a disposable worktree, via verify-commit.sh. Use it to find the exact commit where something broke, not just whether the tip passes.
 version: 1.0.0
 triggers:
   - verify commit by commit

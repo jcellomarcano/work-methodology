@@ -1,6 +1,6 @@
 ---
 name: adversarial-round
-description: Round of two adversaries - challenger and blind-spot adversary attack the same claims with the same facts (domain_invariants + dep_boundaries), each with its own lens and vocabulary. Use it when there is a change card or a claims map ready to attack, before the judge rules.
+description: Runs the challenger and the blind-spot adversary on the same claims with the same facts (domain_invariants + dep_boundaries), each with its own lens. Use it when a change card or claims map is ready to attack, before the judge rules.
 version: 1.0.0
 triggers:
   - adversarial round

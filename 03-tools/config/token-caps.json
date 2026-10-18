@@ -1,0 +1,30 @@
+{
+  "field_caps": [
+    {
+      "_comment": "comment-gate carries the pinned DOC-001..003 and ISO 24495 rulebook it judges against; the exception is reviewed when that rulebook moves into comment_gate.py input",
+      "cap": 800,
+      "glob": "01-roles/agents/generic-*.md",
+      "overrides": {
+        "01-roles/agents/generic-comment-gate.md": 1100
+      },
+      "part": "body"
+    },
+    {
+      "cap": 60,
+      "field": "description",
+      "glob": "02-skills/*/SKILL.md"
+    },
+    {
+      "cap": 1000,
+      "glob": "02-skills/*/SKILL.md",
+      "part": "body"
+    }
+  ],
+  "method": "ceil(chars/4)",
+  "token_caps": {
+    "04-templates/brief.md": 300,
+    "AGENTS.md": 600,
+    "CLAUDE.md": 60,
+    "CONTEXT-PACK.md": 1800
+  }
+}

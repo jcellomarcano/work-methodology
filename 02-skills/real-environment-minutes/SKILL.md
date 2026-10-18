@@ -1,6 +1,6 @@
 ---
 name: real-environment-minutes
-description: Minutes for a test on a real environment (physical device, test bench, or staging) - composes benchmark-release data, the domain_invariants delta, and the change card into one document with a primary metric per arm, in median. Use it when closing a real-environment test before deciding whether a change goes to production.
+description: Writes minutes for a real-environment test (device, bench, staging) from benchmark-release, the domain_invariants delta and the change card, one median metric per arm. Use it before deciding on production.
 version: 1.0.0
 triggers:
   - real-environment minutes

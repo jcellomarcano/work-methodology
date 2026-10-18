@@ -1,6 +1,6 @@
 ---
 name: change-card
-description: Validates a change card in Markdown against change-card.schema.json via change_card_validator.py - 9 fields, 7 with an epistemic tag, and the opus/sonnet lane that comes out of Why/What it risks. Use it before assigning a card to a proposer, or to draft the parts of it that are missing.
+description: Validates a Markdown change card against change-card.schema.json (9 fields, 7 tagged) and derives its opus/sonnet lane. Use it before assigning a card to a proposer, or to draft its missing parts.
 version: 1.0.0
 triggers:
   - validate this change card

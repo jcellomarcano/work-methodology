@@ -1,6 +1,6 @@
 ---
 name: necessary-comment
-description: Runs every new comment in a diff through comment_gate.py and generic-comment-gate - the code must explain itself; a comment exists IF AND ONLY IF it states a why, short and in plain language (ISO 24495-code v0.6.2). Use it after every proposer and after the mechanic, before the adversarial round.
+description: Runs every new diff comment through comment_gate.py and generic-comment-gate: a comment exists only if it states a short, plain why (ISO 24495-code). Use it after each proposer and the mechanic, before the adversarial round.
 version: 1.0.0
 triggers:
   - necessary comment
@@ -35,5 +35,5 @@ The wording of the why and the naming or extraction suggestion. Never a word cou
 ## Escalate to the owner
 
 - A `MAKE-SELF-EXPLANATORY` on a critical path (`config/project.json: critical_paths`).
-- A `NEEDS-COMMENT` the gate considers necessary but does not know how to word (`epistemic: Desconocido`).
+- A `NEEDS-COMMENT` the gate considers necessary but does not know how to word (`epistemic: Unknown`).
 - More than 5 new comments in a single change: a sign of code that does not explain itself, not of missing comments.

@@ -1,6 +1,6 @@
 ---
 name: benchmark-release
-description: Compares two refs of the same repo (shape_metrics + duplication_cpd + dep_boundaries + domain_invariants) via benchmark-release.sh, with the base fixed at the last shipped release tag, never at the tip of the main branch. Use it before cutting a release, to know what really changed since the last one shipped.
+description: Compares two refs (shape_metrics, duplication_cpd, dep_boundaries, domain_invariants) via benchmark-release.sh, based at the last shipped release tag, never the branch tip. Use it before cutting a release.
 version: 1.0.0
 triggers:
   - release benchmark
