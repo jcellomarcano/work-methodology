@@ -267,6 +267,33 @@ class RouteToolTests(unittest.TestCase):
                 self.assertEqual(self._call(arguments)["error"]["code"], server.INVALID_PARAMS)
         self.assertFalse(self.log.exists())
 
+    def test_malformed_task_values_are_is_error_never_a_raise(self):
+        cases = ({"modules": [1, "a"]}, {"map_age_days": -1}, {"budget_usd": -5}, {"new_comments": -1},
+                 {"changed_lines": -3}, {"prior": {"p0_from_lower_tier": "huge"}}, {"prior": {"stalls": -1}},
+                 {"prior": {"tier": "medium", "role": "generic-judge", "findings": -1}})
+        for overrides in cases:
+            with self.subTest(overrides=overrides):
+                response = self._call({"task": dict(REVIEW_TASK, **overrides), "as_of": "2026-10-16"})
+                result = response["result"]
+                self.assertTrue(result["isError"], result)
+                self.assertIn("guard:input", result["structuredContent"]["error"])
+        self.assertFalse(self.log.exists())
+
+    def test_bad_as_of_and_malformed_catalog_are_is_error(self):
+        for as_of in ("2026-13-45", "16/10/2026"):
+            with self.subTest(as_of=as_of):
+                result = self._call({"task": REVIEW_TASK, "as_of": as_of})["result"]
+                self.assertTrue(result["isError"], result)
+                self.assertIn("guard:as_of", result["structuredContent"]["error"])
+        catalog = json.loads((self.tools / "config" / "model-tiers.json").read_text(encoding="utf-8"))
+        for broken in ([], dict(catalog, router=dict(catalog["router"], max_parallel=0))):
+            with self.subTest(catalog=type(broken).__name__):
+                (self.tools / "config" / "model-tiers.json").write_text(json.dumps(broken), encoding="utf-8")
+                result = self._call({"task": REVIEW_TASK, "as_of": "2026-10-16"})["result"]
+                self.assertTrue(result["isError"], result)
+                self.assertIn("guard:catalog", result["structuredContent"]["error"])
+        self.assertFalse(self.log.exists())
+
     def test_log_inside_the_target_repo_is_refused(self):
         inside = self.repo / "tools"
         shutil.copytree(self.tools, inside)

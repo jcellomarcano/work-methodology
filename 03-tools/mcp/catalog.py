@@ -158,9 +158,12 @@ def _route(args: dict, ctx: Ctx) -> dict:
     active project config or METODO_OFFLINE (router.resolve_offline); one
     line appended to <tools>/out/runs/routing.jsonl, refused inside the repo."""
     task = dict(args["task"])
-    approvals = sorted(set(task.get("approvals") or []) | set(args.get("approvals") or []))
-    if approvals or "approvals" in task:
-        task["approvals"] = approvals
+    own, extra = task.get("approvals"), args.get("approvals")
+    if router._strings(own if own is not None else []) and router._strings(extra if extra is not None else []):
+        approvals = sorted(set(own or []) | set(extra or []))
+        if approvals or "approvals" in task:
+            task["approvals"] = approvals
+    # anything else reaches router.route() untouched, which rejects it (guard:input)
     try:
         catalog = baseline.load_json(ctx.tools_root / "config" / "model-tiers.json")
     except (OSError, ValueError) as exc:
@@ -170,7 +173,13 @@ def _route(args: dict, ctx: Ctx) -> dict:
     for root in (ctx.repo, router._worktree_root(str(task["repo"])) if task.get("repo") else None):
         if root is not None and _inside(log_path, Path(root).resolve()):
             raise registry.ToolError(f"refusing to log inside the target repo ({root}); use a tools instance outside it")
-    result = router.route(task, catalog, args["as_of"])
+    try:
+        result = router.route(task, catalog, args["as_of"])
+    except Exception as exc:  # noqa: BLE001 - a router bug must surface as isError, never raise
+        raise registry.ToolError(f"router failed on this input ({type(exc).__name__}); nothing logged")
+    if result["rule"] in router.USAGE_RULES:
+        # Malformed input (same cases as the CLI's exit 2): isError, no log line.
+        raise registry.ToolError(f"{result['rule']}: " + "; ".join(result["reasons"]))
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("a", encoding="utf-8") as handle:
         handle.write(router.log_line(result) + "\n")

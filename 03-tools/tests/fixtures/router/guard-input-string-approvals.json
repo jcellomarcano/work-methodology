@@ -1,0 +1,19 @@
+{
+  "as_of": "2026-10-16",
+  "expect": {
+    "roster": [],
+    "rule": "guard:input",
+    "status": "error"
+  },
+  "input": {
+    "approvals": "not-escalate-fable-denied",
+    "lane": "sonnet",
+    "map_age_days": 1,
+    "modules": 1,
+    "owner_named": true,
+    "task_kind": "implement",
+    "tier": "medium"
+  },
+  "name": "guard-input-string-approvals",
+  "note": "approvals must be a list of strings; a string that contains escalate-fable approves nothing (L6)"
+}

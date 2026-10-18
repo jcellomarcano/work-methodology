@@ -25,7 +25,10 @@ reachable rest (router.UNREACHABLE_RULES are listed apart). The report is
 deterministic JSON (sorted keys, no timestamps), byte-identical per input.
 
 Fixture: {"name", "as_of", "input": <task>, "expect": {"rule", "status",
-"roster": [{"role", "model", "effort", "launch"}], "cost_max_usd"?}}.
+"roster": [{"role", "model", "effort", "launch"}], "cost_max_usd"?},
+"catalog_patch"?}. catalog_patch is merged onto a copy of the catalog for that
+fixture only (objects merge key by key, anything else replaces), e.g. to
+prove guard:catalog; scoring still reads the unpatched catalog.
 
 Usage:
     lib/router_eval.py [--fixtures DIR] [--out FILE]
@@ -36,6 +39,7 @@ Exit 0 every fixture passed; 1 any fixture failed; 2 unreadable input.
 from __future__ import annotations
 
 import argparse
+import copy
 import sys
 from collections import Counter
 from pathlib import Path
@@ -112,9 +116,21 @@ def _drift(catalog: dict, actual: list[dict], expected: list[dict]) -> tuple[lis
     return above, below
 
 
+def patched(catalog, patch):
+    """A copy of catalog with patch merged in: objects key by key, recursively;
+    any other patch value replaces."""
+    if not isinstance(catalog, dict) or not isinstance(patch, dict):
+        return copy.deepcopy(patch)
+    merged = copy.deepcopy(catalog)
+    for key, value in patch.items():
+        merged[key] = patched(merged[key], value) if key in merged else copy.deepcopy(value)
+    return merged
+
+
 def evaluate_fixture(fixture: dict, catalog: dict) -> dict:
     expect = fixture["expect"]
-    result = router.route(fixture["input"], catalog, fixture["as_of"])
+    routed_on = patched(catalog, fixture["catalog_patch"]) if "catalog_patch" in fixture else catalog
+    result = router.route(fixture["input"], routed_on, fixture["as_of"])
     actual = [{k: e[k] for k in KEYS} for e in result["roster"]]
     expected = [{k: e[k] for k in KEYS} for e in expect.get("roster") or []]
     act_t, exp_t = _tuples(actual), _tuples(expected)

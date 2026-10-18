@@ -293,7 +293,7 @@ class BaseRowTests(unittest.TestCase):
         ids = router.RULE_IDS
         self.assertEqual(len(ids), len(set(ids)))
         expected = {"guard:as_of", "guard:task_kind", "guard:tier", "guard:lane", "guard:full_required",
-                    "P1", "P2", "P3", "P4", "P5", "P6", router.FABLE_RULE,
+                    "guard:input", "guard:catalog", "P1", "P2", "P3", "P4", "P5", "P6", router.FABLE_RULE,
                     "B0", "B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "error"}
         self.assertEqual(set(ids), expected)
         self.assertTrue(set(router.UNREACHABLE_RULES) <= set(ids))
@@ -448,6 +448,259 @@ class LogTests(unittest.TestCase):
         line = json.loads(router.log_line(result))
         self.assertEqual(line["approvals"], ["escalate-fable"])
         self.assertIn(FABLE, [e["model"] for e in line["roster"] if e["launch"] == "run"])
+
+
+def _guarded(test, result, rule, field=None):
+    test.assertEqual((result["status"], result["rule"], result["roster"]), ("error", rule, []))
+    test.assertEqual(result["cost_estimate_usd"], 0.0)
+    test.assertEqual(result["approvals"], [])
+    if field:
+        test.assertIn(field, " ".join(result["reasons"]))
+
+
+class ApprovalGateTests(unittest.TestCase):
+    """L6 security: only the exact list member `escalate-fable` launches Fable,
+    and the output records exactly the approvals that granted a launch."""
+
+    def test_string_approvals_cannot_launch_fable(self):
+        for approvals in ("not-escalate-fable-denied", "escalate-fable", {"escalate-fable": True},
+                          ["escalate-fable", 1], [["escalate-fable"]], 1):
+            with self.subTest(approvals=approvals):
+                result = _route(owner_named=True, approvals=approvals)
+                _guarded(self, result, "guard:input", "approvals")
+                self.assertEqual([e for e in _running(result) if e["model"] == FABLE], [])
+                self.assertEqual(json.loads(router.log_line(result))["approvals"], [])
+
+    def test_substring_of_the_rule_is_not_an_approval(self):
+        for approvals in (["not-escalate-fable-denied"], ["escalate-fable "], ["ESCALATE-FABLE"]):
+            with self.subTest(approvals=approvals):
+                result = _route(owner_named=True, approvals=approvals)
+                self.assertEqual(result["rule"], router.FABLE_RULE)
+                self.assertEqual([e for e in _running(result) if e["model"] == FABLE], [])
+                self.assertEqual(result["approvals"], [])
+
+    def test_recorded_approvals_are_exactly_the_ones_that_granted_a_launch(self):
+        granted = _route(owner_named=True, approvals=["other", "escalate-fable"])
+        self.assertEqual(granted["approvals"], ["escalate-fable"])
+        unused = _route(approvals=["escalate-fable"])
+        self.assertEqual((unused["rule"], unused["approvals"]), ("B3", []))
+        self.assertEqual(json.loads(router.log_line(unused))["approvals"], [])
+
+
+class InputGuardTests(unittest.TestCase):
+    """Malformed input never raises: one validation step returns guard:input,
+    a reason naming the field, an empty roster."""
+
+    CASES = [
+        ("budget_usd", {"budget_usd": -1}), ("budget_usd", {"budget_usd": "5"}),
+        ("budget_usd", {"budget_usd": True}), ("budget_usd", {"budget_usd": float("inf")}),
+        ("map_age_days", {"map_age_days": -1}), ("map_age_days", {"map_age_days": "3"}),
+        ("map_age_days", {"map_age_days": True}),
+        ("changed_lines", {"changed_lines": -1}), ("changed_lines", {"changed_lines": 1.5}),
+        ("changed_lines", {"changed_lines": "10"}), ("changed_lines", {"changed_lines": True}),
+        ("modules", {"modules": [1, "a"]}), ("modules", {"modules": "abc"}), ("modules", {"modules": -1}),
+        ("modules", {"modules": [None]}), ("modules", {"modules": True}),
+        ("new_comments", {"new_comments": -1}), ("new_comments", {"new_comments": "2"}),
+        ("new_comments", {"new_comments": True}), ("new_comments", {"new_comments": 1.5}),
+        ("prior", {"prior": []}), ("prior", {"prior": "x"}),
+        ("prior.stalls", {"prior": {"stalls": -1}}), ("prior.stalls", {"prior": {"stalls": "2"}}),
+        ("prior.stalls", {"prior": {"stalls": True}}),
+        ("prior.escalated_count", {"prior": {"escalated_count": 1.5}}),
+        ("prior.findings", {"prior": {"findings": "many"}}), ("prior.findings", {"prior": {"findings": -2}}),
+        ("prior.schema_fail", {"prior": {"schema_fail": "x"}}),
+        ("prior.truncated", {"prior": {"truncated": "yes"}}),
+        ("prior.p0_from_lower_tier", {"prior": {"p0_from_lower_tier": "huge"}}),
+        ("prior.p0_from_lower_tier", {"prior": {"p0_from_lower_tier": True}}),
+        ("prior.p0_from_lower_tier", {"prior": {"p0_from_lower_tier": 1}}),
+        ("prior.tier", {"prior": {"tier": ["medium"], "truncated": True, "role": "generic-proposer"}}),
+        ("prior.role", {"prior": {"role": {"x": 1}, "schema_fail": 1}}),
+        ("owner_named", {"owner_named": "yes"}), ("critical_hit", {"critical_hit": 1}),
+        ("offline", {"offline": "no"}),
+    ]
+
+    def test_each_malformed_field_is_guard_input_never_an_exception(self):
+        for field, overrides in self.CASES:
+            with self.subTest(field=field, value=overrides):
+                _guarded(self, _route(**overrides), "guard:input", field)
+
+    def test_task_that_is_not_an_object(self):
+        for task in ([], "task", None, 3, [_task()]):
+            with self.subTest(task=task):
+                _guarded(self, router.route(task, CATALOG, AS_OF), "guard:input", "task")
+
+    def test_valid_edge_values_still_route(self):
+        for overrides in ({"budget_usd": 0}, {"map_age_days": 0}, {"map_age_days": None}, {"changed_lines": 0},
+                          {"modules": ["a", "b"]}, {"modules": 0}, {"new_comments": 0}, {"prior": None},
+                          {"prior": {"p0_from_lower_tier": False}}, {"approvals": None}):
+            with self.subTest(overrides=overrides):
+                self.assertNotEqual(_route(**overrides)["rule"], "guard:input")
+
+    def test_as_of_must_be_a_real_calendar_date(self):
+        for as_of in ("2026-13-45", "2026-02-30", "2026-1-16", "20261016", 20261016, None):
+            with self.subTest(as_of=as_of):
+                _guarded(self, _route(as_of=as_of), "guard:as_of")
+        self.assertEqual(_route(as_of="2028-02-29")["status"], "ok")
+
+
+class CatalogGuardTests(unittest.TestCase):
+    """A malformed catalog is guard:catalog, never a traceback."""
+
+    def _broken(self):
+        cases = {"list": [], "string": "x", "no tiers": {"version": "v"}}
+        cat = copy.deepcopy(CATALOG)
+        cat["tiers"]["medium"]["candidates"][0] = "claude-sonnet-5-5"
+        cases["candidate not an object"] = cat
+        for key in ("provider", "id", "usd_in"):
+            cat = copy.deepcopy(CATALOG)
+            del cat["tiers"]["medium"]["candidates"][0][key]
+            cases[f"missing {key}"] = cat
+        cat = copy.deepcopy(CATALOG)
+        del cat["tiers"]["medium"]
+        cases["tier missing"] = cat
+        cat = copy.deepcopy(CATALOG)
+        cat["tiers"]["large"]["candidates"] = {"id": "x"}
+        cases["candidates not a list"] = cat
+        for value in (0, -1, "3", True, 1.5):
+            cat = copy.deepcopy(CATALOG)
+            cat["router"]["max_parallel"] = value
+            cases[f"max_parallel {value!r}"] = cat
+        cat = copy.deepcopy(CATALOG)
+        cat["router"] = ["x"]
+        cases["router not an object"] = cat
+        return cases
+
+    def test_malformed_catalog_is_guard_catalog(self):
+        for name, catalog in self._broken().items():
+            for task in (_task(task_kind="map", modules=4), _task(owner_named=True, approvals=["escalate-fable"])):
+                with self.subTest(case=name, kind=task["task_kind"]):
+                    result = router.route(task, catalog, AS_OF)
+                    _guarded(self, result, "guard:catalog")
+
+    def test_the_kit_catalog_passes_the_check(self):
+        self.assertEqual(_route()["status"], "ok")
+
+
+class HardLimitTests(unittest.TestCase):
+    """Limits a catalog cannot override: fan-out cap 3, Fable and non-admitted
+    models never launch without approval, no automatic `max`."""
+
+    def test_catalog_cap_above_three_is_clamped_to_three(self):
+        cat = copy.deepcopy(CATALOG)
+        cat["router"]["max_parallel"] = 10
+        result = router.route(_task(task_kind="map", modules=7), cat, AS_OF)
+        per_step = {}
+        for e in _running(result):
+            per_step[e["step"]] = per_step.get(e["step"], 0) + 1
+        self.assertEqual(len(_running(result)), 7)
+        self.assertEqual(max(per_step.values()), 3)
+        cat["router"]["max_parallel"] = 2
+        lower = router.route(_task(task_kind="map", modules=4), cat, AS_OF)
+        self.assertEqual(sorted({e["step"] for e in lower["roster"]}), [1, 2])
+
+    def _tampered(self):
+        """Fable marked admitted everywhere and placed first in every tier."""
+        cat = copy.deepcopy(CATALOG)
+        fable = next(e for e in cat["tiers"]["orchestrator"]["candidates"] if e["id"] == FABLE)
+        fable["status"] = "admitted"
+        for tier in ("small", "medium", "large"):
+            cat["tiers"][tier]["candidates"].insert(0, copy.deepcopy(fable))
+        cat["tiers"]["orchestrator"]["candidates"].sort(key=lambda e: e["id"] != FABLE)
+        return cat
+
+    def test_tampered_catalog_with_fable_admitted_still_needs_approval(self):
+        cat = self._tampered()
+        tasks = [_task(task_kind=k, tier=t, lane="opus" if t == "high" else "sonnet")
+                 for k in router.TASK_KINDS for t in router.RDD_TIERS]
+        tasks += [_task(owner_named=True), _task(task_kind="map", modules=4),
+                  _task(prior={"truncated": True, "role": "generic-proposer"}),
+                  _task(prior={"schema_fail": 2, "role": "generic-verifier"})]
+        for task in tasks:
+            result = router.route(task, cat, AS_OF)
+            with self.subTest(kind=task["task_kind"], tier=task["tier"], prior=task["prior"]):
+                self.assertEqual([e for e in _running(result) if e["model"] == FABLE], [])
+                for e in result["roster"]:
+                    if e["model"] == FABLE:
+                        self.assertEqual((e["launch"], e["requires_approval"]), ("skip", True))
+
+    def test_tampered_fallback_to_fable_does_not_launch_it(self):
+        cat = copy.deepcopy(CATALOG)
+        cat["router"]["fable"]["fallback"] = {"model": FABLE, "tier": "orchestrator", "effort": "high"}
+        result = router.route(_task(owner_named=True), cat, AS_OF)
+        self.assertEqual([e for e in _running(result) if e["model"] == FABLE], [])
+        self.assertTrue(all(e["requires_approval"] for e in result["roster"] if e["model"] == FABLE))
+
+    def test_non_admitted_model_named_by_the_catalog_needs_approval(self):
+        cat = copy.deepcopy(CATALOG)
+        cat["router"]["fable"]["fallback"] = {"model": "gpt-6-astra", "tier": "large", "effort": "high"}
+        result = router.route(_task(owner_named=True), cat, AS_OF)
+        astra = [e for e in result["roster"] if e["model"] == "gpt-6-astra"]
+        self.assertEqual([(e["launch"], e["requires_approval"]) for e in astra], [("skip", True)])
+
+    def test_approved_fable_in_a_tampered_catalog_runs_only_on_the_escalation(self):
+        cat = self._tampered()
+        approved = router.route(_task(owner_named=True, approvals=["escalate-fable"]), cat, AS_OF)
+        self.assertEqual(len([e for e in _running(approved) if e["model"] == FABLE]), 1)
+        default = router.route(_task(task_kind="review", tier="high", lane="opus", approvals=["escalate-fable"]), cat, AS_OF)
+        self.assertEqual([e for e in _running(default) if e["model"] == FABLE], [])
+
+    def test_p2_and_p6_never_keep_max(self):
+        p2 = _route(task_kind="map", modules=2, prior={
+            "truncated": True, "role": "generic-cartographer", "tier": "medium", "effort": "max"})
+        self.assertEqual(p2["rule"], "P2")
+        self.assertEqual({e["effort"] for e in _running(p2)}, {"xhigh"})
+        p6 = _route(prior={"verifier": "FAIL", "tier": "large", "effort": "max"})
+        self.assertEqual(p6["rule"], "P6")
+        self.assertNotIn("max", {e["effort"] for e in _running(p6)})
+
+    def test_escalation_never_reaches_max_even_if_the_catalog_allows_it(self):
+        cat = copy.deepcopy(CATALOG)
+        cat["router"]["never_automatic_effort"] = []
+        cat["router"]["effort_ceiling"] = {"tier": "large", "effort": "max"}
+        step = router.escalate(cat, "generic-challenger", "large", "xhigh", "diligence")
+        self.assertNotEqual((step or (None, None))[1], "max")
+        p2 = router.route(_task(task_kind="map", modules=1, prior={
+            "truncated": True, "role": "generic-cartographer", "tier": "large", "effort": "max"}), cat, AS_OF)
+        self.assertNotIn("max", {e["effort"] for e in _running(p2)})
+
+
+class CliGuardTests(unittest.TestCase):
+    """bin/route.sh: malformed JSON, a JSON list, guard:input and guard:catalog
+    exit 2 with one line on stderr, never a traceback."""
+
+    def _run(self, task_text, *extra):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "task.json"
+            path.write_text(task_text, encoding="utf-8")
+            args = ["bash", str(TOOLS / "bin" / "route.sh"), str(path), "--as-of", AS_OF]
+            for name, text in extra:
+                other = Path(tmp) / name
+                other.write_text(text, encoding="utf-8")
+                args += ["--config", str(other)]
+            return subprocess.run(args, capture_output=True, text=True, timeout=60)
+
+    def _assert_usage(self, proc):
+        self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+        self.assertNotIn("Traceback", proc.stderr)
+        self.assertEqual(len(proc.stderr.strip().splitlines()), 1, proc.stderr)
+
+    def test_malformed_json_and_list_exit_two(self):
+        for text in ("{not json", "[]", json.dumps([_task()]), "\"task\"", ""):
+            with self.subTest(text=text):
+                self._assert_usage(self._run(text))
+
+    def test_guard_input_exits_two(self):
+        for task in (_task(modules=[1, "a"]), _task(owner_named=True, approvals="not-escalate-fable-denied")):
+            with self.subTest(task=task):
+                proc = self._run(json.dumps(task))
+                self._assert_usage(proc)
+                self.assertNotIn(FABLE, proc.stdout)
+
+    def test_guard_catalog_exits_two(self):
+        broken = copy.deepcopy(CATALOG)
+        broken["router"]["max_parallel"] = 0
+        for text in ("[]", json.dumps(broken)):
+            with self.subTest(catalog=text[:20]):
+                self._assert_usage(self._run(json.dumps(_task(task_kind="map", modules=4)), ("cat.json", text)))
 
 
 class OfflineSourceTests(unittest.TestCase):

@@ -12,8 +12,18 @@ or the environment, so the same input gives byte-identical output.
 
 Fable 5.1 (owner decision L6) is never in a default roster. Only the rule
 `escalate-fable` proposes it, always with requires_approval: true; it
-launches only when `escalate-fable` is in `approvals`, otherwise Opus 5.5
-at xhigh runs instead.
+launches only when the list `approvals` holds the exact string
+`escalate-fable`, otherwise Opus 5.5 at xhigh runs instead. Hard limits the
+catalog cannot override: at most MAX_PARALLEL roles per step; a model that is
+Fable or not `admitted` never runs without that approval (a trial-slot
+`candidate` is the one owner-enabled exception); no automatic `max` effort.
+
+Input first goes through one validation step: a malformed catalog is
+`guard:catalog`, a malformed task field `guard:input`, a date that is not a
+real calendar day `guard:as_of`; each returns status error, an empty roster
+and a reason naming the field, never an exception. `new_comments` is a
+non-negative int (a bool is rejected); `modules` is a non-negative int count
+or a list of module-name strings.
 
 Offline (decision L4, R9): when the task has no `offline` key, main()
 reads `offline` from the active project config (METODO_PROJECT_CONFIG, else
@@ -24,13 +34,16 @@ Usage:
     lib/router.py <task.json> [--as-of YYYY-MM-DD] [--log [PATH]] [--config PATH]
 
 Exit 0 status ok; 1 any other status (error, blocked, over_budget, owner);
-2 usage, unreadable input, or a log path inside the target repo.
+2 usage, unreadable or malformed input (JSON that is not an object, any
+USAGE_RULES result), or a log path inside the target repo.
 """
 from __future__ import annotations
 
 import argparse
+import datetime
 import hashlib
 import json
+import math
 import os
 import re
 import subprocess
@@ -46,20 +59,27 @@ TASK_KINDS = ("map", "implement", "review", "docs", "comment", "verify")
 RDD_TIERS = ("exempt", "low", "medium", "high")
 MAX_PARALLEL = 3
 FABLE_RULE = "escalate-fable"
+# The model the L6 approval gate protects, whatever the catalog says.
+FABLE_MODEL = "claude-fable-5-1"
 # Every rule id route() can emit, in table order; the evaluator measures its
 # fixture coverage against this one constant so the two cannot drift.
-RULE_IDS = ("guard:as_of", "guard:task_kind", "guard:tier", "guard:lane", "guard:full_required",
-            "P1", FABLE_RULE, "P2", "P3", "P4", "P5", "P6",
+RULE_IDS = ("guard:input", "guard:catalog", "guard:as_of", "guard:task_kind", "guard:tier", "guard:lane",
+            "guard:full_required", "P1", FABLE_RULE, "P2", "P3", "P4", "P5", "P6",
             "B0", "B1", "B2", "B3", "B4", "B5", "B6", "B8", "B7", "error")
 # Fail-closed fallthrough that no input passing the guards reaches since B8
 # (tests/test_router.py proves it over the kind x tier grid).
 UNREACHABLE_RULES = ("B7",)
+# Malformed input, not a routing decision: the CLI exits 2, the MCP tool isError.
+USAGE_RULES = ("guard:input", "guard:catalog", "guard:as_of")
+# The highest effort any automatic step may set, whatever the catalog says.
+AUTO_EFFORT_CAP = "xhigh"
 DEFAULT_LOG = TOOLS_ROOT / "out" / "runs" / "routing.jsonl"
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 # Provider level names on one scale, so a requested level can be clamped
 # onto a model's own ladder (Gemini has no xhigh, local models only on/off).
 EFFORT_RANK = {"off": 0, "none": 0, "minimal": 1, "low": 2, "on": 3, "medium": 3, "high": 4, "xhigh": 5, "max": 6}
+LEVEL_AT_RANK = {0: "none", 1: "minimal", 2: "low", 3: "medium", 4: "high", 5: "xhigh", 6: "max"}
 
 # Default model tier of each kit role when the previous step does not say.
 ROLE_TIER = {
@@ -101,18 +121,181 @@ def dumps(obj) -> str:
     return json.dumps(obj, sort_keys=True, indent=2, ensure_ascii=False) + "\n"
 
 
-def _normalized(task: dict) -> dict:
+def _strings(value) -> bool:
+    return isinstance(value, list) and all(isinstance(v, str) for v in value)
+
+
+def _normalized(task):
+    if not isinstance(task, dict):
+        return task
     task = dict(task)
-    if isinstance(task.get("approvals"), list):
-        task["approvals"] = sorted(set(task["approvals"]))
-    if isinstance(task.get("modules"), list):
-        task["modules"] = sorted(task["modules"])
+    for key in ("approvals", "modules"):
+        if _strings(task.get(key)):
+            task[key] = sorted(set(task[key])) if key == "approvals" else sorted(task[key])
     return task
 
 
-def inputs_hash(task: dict) -> str:
-    text = json.dumps(_normalized(task), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+def inputs_hash(task) -> str:
+    text = json.dumps(_normalized(task), sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=repr)
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+# ------------------------------------------------------------- validation
+
+def _count(value) -> bool:
+    """A non-negative int; a bool is not a count."""
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+
+
+def _amount(value) -> bool:
+    """A finite non-negative number; a bool is not an amount."""
+    return (isinstance(value, (int, float)) and not isinstance(value, bool)
+            and math.isfinite(value) and value >= 0)
+
+
+def _real_date(value) -> bool:
+    if not isinstance(value, str) or not DATE_RE.match(value):
+        return False
+    try:
+        datetime.date.fromisoformat(value)
+    except ValueError:
+        return False
+    return True
+
+
+def catalog_problem(catalog) -> str | None:
+    """Why the catalog cannot be routed on, or None. Checks every shape the
+    router reads, so a malformed catalog never reaches the table."""
+    if not isinstance(catalog, dict):
+        return f"catalog must be a JSON object, got {type(catalog).__name__}"
+    if not isinstance(catalog.get("router", {}), dict):
+        return "catalog router must be an object"
+    tiers = catalog.get("tiers")
+    if not isinstance(tiers, dict) or not tiers:
+        return "catalog tiers must be a non-empty object"
+    cfg = _cfg(catalog)
+    cap = cfg.get("max_parallel")
+    if not isinstance(cap, int) or isinstance(cap, bool) or cap < 1:
+        return f"catalog router.max_parallel must be an int >= 1, got {cap!r}"
+    ladder = cfg.get("tier_ladder")
+    if not _strings(ladder) or len(ladder) < 2:
+        return "catalog router.tier_ladder must list at least two tier names"
+    ceiling = cfg.get("effort_ceiling")
+    if not isinstance(ceiling, dict) or not isinstance(ceiling.get("tier"), str) \
+            or ceiling.get("effort") not in EFFORT_RANK:
+        return "catalog router.effort_ceiling must be {tier, effort} with a known effort"
+    for key in ("never_automatic_effort", "optional_drop_order"):
+        if not _strings(cfg.get(key)):
+            return f"catalog router.{key} must be a list of strings"
+    if not _amount(cfg.get("map_stale_days")):
+        return "catalog router.map_stale_days must be a non-negative number"
+    if not isinstance(cfg.get("trial_slot"), bool):
+        return "catalog router.trial_slot must be a boolean"
+    tokens = cfg.get("default_tokens")
+    if not isinstance(tokens, dict) or not all(_count(tokens.get(k)) for k in ("assumed_tokens_in", "assumed_tokens_out")):
+        return "catalog router.default_tokens needs non-negative int assumed_tokens_in/out"
+    fable = cfg.get("fable")
+    slots = [("fable", fable), ("fable.fallback", fable.get("fallback") if isinstance(fable, dict) else None)]
+    for name, slot in slots:
+        if not isinstance(slot, dict) or not all(isinstance(slot.get(k), str) for k in ("model", "tier", "effort")):
+            return f"catalog router.{name} must be {{model, tier, effort}} strings"
+    required = list(ladder) + [fable["tier"], fable["fallback"]["tier"]]
+    for tier in sorted(set(required), key=required.index):
+        if tier not in tiers:
+            return f"catalog tier {tier!r} is missing"
+    for tier, body in tiers.items():
+        problem = _tier_problem(tier, body)
+        if problem:
+            return problem
+    return None
+
+
+def _tier_problem(tier: str, body) -> str | None:
+    if not isinstance(body, dict):
+        return f"catalog tier {tier!r} must be an object"
+    if not isinstance(body.get("candidates"), list):
+        return f"catalog tiers.{tier}.candidates must be a list"
+    if "max_context_tokens" in body and not _count(body["max_context_tokens"]):
+        return f"catalog tiers.{tier}.max_context_tokens must be a non-negative int"
+    assumptions = body.get("token_assumptions", {})
+    if not isinstance(assumptions, dict) or not all(
+            isinstance(t, dict) and _count(t.get("assumed_tokens_in")) and _count(t.get("assumed_tokens_out"))
+            for t in assumptions.values()):
+        return f"catalog tiers.{tier}.token_assumptions need non-negative int assumed_tokens_in/out"
+    for i, entry in enumerate(body["candidates"]):
+        where = f"catalog tiers.{tier}.candidates[{i}]"
+        if not isinstance(entry, dict):
+            return f"{where} must be an object"
+        for key in ("provider", "id"):
+            if not isinstance(entry.get(key), str) or not entry[key]:
+                return f"{where}.{key} must be a non-empty string"
+        if not _amount(entry.get("usd_in")):
+            return f"{where}.usd_in must be a non-negative number"
+        if "usd_out" in entry and not _amount(entry["usd_out"]):
+            return f"{where}.usd_out must be a non-negative number"
+        if not isinstance(entry.get("status", ""), str):
+            return f"{where}.status must be a string"
+        levels = entry.get("effort_levels", ["medium"])
+        if not _strings(levels) or not levels:
+            return f"{where}.effort_levels must be a non-empty list of strings"
+        by_role = entry.get("effort_by_role", {})
+        if not isinstance(by_role, dict) or not all(isinstance(v, str) for v in by_role.values()):
+            return f"{where}.effort_by_role must map roles to strings"
+        if not isinstance(entry.get("effort_default", "medium"), str):
+            return f"{where}.effort_default must be a string"
+        rows = entry.get("price_schedule", [])
+        if not isinstance(rows, list) or not all(
+                isinstance(r, dict) and _amount(r.get("usd_in")) and _amount(r.get("usd_out"))
+                and (r.get("from") is None or isinstance(r.get("from"), str)) for r in rows):
+            return f"{where}.price_schedule rows need numeric usd_in/usd_out and a string or null from"
+    return None
+
+
+_BOOL_FIELDS = ("critical_hit", "owner_gate", "full_required", "offline", "owner_named")
+_PRIOR_COUNTS = ("stalls", "escalated_count", "findings", "schema_fail")
+_PRIOR_STRINGS = ("role", "tier", "effort", "verifier", "judge_tier")
+
+
+def input_problem(task, catalog: dict) -> str | None:
+    """Why the task cannot be routed, naming the field, or None. None (or an
+    absent key) means unset for every optional field."""
+    if not isinstance(task, dict):
+        return f"task must be a JSON object, got {type(task).__name__}"
+    approvals = task.get("approvals")
+    if approvals is not None and not _strings(approvals):
+        return "approvals must be a list of strings"
+    for key in _BOOL_FIELDS:
+        if task.get(key) is not None and not isinstance(task[key], bool):
+            return f"{key} must be a boolean"
+    for key in ("budget_usd", "map_age_days"):
+        if task.get(key) is not None and not _amount(task[key]):
+            return f"{key} must be a non-negative number"
+    for key in ("changed_lines", "new_comments"):
+        if task.get(key) is not None and not _count(task[key]):
+            return f"{key} must be a non-negative int"
+    modules = task.get("modules")
+    if modules is not None and not _count(modules) and not _strings(modules):
+        return "modules must be a non-negative int or a list of strings"
+    prior = task.get("prior")
+    if prior is None:
+        return None
+    if not isinstance(prior, dict):
+        return "prior must be an object"
+    for key in _PRIOR_COUNTS:
+        if prior.get(key) is not None and not _count(prior[key]):
+            return f"prior.{key} must be a non-negative int"
+    for key in _PRIOR_STRINGS:
+        if prior.get(key) is not None and not isinstance(prior[key], str):
+            return f"prior.{key} must be a string"
+    truncated = prior.get("truncated")
+    if truncated is not None and not isinstance(truncated, bool) and not _count(truncated):
+        return "prior.truncated must be a boolean or a non-negative int"
+    if prior.get("disagreement") is not None and not isinstance(prior["disagreement"], bool):
+        return "prior.disagreement must be a boolean"
+    p0 = prior.get("p0_from_lower_tier")
+    if p0 is not None and p0 is not False and (not isinstance(p0, str) or p0 not in catalog["tiers"]):
+        return "prior.p0_from_lower_tier must be a catalog tier name or false"
+    return None
 
 
 def load_project_config(tools_root: Path = TOOLS_ROOT, env=None) -> dict:
@@ -145,9 +328,39 @@ def fallback_model(catalog: dict, role: str) -> str | None:
     router launches when nothing raises the tier. None if there is none."""
     tier = ROLE_TIER.get(role)
     for entry in _candidates(catalog, tier) if tier else []:
-        if entry.get("status") == "admitted" and entry.get("provider") == "anthropic" and not entry.get("local"):
+        if _default_ok(entry) and entry.get("provider") == "anthropic" and not entry.get("local"):
             return entry.get("id")
     return None
+
+
+def _default_ok(entry: dict) -> bool:
+    """May a default row pick this entry: admitted and never Fable."""
+    return entry.get("status") == "admitted" and entry.get("id") != FABLE_MODEL
+
+
+def _gated(entry: dict, trial: bool) -> bool:
+    """Needs owner approval to run: Fable, or any status but admitted (a
+    trial-slot `candidate` excepted: the owner enables that slot)."""
+    if entry.get("id") == FABLE_MODEL:
+        return True
+    if trial and entry.get("status") == "candidate":
+        return False
+    return entry.get("status") != "admitted"
+
+
+def parallel_cap(catalog: dict) -> int:
+    """The catalog's max_parallel, never above MAX_PARALLEL nor below 1."""
+    return max(1, min(int(_cfg(catalog)["max_parallel"]), MAX_PARALLEL))
+
+
+def _auto_effort(catalog: dict, effort: str) -> str:
+    """An effort an automatic step may keep: at most the catalog ceiling and
+    never above AUTO_EFFORT_CAP (so never `max`)."""
+    ceiling = _cfg(catalog)["effort_ceiling"]["effort"]
+    cap = min(EFFORT_RANK.get(ceiling, EFFORT_RANK[AUTO_EFFORT_CAP]), EFFORT_RANK[AUTO_EFFORT_CAP])
+    if EFFORT_RANK.get(effort, EFFORT_RANK["medium"]) <= cap:
+        return effort
+    return LEVEL_AT_RANK[cap]
 
 
 def _cfg(catalog: dict) -> dict:
@@ -167,7 +380,7 @@ def _resolve(catalog: dict, tier: str, model: str | None = None, local: bool = F
         if model is not None:
             if entry.get("id") == model:
                 return entry
-        elif entry.get("status") == "admitted" and bool(entry.get("local")) == local:
+        elif _default_ok(entry) and bool(entry.get("local")) == local:
             return entry
     return None
 
@@ -224,10 +437,16 @@ def _cost(catalog: dict, roster: list[dict], as_of: str) -> float:
 
 def _entry(catalog: dict, role: str, tier: str, effort: str | None, *, step: int, order: str = "sequential",
            model: str | None = None, optional: str | None = None, trial: bool = False,
-           requires_approval: bool = False, launch: str = "run") -> dict:
+           requires_approval: bool = False, launch: str = "run", approved: bool = False) -> dict:
     entry = _resolve(catalog, tier, model)
     if entry is None:
         raise _Fail(f"no admitted model in tier {tier} for {role}")
+    if _gated(entry, trial):
+        # Hard limit (L6): no catalog setting launches Fable or a non-admitted
+        # model; only an exact owner approval passed in by escalate-fable does.
+        requires_approval = True
+        if not approved:
+            launch = "skip"
     return {
         "role": role,
         "tier": tier,
@@ -250,7 +469,7 @@ def _modules(task: dict) -> int:
 
 
 def _batched(catalog: dict, role: str, tier: str, effort: str | None, count: int, first_step: int) -> list[dict]:
-    cap = int(_cfg(catalog)["max_parallel"])
+    cap = parallel_cap(catalog)
     return [_entry(catalog, role, tier, effort, step=first_step + i // cap, order="parallel") for i in range(count)]
 
 
@@ -267,7 +486,8 @@ def escalate(catalog: dict, role: str, tier: str, effort: str, failure: str) -> 
         if entry is not None:
             rank = EFFORT_RANK.get(effort, 3)
             higher = [lvl for lvl in entry.get("effort_levels") or []
-                      if EFFORT_RANK.get(lvl, 3) > rank and lvl not in cfg["never_automatic_effort"]]
+                      if EFFORT_RANK.get(lvl, 3) > rank and lvl not in cfg["never_automatic_effort"]
+                      and EFFORT_RANK.get(lvl, 3) <= EFFORT_RANK[AUTO_EFFORT_CAP]]
             if higher:
                 nxt = min(higher, key=lambda lvl: EFFORT_RANK.get(lvl, 3))
                 over = tier == ceiling["tier"] and EFFORT_RANK.get(nxt, 3) > EFFORT_RANK[ceiling["effort"]]
@@ -298,10 +518,11 @@ def _fable_reason(task: dict, prior: dict) -> str | None:
 
 def _escalate_fable(task: dict, catalog: dict, reasons: list[str], why: str) -> list[dict]:
     fable = _cfg(catalog)["fable"]
-    approved = FABLE_RULE in (task.get("approvals") or [])
+    # Exact list membership: input_problem() already rejected any non-list.
+    approved = FABLE_RULE in list(task.get("approvals") or [])
     role = "owner-named-task" if task.get("owner_named") else "generic-judge"
     roster = [_entry(catalog, role, fable["tier"], fable["effort"], step=1, model=fable["model"],
-                     requires_approval=True, launch="run" if approved else "skip")]
+                     requires_approval=True, launch="run" if approved else "skip", approved=approved)]
     reasons.append(f"{FABLE_RULE}: {why}")
     if approved:
         reasons.append(f"owner approved {FABLE_RULE}: {fable['model']} runs")
@@ -372,6 +593,7 @@ def _rows(task: dict, prior: dict, catalog: dict, reasons: list[str]) -> tuple[s
             return "P2", [], "owner"
         role = _prior_role(prior, "P2")
         slot_tier, effort = _prior_slot(catalog, prior, role)
+        effort = _auto_effort(catalog, effort)
         reasons.append("previous output truncated: same role, tier and effort, split by module, once")
         return "P2", _batched(catalog, role, slot_tier, effort, _modules(task), 1), "ok"
     schema_fail = int(prior.get("schema_fail") or 0)
@@ -389,8 +611,8 @@ def _rows(task: dict, prior: dict, catalog: dict, reasons: list[str]) -> tuple[s
     if p0:
         role = _prior_role(prior, "P4", "generic-judge")
         from_tier = p0 if p0 in ("small", "medium") else prior.get("tier") or "medium"
-        if from_tier in ("small", "medium"):
-            ladder = cfg["tier_ladder"]
+        ladder = cfg["tier_ladder"]
+        if from_tier in ("small", "medium") and from_tier in ladder[:-1]:
             up = ladder[ladder.index(from_tier) + 1]
             reasons.append(f"P0 from the {from_tier} tier is confirmed one tier up before it counts")
             return "P4", [_entry(catalog, role, up, None, step=1)], "ok"
@@ -401,7 +623,7 @@ def _rows(task: dict, prior: dict, catalog: dict, reasons: list[str]) -> tuple[s
     if str(prior.get("verifier") or "").upper() == "FAIL":
         role = "generic-proposer"
         slot_tier = prior.get("tier") or "medium"
-        effort = prior.get("effort") or ("high" if tier == "high" else "medium")
+        effort = _auto_effort(catalog, prior.get("effort") or ("high" if tier == "high" else "medium"))
         reasons.append("verifier FAIL: proposer again at the same tier and effort, once; a second FAIL counts as a stall (P1)")
         return "P6", [_entry(catalog, role, slot_tier, effort, step=1)], "ok"
 
@@ -418,7 +640,7 @@ def _rows(task: dict, prior: dict, catalog: dict, reasons: list[str]) -> tuple[s
     if kind == "map":
         count = _modules(task)
         map_tier = "small" if count == 1 else "medium"
-        reasons.append(f"map: one cartographer per module ({count}), {map_tier}/medium, parallel in batches of {cfg['max_parallel']}")
+        reasons.append(f"map: one cartographer per module ({count}), {map_tier}/medium, parallel in batches of {parallel_cap(catalog)}")
         return "B2", _batched(catalog, "generic-cartographer", map_tier, "medium", count, 1), "ok"
     if kind == "implement" and tier in ("medium", "high"):
         roster: list[dict] = []
@@ -516,11 +738,21 @@ def route(task: dict, catalog: dict, as_of: str) -> dict:
     """Pure: no clock, no filesystem, no environment."""
     reasons: list[str] = []
     rule, roster, status = None, [], "ok"
+    # One validation step, before any rule reads a field (fail closed): the
+    # task's shape, the catalog, the date, then every task field.
+    if not isinstance(task, dict):
+        rule, problem = "guard:input", input_problem(task, {})
+    elif (problem := catalog_problem(catalog)) is not None:
+        rule = "guard:catalog"
+    elif not _real_date(as_of):
+        rule, problem = "guard:as_of", f"as_of must be a real YYYY-MM-DD date, got {as_of!r}"
+    elif (problem := input_problem(task, catalog)) is not None:
+        rule = "guard:input"
+    if problem:
+        reasons.append(problem)
+        return _result(task, catalog, as_of, rule, [], "error", reasons)
     prior = task.get("prior") or {}
-    if not isinstance(as_of, str) or not DATE_RE.match(as_of):
-        rule, status = "guard:as_of", "error"
-        reasons.append(f"as_of must be YYYY-MM-DD, got {as_of!r}")
-    elif task.get("task_kind") not in TASK_KINDS:
+    if task.get("task_kind") not in TASK_KINDS:
         rule, status = "guard:task_kind", "error"
         reasons.append(f"unknown task_kind {task.get('task_kind')!r}")
     elif task.get("tier") not in RDD_TIERS:
@@ -543,12 +775,19 @@ def route(task: dict, catalog: dict, as_of: str) -> dict:
             status = _offline(catalog, roster, reasons)
         if status == "ok" and task.get("budget_usd") is not None:
             status = _budget(catalog, roster, float(task["budget_usd"]), as_of, reasons)
+    return _result(task, catalog, as_of, rule, roster, status, reasons)
+
+
+def _result(task, catalog, as_of, rule, roster, status, reasons) -> dict:
     cost = _cost(catalog, roster, as_of) if roster and rule and not rule.startswith("guard:") else 0.0
-    approvals = task.get("approvals")
+    # Only the approvals that granted a launch are recorded (L6): today the
+    # one gated launch is Fable via escalate-fable, run with approval.
+    granted = [FABLE_RULE] if rule == FABLE_RULE and any(
+        e["launch"] == "run" and e["requires_approval"] for e in roster) else []
     return {
-        "approvals": sorted(set(approvals)) if isinstance(approvals, list) else [],
+        "approvals": granted,
         "as_of": as_of,
-        "catalog_version": catalog.get("version"),
+        "catalog_version": catalog.get("version") if isinstance(catalog, dict) else None,
         "cost_estimate_usd": cost,
         "inputs_hash": inputs_hash(task),
         "reasons": reasons,
@@ -593,7 +832,10 @@ def main(argv: list[str] | None = None) -> int:
         task = baseline.load_json(args.task)
         catalog = baseline.load_json(args.config)
     except (OSError, ValueError) as exc:
-        print(f"route: cannot read input: {exc}", file=sys.stderr)
+        print("route: cannot read input: " + " ".join(str(exc).split()), file=sys.stderr)
+        return 2
+    if not isinstance(task, dict):
+        print(f"route: the task must be a JSON object, got {type(task).__name__}", file=sys.stderr)
         return 2
     task = resolve_offline(task, load_project_config(TOOLS_ROOT, os.environ), os.environ)
     as_of = args.as_of or task.get("as_of")
@@ -613,6 +855,10 @@ def main(argv: list[str] | None = None) -> int:
 
     result = route(task, catalog, as_of)
     sys.stdout.write(dumps(result))
+    if result["rule"] in USAGE_RULES:
+        # Malformed input is a usage error, not a routing decision: no log line.
+        print(f"route: {result['rule']}: " + "; ".join(result["reasons"]), file=sys.stderr)
+        return 2
     if log_path is not None:
         log_path.parent.mkdir(parents=True, exist_ok=True)
         with log_path.open("a", encoding="utf-8") as handle:

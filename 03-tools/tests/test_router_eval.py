@@ -13,6 +13,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from lib import baseline, router, router_eval
 
@@ -134,18 +135,54 @@ class FanOutTests(unittest.TestCase):
         got = _by_name(router_eval.evaluate(FIXTURES))["b2-map-fan-out-cap"]
         self.assertEqual((got["max_parallel_step"], got["fanout_ok"]), (router.MAX_PARALLEL, True))
 
-    def test_a_catalog_cap_above_the_owner_decision_fails(self):
+    FAN_OUT = {"name": "fan-out-tmp", "as_of": "2026-10-16",
+               "input": {"task_kind": "map", "tier": "medium", "lane": "sonnet", "modules": 5},
+               "expect": {"rule": "B2", "status": "ok", "roster": [
+                   {"role": "generic-cartographer", "model": "claude-sonnet-5-5", "effort": "medium", "launch": "run"}] * 5}}
+
+    def test_a_catalog_cap_above_the_owner_decision_is_clamped_by_the_router(self):
         cat = copy.deepcopy(CATALOG)
         cat["router"]["max_parallel"] = 5
-        fx = {"name": "fan-out-tmp", "as_of": "2026-10-16",
-              "input": {"task_kind": "map", "tier": "medium", "lane": "sonnet", "modules": 5},
-              "expect": {"rule": "B2", "status": "ok", "roster": [
-                  {"role": "generic-cartographer", "model": "claude-sonnet-5-5", "effort": "medium", "launch": "run"}] * 5}}
         with tempfile.TemporaryDirectory() as tmp:
-            _write(tmp, fx)
+            _write(tmp, self.FAN_OUT)
             got = _by_name(router_eval.evaluate(tmp, catalog=cat))["fan-out-tmp"]
+        self.assertEqual((got["roster_ok"], got["max_parallel_step"], got["fanout_ok"], got["passed"]),
+                         (True, router.MAX_PARALLEL, True, True))
+
+    def test_a_step_above_the_cap_fails_the_fixture(self):
+        # negative control for fanout_ok: a router whose cap were 5 is caught
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(router, "parallel_cap", lambda catalog: 5):
+            _write(tmp, self.FAN_OUT)
+            got = _by_name(router_eval.evaluate(tmp))["fan-out-tmp"]
         self.assertTrue(got["roster_ok"])
         self.assertEqual((got["max_parallel_step"], got["fanout_ok"], got["passed"]), (5, False, False))
+
+
+class CatalogPatchTests(unittest.TestCase):
+    """A fixture may carry `catalog_patch`, merged onto a copy of the catalog
+    for that fixture only (how the guard:catalog fixture breaks the catalog)."""
+
+    def test_patch_applies_to_one_fixture_only(self):
+        broken = {"name": "broken-tmp", "as_of": "2026-10-16", "catalog_patch": {"router": {"max_parallel": 0}},
+                  "input": dict(self._map()), "expect": {"rule": "guard:catalog", "status": "error", "roster": []}}
+        fine = copy.deepcopy(B3_FIXTURE)
+        with tempfile.TemporaryDirectory() as tmp:
+            _write(tmp, broken, fine)
+            report = router_eval.evaluate(tmp)
+        got = _by_name(report)
+        self.assertTrue(got["broken-tmp"]["passed"], got["broken-tmp"])
+        self.assertTrue(got["b3-tmp"]["passed"], got["b3-tmp"])
+        self.assertEqual(CATALOG["router"]["max_parallel"], 3)
+
+    def test_patch_merges_nested_objects(self):
+        merged = router_eval.patched(CATALOG, {"router": {"max_parallel": 0}})
+        self.assertEqual(merged["router"]["max_parallel"], 0)
+        self.assertEqual(merged["router"]["tier_ladder"], CATALOG["router"]["tier_ladder"])
+        self.assertEqual(router_eval.patched(CATALOG, []), [])
+
+    @staticmethod
+    def _map():
+        return {"task_kind": "map", "tier": "medium", "lane": "sonnet", "modules": 4}
 
 
 class DeterminismTests(unittest.TestCase):

@@ -1,0 +1,21 @@
+{
+  "as_of": "2026-10-16",
+  "catalog_patch": {
+    "router": {
+      "max_parallel": 0
+    }
+  },
+  "expect": {
+    "roster": [],
+    "rule": "guard:catalog",
+    "status": "error"
+  },
+  "input": {
+    "lane": "sonnet",
+    "modules": 4,
+    "task_kind": "map",
+    "tier": "medium"
+  },
+  "name": "guard-catalog-max-parallel-zero",
+  "note": "catalog router.max_parallel must be an int >= 1: guard:catalog, not a division by zero"
+}

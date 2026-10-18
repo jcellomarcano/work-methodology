@@ -12,8 +12,7 @@ Prices are USD/MTok, standard tier, and expire.
   efforts are not supported."; S8 "Treat `reasoning.effort` as a tuning knob…"; S14 "If a custom agent file sets
   `model` or `model_reasoning_effort`, the value in the file takes precedence."; S12 "…`max`, or `ultra`. Available
   levels depend on the model and client."; S7 "keep the lightest setting that meets your quality bar.". "Batch and Flex
-  are priced at 50% of Standard rates." is on the S2 Astra, 6 Sol and 6 Luna pages, not on S3 (the dossier cites both).
-  S2 prices Astra $10/$50, 6.1 Sol $2/$10, 6 Luna $0.10/$0.50 also match.
+  are priced at 50% of Standard rates." is on the S2 Astra, 6 Sol and 6 Luna pages, not on S3 (the dossier cites both). S2 prices Astra $10/$50, 6.1 Sol $2/$10, 6 Luna $0.10/$0.50 also match.
 - `local.md`: 6/6 quotes found: S22 Qwen3.8 "Thinking mode is on by default and can be disabled per request"; S7 "…should
   be set to at least 64000 tokens."; S6 "Required RAM will scale by OLLAMA_NUM_PARALLEL * OLLAMA_CONTEXT_LENGTH."
   (split by markup); S20 "doesn’t support routing Claude Code to non-Claude models through any gateway"; S28 "The
@@ -75,16 +74,17 @@ Catalog rules for R7 [Inferred]:
 `map_age_days` · `budget_usd` (card, new field) · `offline` · `admitted` (catalog) · `as_of` (date) · `prior`:
 `truncated`, `schema` PASS|FAIL, `verdict`, `findings`, `p0_from_tier`, `disagreement`, `stalls`.
 
-**Guards** (run first; any hit → `status: error`, fail closed): unknown `task_kind`; missing `tier`; `lane=opus` with
-`tier≠high` (rdd_risk maps opus to high, so a mismatch means stale input); `full_required` with `tier≠high` ([RR§3]
-"bumps the layer to high").
-
-**Rows (first match wins).** P-rows react to the previous step and are checked before the base rows. Notation:
-role tier/effort.
+**Rows (first match wins).** Guards (`guard:*`) run first and any hit fails closed with `status: error` and an empty
+roster; P-rows react to the previous step and are checked before the base rows. Notation: role tier/effort.
 
 | Id | Condition | Roster → launch / mode | Max fan-out |
 |---|---|---|---|
+| guard:input | `task` not an object, or a malformed field, named in the reason: `approvals` not a list of strings; `budget_usd` or `map_age_days` not a non-negative number; `changed_lines` or `new_comments` not a non-negative int (a bool is rejected); `modules` not a non-negative int or a list of strings; `prior` not an object; a `prior` counter (`stalls`, `escalated_count`, `findings`, `schema_fail`) not a non-negative int; `prior.p0_from_lower_tier` not a catalog tier name or false | none; CLI exit 2, MCP isError, no log line | 0 |
+| guard:catalog | catalog not an object; a `tier_ladder` or Fable-slot tier missing; a candidate not an object or without `provider`, `id`, `usd_in`; `max_parallel` not an int ≥ 1 | none; CLI exit 2, MCP isError | 0 |
+| guard:as_of | `as_of` not a real calendar date (`datetime.date.fromisoformat`: 2026-13-45 fails) | none; CLI exit 2, MCP isError | 0 |
+| guard:task_kind, guard:tier, guard:lane, guard:full_required | unknown `task_kind`; missing `tier`; `lane=opus` or `full_required` with `tier≠high` (stale input: rdd_risk maps opus to high; [RR§3] "bumps the layer to high") | none | 0 |
 | P1 | `prior.stalls ≥ 2` on this step | none; `status: owner` ([MR] "two stalls") | 0 |
+| escalate-fable | (L6) an owner-named one-off task, or a verification that warrants the highest reasoning: a P0 on a critical path, a disagreement unresolved after the large judge, a high-tier receipt escalated twice | Fable 5.1 orchestrator/high, `requires_approval: true`; runs only when the list `approvals` holds exactly `escalate-fable`; unapproved → Fable skipped and Opus 5.5 large/xhigh runs instead | 1 |
 | P2 | `prior.truncated` | same role, same tier/effort, scope split by module; once ([AP§2]) | 3 |
 | P3 | `prior.schema=FAIL` | same role, effort +1; a second FAIL → tier +1 ([M§3] diligence) | 1 |
 | P4 | `prior.p0_from_tier ∈ {small, medium}` | same role, one tier up, to confirm the P0 before it counts ([MR]) | 1 |
@@ -99,12 +99,12 @@ role tier/effort.
 | B6 | `review`/`docs`, `tier=high` | owner consent first; challenger and blind-spot adversary large/high (xhigh if `critical_hit`), parallel; verifier medium/high; judge medium/high, large/xhigh on a P0 or critical property ([RR§3]; [M§5]) | 2 (+1 trial) |
 | B8 | verify at medium / high (L7) | generic-verifier on Sonnet 5.5 `high`; at high a large judge (Opus 5.5, `xhigh` on a critical path) only when `prior.findings` > 0 | 1-2 |
 | B7 | none of the above | `status: error` (fail closed) | 0 | (unreachable once B8 exists; kept as the fail-closed fallback)
+| error | a P-row that cannot resolve (e.g. P2/P3 without `prior.role`, no admitted model in the tier) | none; `status: error` (fail closed) | 0 |
 
 **Model resolution**, per roster entry [Inferred]: the provider order comes from the `admitted` entries for the role's
 tier, in catalog order. Today that is Anthropic only. A `candidate` fills only the B6 trial slot: one third adversary
-from another provider, tagged `trial`, rated by a blind judge ([MPR§2]; [M§5] rule 8; cross-family judge bias [M§1]).
-The proposer stays on the incumbent until a low-risk trial ([MPR§2]). The availability fallback is the next admitted
-model, at most 3 ([A§3] `--fallback-model`).
+from another provider, tagged `trial`, rated by a blind judge ([MPR§2]; [M§5] rule 8; cross-family judge bias [M§1]). The proposer stays on the incumbent until a low-risk trial ([MPR§2]). The availability fallback is the next admitted model, at most 3 ([A§3] `--fallback-model`).
+**Hard limits no catalog value overrides:** at most min(`max_parallel`, 3) roles per step; `claude-fable-5-1`, or any model whose status is not `admitted` (the owner-enabled trial `candidate` excepted), never runs without the owner's `escalate-fable` approval and always carries `requires_approval: true`; no automatic step (P2, P3, P6, the ladder) keeps or sets `max`.
 
 **Post-passes** (in order, after the row):
 1. **Offline**: if `offline=true`, keep only local admitted models. A mandatory role with no admitted local model →
@@ -113,8 +113,7 @@ model, at most 3 ([A§3] `--fallback-model`).
    judge on zero findings, then the stale-map cartographer. Mandatory roles ([RR§3] per tier; proposer and verifier for
    `implement`) are never dropped. If still over budget → `status: over_budget`; the owner decides ([M§4] D8).
 
-**Escalation ladder** (one step per launch; effort is fixed per agent session because changing it invalidates the
-prompt cache [A§2]):
+**Escalation ladder** (one step per launch; effort is fixed per agent session because changing it invalidates the prompt cache [A§2]):
 1. Diligence failure (truncated, schema FAIL, `not_covered`, tests skipped) → effort +1 on the same model, once.
 2. Wrong with full context, or step 1 failed → tier +1 at that role's default effort ([A§2] S14; [M§3]).
 3. Ceiling: large/xhigh. `max` is never automatic ([A§2] "prone to overthinking"; [O§2] `xhigh` "Only use when your
@@ -202,10 +201,8 @@ roster: [{role, tier, provider, model, effort, launch, mode, fanout, trial}], es
 
 ## 7. Open decisions for the owner
 
-1. **[Decided L5: Opus 5.5] Orchestrator: Fable 5.1 or Opus 5.5?** Anthropic measured Opus 5.5 matching Fable "for about a fifth of the cost
-   per solved task" ([A§5]). *Rec.:* keep Fable admitted; run Opus 5.5 through the §4 admission test; the owner decides.
-2. **[Decided L5: yes, now] Incumbent refresh to the 5.5 family.** *Rec.:* first run the admission test on Haiku 5.5 (Haiku 4.5's retirement
-   date has passed, [A§1]), then Sonnet 5.5 and Opus 5.5. No fast-track: [MPR§4] stays the law.
+1. **[Decided L5: Opus 5.5] Orchestrator.** Opus 5.5 matches Fable "for about a fifth of the cost per solved task" ([A§5]); Fable 5.1 is an approved escalation only (L6).
+2. **[Decided L5: yes, now] Incumbent refresh to the 5.5 family**, by owner decision on cost, not by the [MPR§4] admission test.
 3. **Router authority.** *Rec.:* the router is authoritative at launch (R9). Frontmatter is generated from admitted
    catalog defaults and is used only when the router has not run.
 4. **Budget field in the change card.** *Rec.:* add an optional `Budget (USD)`. When absent, no pruning happens and no
