@@ -3,7 +3,7 @@
 # out/<sha>/metrics.json (or when --force-recompute is passed) it creates a
 # disposable worktree, runs shape_metrics + duplication_cpd (fixed threshold
 # from config/cpd.json) + dep_boundaries + domain_invariants against it, and
-# removes it. Serialized with out/.gradle.lock (lib/worktree.sh): none of
+# removes it. Serialized with out/.build.lock (lib/worktree.sh): none of
 # this invokes Gradle, but it's the same serialization verify-commit.sh uses
 # over worktrees of the same repo, in case they run at the same time.
 #
@@ -46,7 +46,7 @@ SHA_B="$(resolve_sha "$REF_B")"
 echo "== $REF_A -> $SHA_A ==" >&2
 echo "== $REF_B -> $SHA_B ==" >&2
 
-LOCK_DIR="$TOOLS_ROOT/out/.gradle.lock"
+LOCK_DIR="$TOOLS_ROOT/out/.build.lock"
 WORKTREES_DIR="$TOOLS_ROOT/out/worktrees"
 mkdir -p "$WORKTREES_DIR"
 

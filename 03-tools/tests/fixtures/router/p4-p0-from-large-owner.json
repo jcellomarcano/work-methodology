@@ -1,0 +1,22 @@
+{
+  "as_of": "2026-10-16",
+  "expect": {
+    "roster": [],
+    "rule": "P4",
+    "status": "owner"
+  },
+  "input": {
+    "critical_hit": true,
+    "lane": "opus",
+    "map_age_days": 1,
+    "modules": 1,
+    "prior": {
+      "p0_from_lower_tier": "large",
+      "role": "generic-judge"
+    },
+    "task_kind": "review",
+    "tier": "high"
+  },
+  "name": "p4-p0-from-large-owner",
+  "note": "L13: a P0 already from the large tier has no higher automatic tier: the owner decides, never dropped silently"
+}

@@ -5,7 +5,7 @@
 # excludes A, includes up to B: to verify only the new commits of a branch
 # against develop, the typical usage is 'origin/develop..HEAD'.
 #
-# Serialized with out/.gradle.lock (lib/worktree.sh): two runs of this
+# Serialized with out/.build.lock (lib/worktree.sh): two runs of this
 # script, or one of this and one of bin/benchmark-release.sh, must not
 # launch Gradle over the same repo at the same time.
 #
@@ -27,7 +27,7 @@ TOOLS_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # shellcheck source=lib/worktree.sh
 source "$TOOLS_ROOT/lib/worktree.sh"
 
-LOCK_DIR="$TOOLS_ROOT/out/.gradle.lock"
+LOCK_DIR="$TOOLS_ROOT/out/.build.lock"
 OUT_VERIFY_DIR="$TOOLS_ROOT/out/verify"
 WORKTREES_DIR="$TOOLS_ROOT/out/worktrees"
 mkdir -p "$OUT_VERIFY_DIR" "$WORKTREES_DIR"

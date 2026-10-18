@@ -210,3 +210,42 @@ class InstallPiTests(unittest.TestCase):
         second = self._run()
         self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
         _assert_second_pass_unchanged(self, second.stdout)
+
+
+@unittest.skipUnless((TOOLS_ROOT.parent / "01-roles").is_dir(), "kit only: the instance does not carry 01-roles/")
+class InstalledTextRulesTests(unittest.TestCase):
+    """Key lines the installers carry into every repo: the core's stop rule, the
+    proposer's build lock and the review skills' routing steps (L13)."""
+
+    def _skill(self, name: str) -> str:
+        return (SKILLS_SRC / name / "SKILL.md").read_text(encoding="utf-8")
+
+    def test_core_marks_any_early_stop_truncated(self):
+        core = _source_core()
+        self.assertIn("Whenever you stop before your STOP condition", core)
+        for cause in ("budget deny", "context", "tool limit"):
+            self.assertIn(cause, core)
+        self.assertIn("`truncated: true`", core)
+        self.assertIn("`not_covered`", core)
+        # negative control: the safety lines stay in the core
+        for line in ("Never edit shared build files or `.claude/**`", "never spawn agents", "the owner's; report"):
+            self.assertIn(line, core)
+
+    def test_proposer_builds_only_under_the_lock(self):
+        body = (TOOLS_ROOT.parent / "01-roles" / "agents" / "generic-proposer.md").read_text(encoding="utf-8")
+        self.assertIn("mcp__metodo__verify_sectors", body)
+        # the exact lock directory bin/verify-sectors.sh takes
+        self.assertIn('LOCK_DIR="$TOOLS_ROOT/out/.build.lock"',
+                      (TOOLS_ROOT / "bin" / "verify-sectors.sh").read_text(encoding="utf-8"))
+        self.assertIn("${METODO_TOOLS:-__TOOLS_DEFAULT__}/out/.build.lock", body)
+        self.assertRegex(body, r"absent[^.]*\.[^.]*stop and report|exists, stop and report")
+
+    def test_review_skills_route_fable_once_with_owner_named_and_budget(self):
+        for name in ("receipt-review", "adversarial-round"):
+            text = self._skill(name)
+            with self.subTest(skill=name):
+                for needed in ("owner_named", "requires_approval", "approvals", "max_context_tokens",
+                               "generic-deep-reasoner", "BUDGET"):
+                    self.assertIn(needed, text)
+                self.assertRegex(text, r"before the first launch")
+                self.assertRegex(text, r"only the newly approved entry")

@@ -1,0 +1,26 @@
+{
+  "_comment": "L13: the role of the owner-requested Fable step (router escalate-fable). model is the frontmatter fallback, the admitted orchestrator-tier model; the router sets Fable 5.1 only when the owner approves. Read-only: it writes nothing but its output (mcp__metodo__output_write) and its handoff, so it has no Write tool; may_write fences any write to the round directory. max_context_tokens 120000 matches the Fable entry's bounded context in config/model-tiers.json (Assumed, tunable). forbidden_paths only lists what's specific to this role; the project's shared build files and **/.claude/** are always forbidden.",
+  "agent": "generic-deep-reasoner",
+  "model": "claude-opus-5-5",
+  "tools": [
+    "Read",
+    "Grep",
+    "Glob",
+    "mcp__metodo__output_write",
+    "mcp__metodo__handoff_write"
+  ],
+  "forbidden_paths": [
+    "**/.claude/**"
+  ],
+  "may_write": [
+    "**/round-*/**"
+  ],
+  "may_spawn": [],
+  "may_talk_to_user": false,
+  "handoff_targets": [
+    "generic-judge"
+  ],
+  "max_context_tokens": 120000,
+  "max_tool_calls": 60,
+  "max_turns": 75
+}

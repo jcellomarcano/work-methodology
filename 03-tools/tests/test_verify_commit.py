@@ -66,7 +66,7 @@ class VerifyCommitFakeRepoTests(unittest.TestCase):
         # from a half-failed run.
         for out_dir in (TOOLS_ROOT / "out" / "worktrees").glob("verify-commit-*"):
             shutil.rmtree(out_dir, ignore_errors=True)
-        lock_dir = TOOLS_ROOT / "out" / ".gradle.lock"
+        lock_dir = TOOLS_ROOT / "out" / ".build.lock"
         if lock_dir.exists():
             lock_dir.rmdir()
         for sha in (self.sha_base, self.sha_fail, self.sha_pass):

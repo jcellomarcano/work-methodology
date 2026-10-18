@@ -65,6 +65,11 @@ class RoundFilesTests(Fixture):
     def test_every_role_schema_file_exists(self):
         for role, name in round_files.ROLE_SCHEMA.items():
             self.assertTrue(round_files.schema_path(name).exists(), f"{role} -> {name}")
+        self.assertEqual(sorted(round_files.ROLE_SCHEMA), sorted(round_files.ROLES))
+
+    def test_deep_reasoner_is_a_kit_role_with_its_own_schema(self):
+        self.assertEqual(round_files.normalize_role("deep-reasoner"), "generic-deep-reasoner")
+        self.assertEqual(round_files.ROLE_SCHEMA["generic-deep-reasoner"], "deep-reasoning-output")
 
 
 class HandoffTests(Fixture):
@@ -111,6 +116,25 @@ class RoundOutputTests(Fixture):
         result = round_output.write_output(self.round_dir, "challenger", doc, repo=self.repo)
         self.assertEqual(result["verdict"], "INCOMPLETE")
         self.assertIsNotNone(result["path"])
+
+    def test_deep_reasoning_output_passes_truncates_and_fails(self):
+        doc = {"round": "r1", "role": "deep-reasoner", "question": "does the lock survive a crash?",
+               "verdict": "FAILS", "summary": "the lock file is never removed on SIGKILL",
+               "findings": [{"id": "D-01", "claim": "stale lock blocks the next build",
+                             "evidence": ["lib/lock.py:42"], "epistemic": "Inferred"}]}
+        result = round_output.write_output(self.round_dir, "deep-reasoner", doc, repo=self.repo)
+        self.assertEqual((result["verdict"], result["schema"]), ("PASS", "deep-reasoning-output"))
+        self.assertTrue((self.round_dir / "001-deep-reasoner-deep-reasoning-output.json").exists())
+        short = dict(doc, truncated=True, not_covered=["crash during unlink"])
+        self.assertEqual(round_output.write_output(self.round_dir, "deep-reasoner", short, repo=self.repo)["verdict"],
+                         "INCOMPLETE")
+        # negative controls: no evidence list, an unknown verdict, an untagged finding
+        for broken in (dict(doc, findings=[{"id": "D-02", "claim": "c", "epistemic": "Inferred"}]),
+                       dict(doc, verdict="PROBABLY"),
+                       dict(doc, findings=[{"id": "D-03", "claim": "c", "evidence": ["x:1"]}])):
+            with self.subTest(broken=broken):
+                self.assertEqual(round_output.write_output(self.round_dir, "deep-reasoner", broken,
+                                                           repo=self.repo)["verdict"], "FAIL")
 
     def test_cli_exit_one_on_fail_and_zero_on_pass(self):
         doc_path = self.tmp / "doc.json"

@@ -2,7 +2,7 @@
 # Runs only the Gradle tasks of the modules the change touches, per
 # lib/test_sectors.py, with the same discipline as the repo's
 # tools/verify/verify.sh: one gradlew invocation per task, one log per task,
-# and everything under the out/.gradle.lock lock (lib/worktree.sh) so that
+# and everything under the out/.build.lock lock (lib/worktree.sh) so that
 # two Gradle runs never overlap on the same repo. This is the agent loop's
 # battery; the full one is still owned by pre-push and CI.
 #
@@ -87,7 +87,7 @@ if [ ! -x "$REPO/gradlew" ]; then
   exit 2
 fi
 
-LOCK_DIR="$TOOLS_ROOT/out/.gradle.lock"
+LOCK_DIR="$TOOLS_ROOT/out/.build.lock"
 worktree_lock_acquire "$LOCK_DIR"
 trap 'worktree_lock_release "$LOCK_DIR"' EXIT
 

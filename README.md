@@ -12,7 +12,7 @@ that enforce the gates, and one command to plug it into a repository and unplug 
 | It is | It is not |
 |---|---|
 | A way of working: frame, map, card, small commits, review sized by risk, verify, owner gate, learn | A framework you import into your code, or a runtime dependency |
-| A kit for AI-assisted teams: 11 agent roles, 16 skills, a `metodo` MCP server, hooks for Claude Code and pi | A general-purpose chatbot setup; every agent has one role, one model tier and a JSON contract |
+| A kit for AI-assisted teams: 12 agent roles, 16 skills, a `metodo` MCP server, hooks for Claude Code and pi | A general-purpose chatbot setup; every agent has one role, one model tier and a JSON contract |
 | Deterministic checks (Python 3 standard library + bash) with tests and negative controls | A linter collection that replaces your CI; it adds evidence on top of your own checks |
 | Language guidance with the official rule quoted verbatim, then labeled house rules (Kotlin, Swift, Python, SQL, Haskell, Go, Gradle, Compose, SwiftUI) | A style war; official guides win, house rules are labeled as such |
 | Usable by humans alone; AI agents are optional helpers | A way to hand decisions to AI: humans own every gate (merge, deploy, release, shared build files) |
@@ -45,7 +45,7 @@ flowchart LR
         H["Hooks enforce gates<br/>Claude Code + pi"]
     end
     subgraph Reasoning["Reasoning (AI, optional)"]
-        A["11 role agents<br/>one model tier each"]
+        A["12 role agents<br/>one model tier each"]
         K["16 skills<br/>wrap the scripts"]
     end
     subgraph Judgment["Judgment (humans)"]
@@ -89,10 +89,10 @@ Pick the path that fits you:
 <!-- kit-status:start -->
 | Kit status (`03-tools/bin/kit-status.sh --write`, never by hand) | Value | Tag |
 |---|---|---|
-| measured_at | `fc2ed0e`, dirty: yes | [Measured] |
-| code_fingerprint | `sha256:78ca2bf3b959d23b` over 245 files (roles, skills, tools, tests) | [Measured] |
-| structure | 11 agents, 16 skills (16 installed), 31 MCP tools, 7 Claude hooks, 936 test cases | [Measured] |
-| kit suite | OK: ran 936, failures 0, errors 0, skipped 5, expected failures 2 | [Tested] |
+| measured_at | `85bb975`, dirty: yes | [Measured] |
+| code_fingerprint | `sha256:6a358e9b70817f83` over 255 files (roles, skills, tools, tests) | [Measured] |
+| structure | 12 agents, 16 skills (16 installed), 31 MCP tools, 7 Claude hooks, 988 test cases | [Measured] |
+| kit suite | OK: ran 988, failures 0, errors 0, skipped 5, expected failures 2 | [Tested] |
 | docs caps | 0 offenders, 0 missing (`config/docs-caps.json` over this checkout) | [Measured] |
 | init on a Gradle/Kotlin fixture | doctor PASS, kit_installed true, smoke PASS, loop_ran true, ready_for_benchmark true; 25 pending human steps | [Tested] |
 | init suggestions | 0 missing, 1 unknown of 6 suggested helpers (temp HOME) | [Measured, this machine] |
@@ -264,7 +264,7 @@ only if `init.sh` reports `ready_for_benchmark` for that repo: a half-installed 
 | `docs/` | The friendly entry layer: principles, workflow, change card, review, work management, git/release, adoption, other harnesses |
 | `AGENTS.md`, `CLAUDE.md`, `CONTEXT-PACK.md` | How an agent enters, and the whole method in ≤ 120 lines |
 | `00-principles/` | The operating law: evidence, why-layer, change card, review receipt, model and multi-provider routing, runtime adapters, agent protocol |
-| `01-roles/agents/` | The 11 roles, each with its `.contract.json` |
+| `01-roles/agents/` | The 12 roles, each with its `.contract.json` |
 | `02-skills/` | The 16 skills (`SKILL.md`) |
 | `03-tools/` | `bin/` (init, doctor, smoke, install, adopt, metrics, kit-status…), `lib/` checkers, `hooks/`, `mcp/` server, `config/`, `schemas/`, `tests/` |
 | `04-templates/` | Change card, PR, findings, release benchmark, project profile, agent brief, round minutes |

@@ -80,13 +80,22 @@ class ShippedFixtureTests(unittest.TestCase):
         fable = [fx for fx in fixtures if fx["expect"]["rule"] == router.FABLE_RULE]
         launches = {e["launch"] for fx in fable for e in fx["expect"]["roster"] if e["model"] == "claude-fable-5-1"}
         self.assertEqual(launches, {"run", "skip"})
+        alone = []
         for fx in fable:
-            # L11: Fable joins the team (never alone), as FABLE_ROLE, at most high, on request only.
+            # L11/L13: Fable joins the team as FABLE_ROLE, at most high, on request only; it runs
+            # alone only when the base roster is empty (exempt tier), and a catalog without
+            # Fable skips the step (no entry) instead of failing.
             with self.subTest(fixture=fx["name"]):
                 self.assertIs(fx["input"].get("owner_named"), True)
-                extra = [e for e in fx["expect"]["roster"] if e["model"] == "claude-fable-5-1"]
-                self.assertEqual([(e["role"], e["effort"]) for e in extra], [(router.FABLE_ROLE, "high")])
-                self.assertTrue([e for e in fx["expect"]["roster"] if e["role"] != router.FABLE_ROLE])
+                extra = [e for e in fx["expect"]["roster"] if e["role"] == router.FABLE_ROLE]
+                if fx.get("catalog_patch"):
+                    self.assertEqual(extra, [])
+                else:
+                    self.assertEqual([(e["model"], e["effort"]) for e in extra], [("claude-fable-5-1", "high")])
+                if not [e for e in fx["expect"]["roster"] if e["role"] != router.FABLE_ROLE]:
+                    self.assertEqual(fx["input"]["tier"], "exempt")
+                    alone.append(fx["name"])
+        self.assertTrue(alone)
         for fx in fixtures:
             if fx["expect"]["rule"] != router.FABLE_RULE:
                 self.assertNotIn("claude-fable-5-1", [e["model"] for e in fx["expect"]["roster"]], fx["name"])

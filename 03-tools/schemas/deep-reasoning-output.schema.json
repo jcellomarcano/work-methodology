@@ -1,0 +1,87 @@
+{
+  "_comment": "Output of generic-deep-reasoner (L13): one verdict on the owner-named question, findings bound to cited evidence with an epistemic tag, and truncated/not_covered when it stops early.",
+  "properties": {
+    "findings": {
+      "items": {
+        "properties": {
+          "claim": {
+            "type": "string"
+          },
+          "epistemic": {
+            "enum": [
+              "Measured",
+              "Tested",
+              "Inferred",
+              "Assumed",
+              "Unknown"
+            ],
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "id": {
+            "type": "string"
+          },
+          "refutation_tried": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "claim",
+          "evidence",
+          "epistemic"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "not_covered": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "question": {
+      "type": "string"
+    },
+    "role": {
+      "enum": [
+        "deep-reasoner"
+      ],
+      "type": "string"
+    },
+    "round": {
+      "type": [
+        "string",
+        "integer"
+      ]
+    },
+    "summary": {
+      "type": "string"
+    },
+    "truncated": {
+      "type": "boolean"
+    },
+    "verdict": {
+      "enum": [
+        "HOLDS",
+        "FAILS",
+        "UNRESOLVED"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "round",
+    "role",
+    "question",
+    "verdict",
+    "findings"
+  ],
+  "type": "object"
+}

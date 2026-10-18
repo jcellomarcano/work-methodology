@@ -60,7 +60,7 @@ class _SectorFixture:
         if self.repo_sha:
             for d in (TOOLS_ROOT / "out" / "verify-sectors").glob(f"{self.repo_sha}*"):
                 shutil.rmtree(d, ignore_errors=True)
-        lock = TOOLS_ROOT / "out" / ".gradle.lock"
+        lock = TOOLS_ROOT / "out" / ".build.lock"
         if lock.exists():
             lock.rmdir()
 
@@ -90,7 +90,7 @@ class VerifySectorsTests(_SectorFixture, unittest.TestCase):
         summary = self._summary()
         self.assertEqual(summary["verdict"], "PASS")
         self.assertEqual([t["task"] for t in summary["tasks"]], [":domain:test"])
-        self.assertFalse((TOOLS_ROOT / "out" / ".gradle.lock").exists())
+        self.assertFalse((TOOLS_ROOT / "out" / ".build.lock").exists())
 
     def test_failing_task_exits_one(self):
         self._change("bad/B.kt")

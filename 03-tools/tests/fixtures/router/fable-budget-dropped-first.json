@@ -1,0 +1,42 @@
+{
+  "as_of": "2026-10-16",
+  "expect": {
+    "cost_max_usd": 0.36,
+    "roster": [
+      {
+        "effort": "medium",
+        "launch": "run",
+        "model": "claude-sonnet-5-5",
+        "role": "generic-proposer"
+      },
+      {
+        "effort": "high",
+        "launch": "run",
+        "model": "claude-sonnet-5-5",
+        "role": "generic-verifier"
+      },
+      {
+        "effort": "high",
+        "launch": "skip",
+        "model": "claude-fable-5-1",
+        "role": "generic-deep-reasoner"
+      }
+    ],
+    "rule": "escalate-fable",
+    "status": "ok"
+  },
+  "input": {
+    "approvals": [
+      "escalate-fable"
+    ],
+    "budget_usd": 0.36,
+    "lane": "sonnet",
+    "map_age_days": 1,
+    "modules": 1,
+    "owner_named": true,
+    "task_kind": "implement",
+    "tier": "medium"
+  },
+  "name": "fable-budget-dropped-first",
+  "note": "L13: the budget drops the approved Fable step first; the B3 team that fits stays ok"
+}

@@ -1,0 +1,29 @@
+{
+  "as_of": "2026-10-16",
+  "expect": {
+    "roster": [
+      {
+        "effort": "xhigh",
+        "launch": "run",
+        "model": "claude-opus-5-5",
+        "role": "generic-judge"
+      }
+    ],
+    "rule": "P4",
+    "status": "ok"
+  },
+  "input": {
+    "critical_hit": true,
+    "lane": "opus",
+    "map_age_days": 1,
+    "modules": 1,
+    "prior": {
+      "p0_from_lower_tier": "small",
+      "role": "generic-judge"
+    },
+    "task_kind": "review",
+    "tier": "high"
+  },
+  "name": "p4-p0-small-critical-large-xhigh",
+  "note": "L13: a small-tier P0 on a critical path is confirmed on the large tier (Opus 5.5) at xhigh, not on Sonnet"
+}

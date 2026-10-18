@@ -15,33 +15,33 @@ allowed-tools: [Read, Agent, mcp__metodo__receipt_start, mcp__metodo__receipt_st
 
 ## Input
 
-`<repo>` with the tree committed and clean, the round directory (outside the repo), the change card (mandatory at medium and high), and the base branch.
+`<repo>` with the tree committed and clean, the round directory (outside the repo), the change card (mandatory at medium and high) and the base branch.
 
 ## Steps
 
-1. `mcp__metodo__receipt_status`: if it says `COMMIT_FIRST`, there is nothing to review yet. If there is already a receipt for the tree, follow it from its `next`.
+1. `mcp__metodo__receipt_status`: `COMMIT_FIRST` means nothing to review yet; an existing receipt for the tree is followed from its `next`.
 2. `mcp__metodo__receipt_start` with `round_dir`, `change_card_path`, and `base`: read `risk.tier`, `risk.lenses`, `risk.consent`, and `budget`. Paste `RISK:`, `LENSES:`, and `RECEIPT:` into `round/000-context.md`.
-3. `mcp__metodo__test_sectors`: if it returns `full_required: true`, the review runs at the high tier no matter what, and the battery is the full one (`verify_commit`).
-4. Route BEFORE launching any role: `mcp__metodo__route` with `as_of` (today, typed by the orchestrator) and `task`: `task_kind` (`review`, `docs` for a docs-only diff), `tier` = `risk.tier`, `lane`, `critical_hit`, `owner_gate`, `full_required`, `modules`, `lens_focus`, and `prior` (findings, disagreement, verifier FAIL, truncated, stalls, escalations so far). Launch exactly the roster entries with `launch: run`, each with its `model` and `effort`; the agent frontmatter is only the fallback when the tool is down. An entry with `requires_approval: true` never launches without the owner's explicit OK relayed by the orchestrator; then route again with `approvals: [<that rule>]`. Paste `ROUTE: <rule> <inputs_hash>` into `round/000-context.md`; route again when `prior` changes. A status other than `ok` stops and goes to the owner.
+3. `mcp__metodo__test_sectors`: `full_required: true` forces the high tier and the full battery (`verify_commit`).
+4. Route BEFORE launching any role: `mcp__metodo__route` with `as_of` (today, typed by the orchestrator) and `task`: `task_kind` (`review`, `docs` for a docs-only diff), `tier` = `risk.tier`, `lane`, `critical_hit`, `owner_gate`, `full_required`, `owner_named` (true only when the owner asked for Fable on this task), `modules`, `lens_focus`, and `prior` (findings, disagreement, verifier FAIL, truncated, stalls, escalations so far). Settle approvals before the first launch: show each `requires_approval: true` entry to the owner, route again with `approvals: [<rule>]` for those approved, then launch once. Launch exactly the `launch: run` entries with their `model` and `effort`, copying each `max_context_tokens` (when present) into the brief's `BUDGET`; the Fable step runs as `generic-deep-reasoner`. An approval arriving after the team ran launches only the newly approved entry. Agent frontmatter is the fallback only if the tool is down. Paste `ROUTE: <rule> <inputs_hash>` into `round/000-context.md`; route again when `prior` changes. A non-`ok` status stops and goes to the owner.
 5. By tier (the roles come from the roster):
    - exempt: nothing; the receipt is born approved.
-   - low: scripts only. `mcp__metodo__role_contract_validate`, `mcp__metodo__comment_gate_measure`, `mcp__metodo__docs_lint`; each output gets tied in with `mcp__metodo__receipt_capture` (`role=script:role_contract`, `script:comment_gate`, `script:docs_lint`).
-   - medium: the low-tier scripts, the roster's `generic-challenger` with the `lens_focus` lens (skill `adversarial-round`), and its `generic-verifier` that runs `mcp__metodo__verify_sectors`; the judge only if the roster runs it; all captured.
-   - high: show the receipt to the owner (tier, reasons, lenses, budget) and wait for their OK; `mcp__metodo__receipt_acknowledge` with `decision=consent` records it. Then a full `adversarial-round`, `generic-judge`, and `generic-verifier` with `mcp__metodo__verify_commit` (`full=true`), at the roster's models and efforts.
-6. `mcp__metodo__receipt_finalize`: `approved`, `rejected`, `escalated`, or `inconclusive`, only from the captures. On `rejected`, one correction: the proposer fixes it, a new commit, `receipt_start` with `supersedes=<previous tree>`, and the tier repeats. A second `rejected` escalates to the owner; there is no third pass.
-7. An approved receipt needs no acknowledge after the push: the push gate already read it. A push without one stays in the ledger and in the PR's "What was NOT tested" (`pr-message`).
+   - low: scripts only. `mcp__metodo__role_contract_validate`, `mcp__metodo__comment_gate_measure`, `mcp__metodo__docs_lint`; each captured with `mcp__metodo__receipt_capture` (`role=script:role_contract`, `script:comment_gate`, `script:docs_lint`).
+   - medium: the low-tier scripts, the roster's `generic-challenger` with the `lens_focus` lens (skill `adversarial-round`), and its `generic-verifier` running `mcp__metodo__verify_sectors`; the judge only if the roster runs it; all captured.
+   - high: show the owner the receipt (tier, reasons, lenses, budget) and wait for OK; `mcp__metodo__receipt_acknowledge` with `decision=consent` records it. Then a full `adversarial-round`, `generic-judge`, and `generic-verifier` with `mcp__metodo__verify_commit` (`full=true`).
+6. `mcp__metodo__receipt_finalize`: `approved`, `rejected`, `escalated`, or `inconclusive`, only from the captures. On `rejected`, one correction: the proposer fixes it, a new commit, `receipt_start` with `supersedes=<previous tree>`, and the tier repeats. A second `rejected` escalates to the owner; no third pass.
+7. An approved receipt needs no acknowledge after the push (the push gate read it). A push without one stays in the ledger and in the PR's "What was NOT tested" (`pr-message`).
 
 ## What the model may add
 
-The round-context prose and each agent's brief. Never the tier (that comes from `receipt_start`), never a model or effort the roster did not return, never a capture the script rejected, never a verdict different from what `receipt_finalize` returned.
+Round-context prose and agent briefs. Never the tier, a model or effort the roster did not return, a capture the script rejected, or a verdict other than `receipt_finalize`'s.
 
 ## Output
 
-The receipt at `out/rdd/<tree_sha>.receipt.json`, the numbered captures in the round directory, and the minutes with the tier, the lenses, and the verdict.
+The receipt at `out/rdd/<tree_sha>.receipt.json`, the numbered captures in the round directory and the minutes with tier, lenses and verdict.
 
 ## Escalate to the owner
 
 - High tier: always, before spending (consent).
-- `owner_gate: true` (the change touches a shared build file): the receipt comes out `escalated` and the owner delivers it.
+- `owner_gate: true` (a shared build file is touched): the receipt is `escalated`; the owner delivers it.
 - A second `rejected` on the same card.
-- Repeated `inconclusive` on the same tree: the instrument or the card is wrong, not the candidate.
+- Repeated `inconclusive` on one tree: the instrument or the card is wrong, not the candidate.

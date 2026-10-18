@@ -1,0 +1,28 @@
+{
+  "as_of": "2026-10-16",
+  "expect": {
+    "roster": [
+      {
+        "effort": "high",
+        "launch": "run",
+        "model": "claude-sonnet-5-5",
+        "role": "generic-judge"
+      }
+    ],
+    "rule": "P4",
+    "status": "ok"
+  },
+  "input": {
+    "lane": "sonnet",
+    "map_age_days": 1,
+    "modules": 1,
+    "prior": {
+      "p0_from_lower_tier": "small",
+      "role": "generic-judge"
+    },
+    "task_kind": "review",
+    "tier": "medium"
+  },
+  "name": "p4-p0-small-one-tier-up",
+  "note": "L13: a small-tier P0 off the critical path is confirmed one tier up (Sonnet 5.5, the role's default effort)"
+}

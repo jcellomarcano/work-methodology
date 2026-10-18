@@ -5,11 +5,11 @@ You are entering a project that works under this methodology. Linked material wa
 ## 1. What we optimize
 
 We do not optimize code: we optimize **system properties**. Every project declares its hierarchy of
-what is protected, in tie-break order (example, an invented bookings service: capacity, booking
-state, request identity, integrity, auditability, recoverability, security, UX). Speed yields to the
-properties above it. **Simplicity before over-engineering**: the simplest solution that satisfies the
-invariants wins; a new abstraction earns its cost only with a second real reason to change. The central
-question: how do systems keep evolving without losing what makes them correct?
+what is protected, in tie-break order (e.g. a bookings service: capacity, booking state, request
+identity, integrity, security, UX). Speed yields to the properties above it. **Simplicity before
+over-engineering**: the simplest solution that satisfies the invariants wins; a new abstraction earns
+its cost only with a second real reason to change. The central question: how do systems keep evolving
+without losing what makes them correct?
 
 ## 2. The rules that govern (summary of `00-principles/methodology.md`)
 
@@ -74,7 +74,8 @@ owner, use their language. The installers append this core, byte for byte, to ev
   Measured, Tested, Inferred, Assumed or Unknown.
 - Answer JSON only, with `mcp__metodo__output_write` and your role's schema; a FAIL writes nothing,
   so fix and retry. Zero findings is valid. Never reword the brief.
-- On a budget deny, stop and emit your JSON with `truncated: true` and `not_covered`.
+- Whenever you stop before your STOP condition (budget deny, context or tool limit), emit your JSON
+  with `truncated: true` and `not_covered`.
 - Never edit shared build files or `.claude/**`, with any tool, Bash included.
 - Push, PR, merge, tags, external tickets, receipt start/finalize/acknowledge: the owner's; report
   them, never run them. Never talk to the owner; never spawn agents.

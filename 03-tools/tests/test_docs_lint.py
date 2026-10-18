@@ -237,12 +237,12 @@ class TokenCheckTests(unittest.TestCase):
 
 class MainTokensAndRootTests(unittest.TestCase):
     def _fixture(self, root: Path) -> tuple[Path, Path]:
-        _write(root / "doc.md", "a\nb\n")
+        _write(root / "doc.md", "aaaa\nbbbb\n")   # 2 lines, 3 tokens
         lines = _write(root / "docs-caps.json",
                        json.dumps({"docs_root": str(root / "nowhere"), "caps": {"doc.md": 5, "ghost.md": 3}}))
         tokens = _write(root / "token-caps.json", json.dumps({
             "method": "ceil(chars/4)",
-            "token_caps": {"doc.md": 0},
+            "token_caps": {"doc.md": 1},
             "field_caps": [{"glob": "02-skills/*/SKILL.md", "field": "description", "cap": 60}],
         }))
         return lines, tokens
@@ -286,7 +286,7 @@ class MainTokensAndRootTests(unittest.TestCase):
             report = json.loads(out)
             self.assertEqual(code, 1)
             self.assertEqual(report["method"], "ceil(chars/4)")
-            self.assertEqual(report["offenders"], [{"path": "doc.md", "unit": "tokens", "actual": 1, "limit": 0}])
+            self.assertEqual(report["offenders"], [{"path": "doc.md", "unit": "tokens", "actual": 3, "limit": 1}])
             self.assertIn({"path": "doc.md", "unit": "lines", "actual": 2, "limit": 5}, report["ok"])
             self.assertEqual(report["missing"], ["02-skills/*/SKILL.md", "ghost.md"])
 
@@ -318,6 +318,214 @@ class MainTokensAndRootTests(unittest.TestCase):
                 _run_main([str(lines), "--tokens", str(bad), "--root", str(root)])
 
 
+def _main_err(argv: list[str]) -> tuple[int, str, str]:
+    """Runs main and returns (exit code, stdout, stderr); an argparse exit is a code, not a raise."""
+    import contextlib
+    import io
+
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        try:
+            code = docs_lint.main(argv)
+        except SystemExit as exc:
+            code = exc.code
+    return code, out.getvalue(), err.getvalue()
+
+
+class TokenConfigValidationTests(unittest.TestCase):
+    """A malformed token config is refused with exit 2 and a message, never a crash or a pass."""
+
+    BAD = {
+        "token cap zero": {"token_caps": {"doc.md": 0}},
+        "token cap negative": {"token_caps": {"doc.md": -3}},
+        "token cap string": {"token_caps": {"doc.md": "600"}},
+        "token cap float": {"token_caps": {"doc.md": 1.5}},
+        "token cap bool": {"token_caps": {"doc.md": True}},
+        "token_caps not a dict": {"token_caps": ["doc.md"]},
+        "token cap absolute path": {"token_caps": {"/etc/passwd": 10}},
+        "token cap with ..": {"token_caps": {"../outside.md": 10}},
+        "field_caps not a list": {"field_caps": {"glob": "*.md", "part": "body", "cap": 1}},
+        "field cap not a dict": {"field_caps": ["*.md"]},
+        "field and part": {"field_caps": [{"glob": "*.md", "field": "description", "part": "body", "cap": 1}]},
+        "neither field nor part": {"field_caps": [{"glob": "*.md", "cap": 1}]},
+        "unknown part": {"field_caps": [{"glob": "*.md", "part": "head", "cap": 1}]},
+        "no cap": {"field_caps": [{"glob": "*.md", "part": "body"}]},
+        "field cap zero": {"field_caps": [{"glob": "*.md", "part": "body", "cap": 0}]},
+        "field cap string": {"field_caps": [{"glob": "*.md", "part": "body", "cap": "9"}]},
+        "no glob": {"field_caps": [{"part": "body", "cap": 9}]},
+        "absolute glob": {"field_caps": [{"glob": "/tmp/*.md", "part": "body", "cap": 9}]},
+        "glob with ..": {"field_caps": [{"glob": "../*/x.md", "part": "body", "cap": 9}]},
+        "overrides not a dict": {"field_caps": [{"glob": "*.md", "part": "body", "cap": 9,
+                                                  "overrides": ["a.md"]}]},
+        "override cap zero": {"field_caps": [{"glob": "*.md", "part": "body", "cap": 9,
+                                               "overrides": {"a.md": 0}}]},
+        "override cap string": {"field_caps": [{"glob": "*.md", "part": "body", "cap": 9,
+                                                 "overrides": {"a.md": "12"}}]},
+        "override path with ..": {"field_caps": [{"glob": "*.md", "part": "body", "cap": 9,
+                                                   "overrides": {"../a.md": 12}}]},
+        "override absolute path": {"field_caps": [{"glob": "*.md", "part": "body", "cap": 9,
+                                                    "overrides": {"/a.md": 12}}]},
+    }
+
+    def test_check_tokens_raises_value_error_for_each_malformed_case(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            for name, config in self.BAD.items():
+                with self.subTest(case=name):
+                    with self.assertRaises(ValueError):
+                        docs_lint.check_tokens(Path(tmp), {"method": "ceil(chars/4)", **config})
+
+    def test_cli_exits_2_with_a_message_and_no_traceback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write(root / "doc.md", "x\n")
+            lines = _write(root / "docs-caps.json", json.dumps({"docs_root": str(root), "caps": {"doc.md": 9}}))
+            for name, config in self.BAD.items():
+                with self.subTest(case=name):
+                    tokens = _write(root / "token-caps.json", json.dumps({"method": "ceil(chars/4)", **config}))
+                    code, out, err = _main_err([str(lines), "--tokens", str(tokens), "--root", str(root)])
+                    self.assertEqual(code, 2, err)
+                    self.assertIn("token-caps.json", err)
+                    self.assertNotIn("Traceback", err)
+                    self.assertEqual(out, "")
+
+    def test_cli_exits_2_on_unreadable_token_config(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            lines = _write(root / "docs-caps.json", json.dumps({"docs_root": str(root), "caps": {}}))
+            broken = _write(root / "broken.json", "{not json")
+            for path in (broken, root / "absent.json"):
+                with self.subTest(path=path.name):
+                    code, _, err = _main_err([str(lines), "--tokens", str(path), "--root", str(root)])
+                    self.assertEqual(code, 2, err)
+                    self.assertNotIn("Traceback", err)
+
+    def test_a_valid_config_with_comment_and_override_is_accepted(self):
+        # negative control: the shipped shape (with `_comment` and an override) is not refused
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write(root / "01-roles/agents/generic-a.md", "---\nname: a\ndescription: x\n---\nb\n")
+            config = {"method": "ceil(chars/4)", "token_caps": {},
+                      "field_caps": [{"_comment": "why", "glob": "01-roles/agents/generic-*.md", "part": "body",
+                                      "cap": 9, "overrides": {"01-roles/agents/generic-a.md": 12}}]}
+            result = docs_lint.check_tokens(root, config)
+            self.assertEqual(result["offenders"], [])
+            self.assertEqual(result["ok"][0]["limit"], 12)
+
+
+class TokenMissingFailsTests(unittest.TestCase):
+    """Under --tokens a missing entry is a failure: a cap that measures nothing guards nothing."""
+
+    def _run(self, root: Path, token_config: dict) -> tuple[int, dict, str]:
+        _write(root / "doc.md", "x\n")
+        lines = _write(root / "docs-caps.json", json.dumps({"docs_root": str(root), "caps": {"doc.md": 9}}))
+        tokens = _write(root / "token-caps.json", json.dumps({"method": "ceil(chars/4)", **token_config}))
+        code, out, err = _main_err([str(lines), "--tokens", str(tokens), "--root", str(root)])
+        return code, json.loads(out), err
+
+    def test_glob_matching_nothing_exits_1(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code, report, err = self._run(Path(tmp), {"field_caps": [{"glob": "02-skills/*/SKILL.md",
+                                                                         "field": "description", "cap": 60}]})
+            self.assertEqual(report["offenders"], [])
+            self.assertEqual(report["missing"], ["02-skills/*/SKILL.md"])
+            self.assertEqual(code, 1)
+            self.assertIn("MISSING: 02-skills/*/SKILL.md", err)
+
+    def test_stale_override_path_exits_1(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write(root / "01-roles/agents/generic-a.md", "---\nname: a\ndescription: x\n---\nb\n")
+            code, report, _ = self._run(root, {"field_caps": [{
+                "glob": "01-roles/agents/generic-*.md", "part": "body", "cap": 9,
+                "overrides": {"01-roles/agents/generic-gone.md": 12}}]})
+            self.assertEqual(report["missing"], ["01-roles/agents/generic-gone.md"])
+            self.assertEqual(code, 1)
+
+    def test_absent_token_capped_file_exits_1(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            code, report, _ = self._run(Path(tmp), {"token_caps": {"AGENTS.md": 600}})
+            self.assertEqual(report["missing"], ["AGENTS.md"])
+            self.assertEqual(code, 1)
+
+    def test_nothing_missing_and_nothing_over_exits_0(self):
+        # negative control: the same fixture with every capped file present passes
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write(root / "AGENTS.md", "short\n")
+            code, report, _ = self._run(root, {"token_caps": {"AGENTS.md": 600}})
+            self.assertEqual(report["missing"], [])
+            self.assertEqual(code, 0)
+
+    def test_without_tokens_a_missing_doc_still_exits_0(self):
+        # the legacy line-cap contract is unchanged: a doc not written yet is not a failure
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            lines = _write(root / "docs-caps.json", json.dumps({"docs_root": str(root), "caps": {"ghost.md": 9}}))
+            code, out, err = _main_err([str(lines)])
+            self.assertEqual(code, 0)
+            self.assertEqual(err, "")
+            self.assertEqual(json.loads(out)["missing"], ["ghost.md"])
+
+
+class BlockScalarDescriptionTests(unittest.TestCase):
+    def test_folded_or_literal_description_is_an_offender_with_an_error(self):
+        for marker in (">", "|", ">-", "|+"):
+            with self.subTest(marker=marker), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                _write(root / "02-skills/folded/SKILL.md",
+                       f"---\nname: s\ndescription: {marker}\n  " + "d " * 400 + "\nversion: 1.0.0\n---\nbody\n")
+                config = {"field_caps": [{"glob": "02-skills/*/SKILL.md", "field": "description", "cap": 60}]}
+                result = docs_lint.check_tokens(root, config)
+                self.assertEqual(result["ok"], [])
+                self.assertEqual([o["path"] for o in result["offenders"]], ["02-skills/folded/SKILL.md"])
+                self.assertIn("block", result["offenders"][0]["error"])
+
+    def test_a_one_line_description_starting_with_other_text_is_measured(self):
+        # negative control: only a bare block indicator is refused
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write(root / "02-skills/plain/SKILL.md", _skill("> quoted but on one line", "body\n"))
+            config = {"field_caps": [{"glob": "02-skills/*/SKILL.md", "field": "description", "cap": 60}]}
+            result = docs_lint.check_tokens(root, config)
+            self.assertEqual(result["offenders"], [])
+            self.assertNotIn("error", result["ok"][0])
+
+
+class McpDocsLintToolTests(unittest.TestCase):
+    """The MCP `docs_lint` tool adds the token caps when the tools root ships them."""
+
+    def _argv(self, tools_root: Path) -> list[str]:
+        from mcp import catalog, registry
+
+        spec = next(t for t in catalog.TOOLS if t.name == "docs_lint")
+        return spec.argv({}, registry.Ctx(tools_root=tools_root, repo=None))
+
+    @unittest.skipUnless((KIT_ROOT / "01-roles").is_dir(), "kit only")
+    def test_kit_tools_root_passes_tokens_and_the_kit_root(self):
+        argv = self._argv(TOOLS_ROOT)
+        self.assertIn("--tokens", argv)
+        self.assertEqual(argv[argv.index("--tokens") + 1], str(TOOLS_ROOT / "config" / "token-caps.json"))
+        self.assertEqual(argv[argv.index("--root") + 1], str(KIT_ROOT))
+        self.assertEqual(argv[2], str(TOOLS_ROOT / "config" / "docs-caps.json"))
+
+    def test_instance_without_token_config_keeps_the_line_only_call(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tools = Path(tmp) / "instance"
+            _write(tools / "config" / "docs-caps.json", "{}")
+            argv = self._argv(tools)
+            self.assertNotIn("--tokens", argv)
+            self.assertNotIn("--root", argv)
+            self.assertEqual(argv[-1], str(tools / "config" / "docs-caps.json"))
+
+    def test_instance_with_a_synced_token_config_but_no_kit_tree_keeps_the_line_only_call(self):
+        # sync-instance.sh adds missing config files: the token globs name kit paths an instance lacks
+        with tempfile.TemporaryDirectory() as tmp:
+            tools = Path(tmp) / "instance"
+            _write(tools / "config" / "docs-caps.json", "{}")
+            _write(tools / "config" / "token-caps.json", "{}")
+            self.assertNotIn("--tokens", self._argv(tools))
+
+
 @unittest.skipUnless((KIT_ROOT / "01-roles").is_dir(), "kit only: an instance has no skills tree")
 class KitTokenCapsTests(unittest.TestCase):
     def setUp(self):
@@ -341,6 +549,13 @@ class KitTokenCapsTests(unittest.TestCase):
         self.assertEqual(result["missing"], [])
         self.assertEqual(result["offenders"], [])
         self.assertGreaterEqual(len(result["ok"]), 16)
+
+    def test_the_shipped_token_caps_hold_on_the_kit(self):
+        # every shipped cap, not only the descriptions: a body or file over its cap fails the suite
+        result = docs_lint.check_tokens(KIT_ROOT, self.config)
+        self.assertEqual(result["offenders"], [])
+        self.assertEqual(result["missing"], [])
+        self.assertGreaterEqual(len(result["ok"]), 4 + 11 + 16 + 16)
 
 
 if __name__ == "__main__":

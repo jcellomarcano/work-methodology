@@ -1,0 +1,41 @@
+{
+  "as_of": "2026-10-16",
+  "catalog_patch": {
+    "router": {
+      "fable": {
+        "model": "claude-fable-9"
+      }
+    }
+  },
+  "expect": {
+    "roster": [
+      {
+        "effort": "medium",
+        "launch": "run",
+        "model": "claude-sonnet-5-5",
+        "role": "generic-proposer"
+      },
+      {
+        "effort": "high",
+        "launch": "run",
+        "model": "claude-sonnet-5-5",
+        "role": "generic-verifier"
+      }
+    ],
+    "rule": "escalate-fable",
+    "status": "ok"
+  },
+  "input": {
+    "approvals": [
+      "escalate-fable"
+    ],
+    "lane": "sonnet",
+    "map_age_days": 1,
+    "modules": 1,
+    "owner_named": true,
+    "task_kind": "implement",
+    "tier": "medium"
+  },
+  "name": "fable-catalog-without-fable-skipped",
+  "note": "L13: the catalog has no entry for the Fable slot's model: the step is skipped with a reason, the B3 team runs, never an error"
+}

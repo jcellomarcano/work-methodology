@@ -19,7 +19,7 @@ ROLES = (
     "generic-cartographer", "generic-proposer", "generic-challenger",
     "generic-blind-spot-adversary", "generic-judge", "generic-verifier",
     "generic-boundary-reviewer", "generic-style-reviewer", "generic-comment-gate",
-    "generic-mechanic", "generic-human-reviewer",
+    "generic-mechanic", "generic-human-reviewer", "generic-deep-reasoner",
 )
 
 # A role with no schema of its own cannot write with output_write: it is left
@@ -36,12 +36,13 @@ ROLE_SCHEMA = {
     "generic-comment-gate": "comment-gate-output",
     "generic-mechanic": "mechanic-output",
     "generic-human-reviewer": "human-reviewer-output",
+    "generic-deep-reasoner": "deep-reasoning-output",
 }
 
 SCHEMA_NAMES = (
     "findings", "blindspots", "claims", "verdict", "handoff", "brief", "receipt", "verification",
     "proposer-output", "boundary-reviewer-output", "style-reviewer-output",
-    "comment-gate-output", "mechanic-output", "human-reviewer-output",
+    "comment-gate-output", "mechanic-output", "human-reviewer-output", "deep-reasoning-output",
 )
 
 SEQ_RE = re.compile(r"^(\d{3})-")

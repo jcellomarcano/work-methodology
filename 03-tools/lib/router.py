@@ -13,17 +13,21 @@ or the environment, so the same input gives byte-identical output.
 Fable 5.1 (owner decision L11, superseding L6's automatic proposals) enters
 only on demand: the router never proposes it by itself. The owner requests
 it with the task field `owner_named: true` (the one request field); the rule
-`escalate-fable` then keeps the normal roster of the matched row and appends
-one extra entry, role FABLE_ROLE, in its own final step, always with
-requires_approval: true. It runs only when the list `approvals` holds the
-exact string `escalate-fable`; otherwise it is skipped and nothing replaces
-it (the team already runs). Its effort is capped at FABLE_EFFORT_CAP (and the
-catalog entry's effort_ceiling) and the entry carries the catalog's
-max_context_tokens, which also caps its cost estimate. Hard limits the
-catalog cannot override: at most MAX_PARALLEL roles per step; a model that is
-Fable or not `admitted` never runs without that approval (a trial-slot
-`candidate` is the one owner-enabled exception); no automatic `max` effort;
-Fable never above `high`.
+`escalate-fable` then keeps the normal roster of the matched row (`base_rule`
+in the result and the log) and appends one extra entry, role FABLE_ROLE, in
+its own final step, always with requires_approval: true. It runs only when
+the list `approvals` holds the exact string `escalate-fable`; otherwise it is
+skipped and nothing replaces it (the team already runs). It may run alone when
+the base roster is empty (exempt tier). Its effort is capped at
+FABLE_EFFORT_CAP (and the catalog entry's effort_ceiling); a level above the
+cap after clamping fails closed. The entry carries the catalog's positive
+max_context_tokens, which also caps its cost estimate. L13: the step never
+stops the team: offline and the budget drop it first, and a catalog without
+the Fable model skips it with a reason. Hard limits the catalog cannot
+override: at most MAX_PARALLEL roles per step; a model that is Fable or not
+`admitted` never runs without that approval (a trial-slot `candidate` is the
+one owner-enabled exception); no automatic `max` effort; Fable never above
+`high`.
 
 Input first goes through one validation step: a malformed catalog is
 `guard:catalog`, a malformed task field `guard:input`, a date that is not a
@@ -68,9 +72,11 @@ MAX_PARALLEL = 3
 FABLE_RULE = "escalate-fable"
 # The model the approval gate protects (L6, L11), whatever the catalog says.
 FABLE_MODEL = "claude-fable-5-1"
-# L11: the role of the extra Fable step and its hard effort cap.
-FABLE_ROLE = "fable-deep-reasoning"
+# L11/L13: the kit role of the extra Fable step, its hard effort cap, and the
+# optional label that lets offline and the budget drop it first.
+FABLE_ROLE = "generic-deep-reasoner"
 FABLE_EFFORT_CAP = "high"
+FABLE_OPTIONAL = "fable-step"
 # Every rule id route() can emit, in table order; the evaluator measures its
 # fixture coverage against this one constant so the two cannot drift.
 RULE_IDS = ("guard:input", "guard:catalog", "guard:as_of", "guard:task_kind", "guard:tier", "guard:lane",
@@ -104,6 +110,7 @@ ROLE_TIER = {
     "generic-proposer": "medium",
     "generic-challenger": "large",
     "generic-blind-spot-adversary": "large",
+    FABLE_ROLE: "orchestrator",
 }
 
 ROUTER_DEFAULTS = {
@@ -204,17 +211,32 @@ def catalog_problem(catalog) -> str | None:
     if not isinstance(tokens, dict) or not all(_count(tokens.get(k)) for k in ("assumed_tokens_in", "assumed_tokens_out")):
         return "catalog router.default_tokens needs non-negative int assumed_tokens_in/out"
     fable = cfg.get("fable")
-    if not isinstance(fable, dict) or not all(isinstance(fable.get(k), str) for k in ("model", "tier", "effort")):
+    # L13: a missing model or tier only skips the Fable step; a present one must be well formed.
+    if not isinstance(fable, dict) or not all(isinstance(fable.get(k, ""), str) for k in ("model", "tier", "effort")):
         return "catalog router.fable must be {model, tier, effort} strings"
-    required = list(ladder) + [fable["tier"]]
-    for tier in sorted(set(required), key=required.index):
+    if fable.get("effort", FABLE_EFFORT_CAP) not in EFFORT_RANK:
+        return "catalog router.fable.effort must be a known effort level"
+    for tier in ladder:
         if tier not in tiers:
             return f"catalog tier {tier!r} is missing"
     for tier, body in tiers.items():
         problem = _tier_problem(tier, body)
         if problem:
             return problem
+    for tier, body in tiers.items():
+        for i, entry in enumerate(body["candidates"]):
+            where = f"catalog tiers.{tier}.candidates[{i}].max_context_tokens"
+            if entry["id"] == FABLE_MODEL and not _positive(entry.get("max_context_tokens")):
+                # L13: the Fable entry's bounded context is mandatory, never 0 or absent.
+                return f"{where} must be a positive int (Fable entry)"
+            if tier == fable.get("tier") and entry["id"] == fable.get("model") \
+                    and _context_cap(catalog, tier, entry["id"]) is None:
+                return f"{where} (or the tier's) must bound the Fable slot's context"
     return None
+
+
+def _positive(value) -> bool:
+    return _count(value) and value > 0
 
 
 def _tier_problem(tier: str, body) -> str | None:
@@ -222,8 +244,8 @@ def _tier_problem(tier: str, body) -> str | None:
         return f"catalog tier {tier!r} must be an object"
     if not isinstance(body.get("candidates"), list):
         return f"catalog tiers.{tier}.candidates must be a list"
-    if "max_context_tokens" in body and not _count(body["max_context_tokens"]):
-        return f"catalog tiers.{tier}.max_context_tokens must be a non-negative int"
+    if body.get("max_context_tokens") is not None and not _positive(body["max_context_tokens"]):
+        return f"catalog tiers.{tier}.max_context_tokens must be a positive int"
     assumptions = body.get("token_assumptions", {})
     if not isinstance(assumptions, dict) or not all(
             isinstance(t, dict) and _count(t.get("assumed_tokens_in")) and _count(t.get("assumed_tokens_out"))
@@ -245,15 +267,19 @@ def _tier_problem(tier: str, body) -> str | None:
         levels = entry.get("effort_levels", ["medium"])
         if not _strings(levels) or not levels:
             return f"{where}.effort_levels must be a non-empty list of strings"
+        unknown = [lvl for lvl in levels if lvl not in EFFORT_RANK]
+        if unknown:
+            # L13: an unknown name has no rank, so no cap could hold against it.
+            return f"{where}.effort_levels has unknown effort levels {unknown}"
         by_role = entry.get("effort_by_role", {})
-        if not isinstance(by_role, dict) or not all(isinstance(v, str) for v in by_role.values()):
-            return f"{where}.effort_by_role must map roles to strings"
-        if not isinstance(entry.get("effort_default", "medium"), str):
-            return f"{where}.effort_default must be a string"
+        if not isinstance(by_role, dict) or not all(v in EFFORT_RANK for v in by_role.values()):
+            return f"{where}.effort_by_role must map roles to known effort levels"
+        if entry.get("effort_default", "medium") not in EFFORT_RANK:
+            return f"{where}.effort_default must be a known effort level"
         if "effort_ceiling" in entry and entry["effort_ceiling"] not in EFFORT_RANK:
             return f"{where}.effort_ceiling must be a known effort level"
-        if "max_context_tokens" in entry and not _count(entry["max_context_tokens"]):
-            return f"{where}.max_context_tokens must be a non-negative int"
+        if entry.get("max_context_tokens") is not None and not _positive(entry["max_context_tokens"]):
+            return f"{where}.max_context_tokens must be a positive int"
         rows = entry.get("price_schedule", [])
         if not isinstance(rows, list) or not all(
                 isinstance(r, dict) and _amount(r.get("usd_in")) and _amount(r.get("usd_out"))
@@ -431,7 +457,8 @@ def _context_cap(catalog: dict, tier: str, model: str | None = None) -> int | No
     caps = [tier_cfg.get("max_context_tokens")]
     if model is not None:
         caps.append((_resolve(catalog, tier, model) or {}).get("max_context_tokens"))
-    caps = [int(c) for c in caps if c]
+    # L13: only None means absent; a 0 cap is a cap, never a missing one.
+    caps = [int(c) for c in caps if c is not None]
     return min(caps) if caps else None
 
 
@@ -440,7 +467,7 @@ def _tokens(catalog: dict, tier: str, role: str, model: str | None = None) -> tu
     tokens = (tier_cfg.get("token_assumptions") or {}).get(role) or _cfg(catalog)["default_tokens"]
     tokens_in = int(tokens["assumed_tokens_in"])
     cap = _context_cap(catalog, tier, model)
-    if cap:
+    if cap is not None:
         tokens_in = min(tokens_in, cap)
     return tokens_in, int(tokens["assumed_tokens_out"])
 
@@ -459,19 +486,25 @@ def _cost(catalog: dict, roster: list[dict], as_of: str) -> float:
 
 def _fable_effort(entry: dict, effort: str) -> str:
     """L11: Fable never above FABLE_EFFORT_CAP, nor above its catalog
-    effort_ceiling when that is lower."""
+    effort_ceiling when that is lower. L13: the clamp onto the model's own
+    ladder can land above the cap (a ladder with no level at or below it),
+    so the result is checked after clamping and fails closed."""
     cap = EFFORT_RANK[FABLE_EFFORT_CAP]
     cap = min(cap, EFFORT_RANK.get(entry.get("effort_ceiling") or FABLE_EFFORT_CAP, cap))
-    if EFFORT_RANK.get(effort, EFFORT_RANK["medium"]) <= cap:
-        return effort
-    return _clamp(entry, LEVEL_AT_RANK[cap])
+    level = effort
+    if level not in EFFORT_RANK or EFFORT_RANK[level] > cap:
+        level = _clamp(entry, LEVEL_AT_RANK[cap])
+    if level not in EFFORT_RANK or EFFORT_RANK[level] > cap:
+        raise _Fail(f"{entry.get('id')} effort {level!r} is above the Fable cap {LEVEL_AT_RANK[cap]!r} "
+                    "(its effort_levels have no level at or below it): fail closed")
+    return level
 
 
 def _entry(catalog: dict, role: str, tier: str, effort: str | None, *, step: int, order: str = "sequential",
            model: str | None = None, optional: str | None = None, trial: bool = False,
            requires_approval: bool = False, launch: str = "run", approved: bool = False,
-           fable: bool = False) -> dict:
-    entry = _resolve(catalog, tier, model)
+           fable: bool = False, entry: dict | None = None) -> dict:
+    entry = entry or _resolve(catalog, tier, model)
     if entry is None:
         raise _Fail(f"no admitted model in tier {tier} for {role}")
     if _gated(entry, trial):
@@ -481,7 +514,9 @@ def _entry(catalog: dict, role: str, tier: str, effort: str | None, *, step: int
         if not approved:
             launch = "skip"
     level = _clamp(entry, effort) if effort else role_effort(entry, role)
-    fable = fable or entry["id"] == FABLE_MODEL
+    # L13 verifier blocker: the deep-reasoner role keeps the Fable effort cap and
+    # bounded context on any model, so P2/P3/P4 escalations of it stay at or below it.
+    fable = fable or entry["id"] == FABLE_MODEL or role == FABLE_ROLE
     if fable:
         level = _fable_effort(entry, level)
     result = {
@@ -548,22 +583,38 @@ def escalate(catalog: dict, role: str, tier: str, effort: str, failure: str) -> 
 def _join_fable(task: dict, catalog: dict, roster: list[dict], base_rule: str, reasons: list[str]) -> list[dict]:
     """L11: the owner-requested Fable step joins the team, never replaces it:
     the base roster stays as is and one FABLE_ROLE entry is appended in its
-    own final step. No substitute when it is not approved."""
+    own final step (step 1 when the base roster is empty). No substitute when
+    it is not approved. L13: a catalog without the slot's model skips the step
+    with a reason; the team is untouched (catalog_problem() already demanded a
+    bounded context for the slot)."""
     fable = _cfg(catalog)["fable"]
+    model, tier = fable.get("model"), fable.get("tier")
+    entry = _resolve(catalog, tier, model) if model and tier else None
+    if entry is None:
+        reasons.append(f"{FABLE_RULE}: owner requested Fable (owner_named) but the catalog has no "
+                       f"{model or 'model'} in tier {tier or '?'}; step skipped, the {base_rule} roster stands")
+        return roster
     # Exact list membership: input_problem() already rejected any non-list.
     approved = FABLE_RULE in list(task.get("approvals") or [])
     step = max((e["step"] for e in roster), default=0) + 1
-    extra = _entry(catalog, FABLE_ROLE, fable["tier"], fable["effort"], step=step, model=fable["model"],
-                   requires_approval=True, launch="run" if approved else "skip", approved=approved, fable=True)
-    reasons.append(f"{FABLE_RULE}: owner requested {fable['model']} (owner_named); it joins the {base_rule} "
+    extra = _entry(catalog, FABLE_ROLE, tier, fable.get("effort") or FABLE_EFFORT_CAP, step=step, entry=entry,
+                   optional=FABLE_OPTIONAL, requires_approval=True, launch="run" if approved else "skip",
+                   approved=approved, fable=True)
+    reasons.append(f"{FABLE_RULE}: owner requested {entry['id']} (owner_named); it joins the {base_rule} "
                    f"roster as {FABLE_ROLE} in step {step} at {extra['effort']}, "
                    f"context <= {extra['max_context_tokens']} tokens")
-    if extra["launch"] == "run":
-        reasons.append(f"owner approved {FABLE_RULE}: {extra['model']} runs")
-    else:
+    if extra["launch"] != "run":
         reasons.append(f"fable requested, awaiting owner approval ({FABLE_RULE} not in approvals); "
                        f"the {base_rule} team runs without it")
     return roster + [extra]
+
+
+def _drop_fable(roster: list[dict], why: str, reasons: list[str]) -> None:
+    """L13: the optional Fable step goes first, before any team role."""
+    for e in roster:
+        if e["optional"] == FABLE_OPTIONAL and e["launch"] == "run":
+            e["launch"] = "skip"
+            reasons.append(f"{why}: dropped the owner-requested {FABLE_ROLE} step first ({e['model']})")
 
 
 def _prior_role(prior: dict, rule: str, default: str | None = None) -> str:
@@ -643,15 +694,21 @@ def _rows(task: dict, prior: dict, catalog: dict, reasons: list[str]) -> tuple[s
     p0 = prior.get("p0_from_lower_tier")
     if p0:
         role = _prior_role(prior, "P4", "generic-judge")
-        from_tier = p0 if p0 in ("small", "medium") else prior.get("tier") or "medium"
         ladder = cfg["tier_ladder"]
-        if from_tier in ("small", "medium") and from_tier in ladder[:-1]:
-            up = ladder[ladder.index(from_tier) + 1]
-            # L11: a P0 on a critical path is confirmed at the highest automatic effort, never on Fable.
-            effort = _auto_effort(catalog, "xhigh") if task.get("critical_hit") else None
-            reasons.append(f"P0 from the {from_tier} tier is confirmed one tier up before it counts"
-                           + (" at xhigh (critical path)" if effort else ""))
-            return "P4", [_entry(catalog, role, up, effort, step=1)], "ok"
+        if p0 not in ladder[:-1]:
+            # L13: a P0 from the top of the ladder (or above it) has no higher
+            # automatic tier to confirm it; it is never dropped silently.
+            reasons.append(f"P0 from the {p0} tier: no higher automatic tier can confirm it; the owner decides")
+            return "P4", [], "owner"
+        if task.get("critical_hit"):
+            # L13: on a critical path the P0 is confirmed on the large tier at the
+            # highest automatic effort, whatever tier it came from; never on Fable.
+            top, effort = ladder[-1], _auto_effort(catalog, "xhigh")
+            reasons.append(f"P0 from the {p0} tier on a critical path: confirmed on the {top} tier at {effort}")
+            return "P4", [_entry(catalog, role, top, effort, step=1)], "ok"
+        up = ladder[ladder.index(p0) + 1]
+        reasons.append(f"P0 from the {p0} tier is confirmed one tier up ({up}) before it counts")
+        return "P4", [_entry(catalog, role, up, None, step=1)], "ok"
     if prior.get("disagreement"):
         effort = "xhigh" if task.get("critical_hit") else "high"
         if prior.get("judge_tier") == "large":
@@ -744,6 +801,7 @@ def _rows(task: dict, prior: dict, catalog: dict, reasons: list[str]) -> tuple[s
 # ----------------------------------------------------------- post-passes
 
 def _offline(catalog: dict, roster: list[dict], reasons: list[str]) -> str:
+    _drop_fable(roster, "offline", reasons)
     blocked = []
     for e in roster:
         if e["launch"] != "run":
@@ -767,6 +825,9 @@ def _offline(catalog: dict, roster: list[dict], reasons: list[str]) -> str:
 def _budget(catalog: dict, roster: list[dict], budget: float, as_of: str, reasons: list[str]) -> str:
     if _cost(catalog, roster, as_of) <= budget:
         return "ok"
+    _drop_fable(roster, "budget", reasons)
+    if _cost(catalog, roster, as_of) <= budget:
+        return "ok"
     for kind in _cfg(catalog)["optional_drop_order"]:
         for e in roster:
             if e["optional"] == kind and e["launch"] == "run":
@@ -783,7 +844,7 @@ def _budget(catalog: dict, roster: list[dict], budget: float, as_of: str, reason
 def route(task: dict, catalog: dict, as_of: str) -> dict:
     """Pure: no clock, no filesystem, no environment."""
     reasons: list[str] = []
-    rule, roster, status = None, [], "ok"
+    rule, base, roster, status = None, None, [], "ok"
     # One validation step, before any rule reads a field (fail closed): the
     # task's shape, the catalog, the date, then every task field.
     if not isinstance(task, dict):
@@ -796,7 +857,7 @@ def route(task: dict, catalog: dict, as_of: str) -> dict:
         rule = "guard:input"
     if problem:
         reasons.append(problem)
-        return _result(task, catalog, as_of, rule, [], "error", reasons)
+        return _result(task, catalog, as_of, rule, [], "error", reasons, rule)
     prior = task.get("prior") or {}
     if task.get("task_kind") not in TASK_KINDS:
         rule, status = "guard:task_kind", "error"
@@ -824,10 +885,14 @@ def route(task: dict, catalog: dict, as_of: str) -> dict:
             status = _offline(catalog, roster, reasons)
         if status == "ok" and task.get("budget_usd") is not None:
             status = _budget(catalog, roster, float(task["budget_usd"]), as_of, reasons)
-    return _result(task, catalog, as_of, rule, roster, status, reasons)
+        # L13: "runs" is said only once the post-passes kept the Fable step.
+        for e in roster:
+            if status == "ok" and e["optional"] == FABLE_OPTIONAL and e["launch"] == "run":
+                reasons.append(f"owner approved {FABLE_RULE}: {e['model']} runs")
+    return _result(task, catalog, as_of, rule, roster, status, reasons, base or rule)
 
 
-def _result(task, catalog, as_of, rule, roster, status, reasons) -> dict:
+def _result(task, catalog, as_of, rule, roster, status, reasons, base_rule=None) -> dict:
     cost = _cost(catalog, roster, as_of) if roster and rule and not rule.startswith("guard:") else 0.0
     # Only the approvals that granted a launch are recorded (L6, L11): today
     # the one gated launch is the Fable step of escalate-fable, run with approval.
@@ -836,6 +901,8 @@ def _result(task, catalog, as_of, rule, roster, status, reasons) -> dict:
     return {
         "approvals": granted,
         "as_of": as_of,
+        # L13: the table row that ran before the Fable step (equals `rule` without one).
+        "base_rule": base_rule or rule,
         "catalog_version": catalog.get("version") if isinstance(catalog, dict) else None,
         "cost_estimate_usd": cost,
         "inputs_hash": inputs_hash(task),
@@ -851,6 +918,7 @@ def _result(task, catalog, as_of, rule, roster, status, reasons) -> dict:
 def log_line(result: dict) -> str:
     summary = [{k: e[k] for k in ("role", "tier", "model", "effort", "launch", "step")} for e in result["roster"]]
     line = {k: result[k] for k in ("as_of", "catalog_version", "inputs_hash", "rule", "status")}
+    line["base_rule"] = result.get("base_rule") or result["rule"]
     line["roster"] = summary
     # L6: an owner approval (e.g. escalate-fable) is recorded in the log itself.
     line["approvals"] = list(result.get("approvals") or [])

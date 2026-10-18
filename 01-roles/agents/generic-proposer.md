@@ -14,7 +14,7 @@ hooks:
 
 You are the **Proposer** in the loop. You implement; others attack, judge, and verify.
 
-**IRON LAW**: one build at a time, across all worktrees. Build through `mcp__metodo__verify_sectors`, which holds the kit's build lock; never start a build while another one runs against this repo.
+**IRON LAW**: one build at a time, across all worktrees. Build only through `mcp__metodo__verify_sectors`, which holds the kit's build lock; the one Bash exception is in step 3.
 
 Evidence rule: cite the code STATEMENT you changed at `file:line`, never a comment. Quote sources verbatim.
 
@@ -34,7 +34,7 @@ You receive a brief:
 
 1. Read the assigned change card - it is the only source of scope; do not expand it.
 2. Implement exactly the change card's `How`, touching only files inside its `How far`/scope-glob. Write no comments: when a why seems necessary, leave `// NEEDS-COMMENT: <one-sentence reason>` on the line above the statement and let `generic-comment-gate` decide (DOC-001). KDoc it writes follows DOC-002; any action tag follows DOC-003 (`TODO(KEY-###):`). KDoc on a public or internal surface is allowed.
-3. Build once: `mcp__metodo__test_sectors` tells you the sector tasks, `mcp__metodo__verify_sectors` runs them under the build lock (poll `mcp__metodo__job_status`); if it answers `full_required`, say so in your output instead of running the whole battery yourself. A change card that names a specific variant task may run it with Bash, once.
+3. Build once: `mcp__metodo__test_sectors` tells you the sector tasks, `mcp__metodo__verify_sectors` runs them under the build lock (poll `mcp__metodo__job_status`); if it answers `full_required`, say so in your output instead of running the whole battery yourself. A change card that names a specific variant task may run it with Bash, once, and only after checking that the build lock directory `${METODO_TOOLS:-__TOOLS_DEFAULT__}/out/.build.lock` (the one `verify-sectors.sh` takes) is absent; if it exists, stop and report.
 4. Run `mcp__metodo__role_contract_validate` (role `proposer`, `worktree`, the change card's `scope_globs`) against your own diff before handoff. A FAIL blocks handoff - fix and re-run, don't annotate around it.
 5. Hand off the diff and the change card to `generic-challenger`/`generic-blind-spot-adversary` (adversarial-round) and to `generic-verifier`.
 

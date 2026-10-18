@@ -81,14 +81,14 @@ roster; P-rows react to the previous step and are checked before the base rows. 
 | Id | Condition | Roster → launch / mode | Max fan-out |
 |---|---|---|---|
 | guard:input | `task` not an object, or a malformed field, named in the reason: `approvals` not a list of strings; `budget_usd` or `map_age_days` not a non-negative number; `changed_lines` or `new_comments` not a non-negative int (a bool is rejected); `modules` not a non-negative int or a list of strings; `prior` not an object; a `prior` counter (`stalls`, `escalated_count`, `findings`, `schema_fail`) not a non-negative int; `prior.p0_from_lower_tier` not a catalog tier name or false | none; CLI exit 2, MCP isError, no log line | 0 |
-| guard:catalog | catalog not an object; a `tier_ladder` or Fable-slot tier missing; a candidate not an object or without `provider`, `id`, `usd_in`; `max_parallel` not an int ≥ 1 | none; CLI exit 2, MCP isError | 0 |
+| guard:catalog | catalog not an object; a `tier_ladder` tier missing (a missing Fable slot only skips that step, L13); a candidate not an object or without `provider`, `id`, `usd_in`; `max_parallel` not an int ≥ 1; an effort name outside the router's scale; a context cap ≤ 0, or a Fable entry without one (L13) | none; CLI exit 2, MCP isError | 0 |
 | guard:as_of | `as_of` not a real calendar date (`datetime.date.fromisoformat`: 2026-13-45 fails) | none; CLI exit 2, MCP isError | 0 |
 | guard:task_kind, guard:tier, guard:lane, guard:full_required | unknown `task_kind`; missing `tier`; `lane=opus` or `full_required` with `tier≠high` (stale input: rdd_risk maps opus to high; [RR§3] "bumps the layer to high") | none | 0 |
 | P1 | `prior.stalls ≥ 2` on this step, or (L11) `prior.escalated_count ≥ 2` at `tier=high` | none; `status: owner` ([MR] "two stalls"; two escalations exhaust the ladder) | 0 |
-| escalate-fable | (L11, supersedes L6's automatic triggers) not a first-match row: applied after the matched row resolves `ok`, only when the owner requests Fable with `owner_named: true`; the router never proposes it on its own | the matched roster unchanged (every mandatory role kept) + one `fable-deep-reasoning` entry on Fable 5.1 in its own final step, effort ≤ `high` (catalog `effort_ceiling`), `max_context_tokens` from the catalog (120k, Assumed), `requires_approval: true`; runs only when the list `approvals` holds exactly `escalate-fable`; unapproved → skipped with reason "fable requested, awaiting owner approval", no substitute; costed only when it runs | +1 |
+| escalate-fable | (L11, supersedes L6's automatic triggers) not a first-match row: applied after the matched row resolves `ok` (that row is `base_rule` in the result and the log), only when the owner requests Fable with `owner_named: true`; the router never proposes it on its own | the matched roster unchanged (every mandatory role kept) + one optional `generic-deep-reasoner` entry (L13: a kit role, frontmatter fallback Opus 5.5) on Fable 5.1 in its own final step (step 1, alone, when the base roster is empty, e.g. exempt), effort ≤ `high` (hard cap + catalog `effort_ceiling`; a ladder that clamps above it fails closed), the entry's positive `max_context_tokens` (120k, Assumed; 0 or missing is `guard:catalog`), `requires_approval: true`; runs only when the list `approvals` holds exactly `escalate-fable`; unapproved → skipped with reason "fable requested, awaiting owner approval", no substitute; never stops the team: offline and the budget drop it first, a catalog without the model skips it with a reason; the reason says it runs only after the post-passes; costed only when it runs | +1 |
 | P2 | `prior.truncated` | same role, same tier/effort, scope split by module; once ([AP§2]) | 3 |
 | P3 | `prior.schema=FAIL` | same role, effort +1; a second FAIL → tier +1 ([M§3] diligence) | 1 |
-| P4 | `prior.p0_from_tier ∈ {small, medium}` | same role, one tier up, to confirm the P0 before it counts ([MR]); at xhigh on a critical path (L11, never Fable) | 1 |
+| P4 | `prior.p0_from_tier` set | same role, one tier up, to confirm the P0 before it counts ([MR]); on a critical path (`critical_hit`) on the large tier (Opus 5.5) at xhigh from any lower tier (L13, never Fable); a P0 already from the large tier → `status: owner` with a reason, never dropped (L13) | 1 |
 | P5 | `prior.disagreement` between adversaries | judge large/high; large/xhigh if `critical_hit` ([M§4] D6); after the large judge (`judge_tier=large`): large/xhigh once, then `status: owner` (L11, never Fable) | 1 |
 | P6 | `prior.verdict=FAIL` from the verifier | proposer again, same tier/effort, once; second FAIL → P1 ([M§4] D3) | 1 |
 | B0 | `tier=exempt` (any kind) | skip all subagents; scripts only (`docs_lint`) ([RR§3]) | 0 |
@@ -108,9 +108,9 @@ from another provider, tagged `trial`, rated by a blind judge ([MPR§2]; [M§5] 
 **Hard limits no catalog value overrides:** at most min(`max_parallel`, 3) roles per step; `claude-fable-5-1`, or any model whose status is not `admitted` (the owner-enabled trial `candidate` excepted), never runs without the owner's `escalate-fable` approval and always carries `requires_approval: true`; Fable never runs above `high` (L11); no automatic step (P2, P3, P6, the ladder) keeps or sets `max`.
 
 **Post-passes** (in order, after the row):
-1. **Offline**: if `offline=true`, keep only local admitted models. A mandatory role with no admitted local model →
+1. **Offline**: if `offline=true`, drop the Fable step first (L13), then keep only local admitted models. A mandatory role with no admitted local model →
    `status: blocked`, never a silent remote call ([M§4] D7). Ollama `:cloud` tags are remote ([L§1]).
-2. **Budget**: estimated cost > `budget_usd` → drop optional roles in this fixed order: trial adversary, then the
+2. **Budget**: estimated cost > `budget_usd` → drop optional roles in this fixed order: the Fable step (L13), trial adversary, then the
    judge on zero findings, then the stale-map cartographer. Mandatory roles ([RR§3] per tier; proposer and verifier for
    `implement`) are never dropped. If still over budget → `status: over_budget`; the owner decides ([M§4] D8).
 
@@ -119,7 +119,7 @@ from another provider, tagged `trial`, rated by a blind judge ([MPR§2]; [M§5] 
 2. Wrong with full context, or step 1 failed → tier +1 at that role's default effort ([A§2] S14; [M§3]).
 3. Ceiling: large/xhigh. `max` is never automatic ([A§2] "prone to overthinking"; [O§2] `xhigh` "Only use when your
    evals show a clear benefit"). If the next level is missing from the model's ladder, move up a tier instead.
-4. A critical finding from a lower tier is confirmed one tier up (P4). Two stalls → owner (P1).
+4. A critical finding from a lower tier is confirmed one tier up, or on large/xhigh on a critical path (P4). Two stalls → owner (P1).
 5. No voting or sampling without an automatic verifier ([M§1] voting is non-monotone and plateaus).
 
 ## 4. "Best result" made operational

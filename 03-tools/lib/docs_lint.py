@@ -19,9 +19,20 @@ cap}, "field_caps": [{"glob": G, "field": F, "cap": N} | {"glob": G,
 "part": "body"|"frontmatter", "cap": N}]}. Tokens are ceil(characters / 4),
 an estimate, not a tokenizer. A field cap measures one frontmatter field
 (e.g. a skill `description`); a part cap measures the body or frontmatter,
-split exactly as render_agents.split_frontmatter splits a role. A glob that
-matches nothing is "missing". With --tokens the two reports merge: every
-entry carries its `unit`, and the report carries the `method`.
+split exactly as render_agents.split_frontmatter splits a role. A field cap
+may carry `overrides` ({"path": cap}) for documented exceptions. A glob that
+matches nothing, an override naming a file the glob misses and a capped file
+that does not exist are "missing". A field written as a YAML block
+(`description: >` or `|`) is an offender with an `error`: its text is on the
+lines below, so measuring the indicator would let any length through.
+
+A malformed token config (a cap that is not a positive integer, `overrides`
+not an object, a field cap without exactly one of field/part or without a
+cap, an absolute path or a `..` in a glob or path) exits 2 with a message.
+With --tokens the two reports merge: every entry carries its `unit`, the
+report carries the `method`, and any "missing" entry also fails (exit 1): a
+cap that measures nothing guards nothing. Without --tokens the line report
+and its exit code are unchanged.
 
 Usage:
     lib/docs_lint.py <config> [--tokens <token-config>] [--root DIR]
@@ -31,6 +42,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 import sys
 from pathlib import Path
 
@@ -41,6 +53,7 @@ except ImportError:  # run as a script: lib/ itself is on sys.path
 
 METHOD = "ceil(chars/4)"
 PARTS = ("body", "frontmatter")
+BLOCK_SCALAR = re.compile(r"^[>|][1-9]?[+-]?[1-9]?$")
 
 
 def check(docs_root: Path, caps: dict) -> dict:
@@ -82,6 +95,9 @@ def _measure(text: str, spec: dict) -> tuple[int | None, str | None]:
         value = frontmatter_field(frontmatter, spec["field"])
         if not value:
             return None, f"no `{spec['field']}` field in the frontmatter"
+        if BLOCK_SCALAR.match(value):
+            return None, (f"`{spec['field']}: {value}` is a YAML block: its text is not measured, "
+                          "so the cap cannot hold; write the field on one line")
         return token_count(value), None
     return token_count(body if spec["part"] == "body" else frontmatter), None
 
@@ -90,7 +106,55 @@ def _sort_key(entry: dict) -> tuple:
     return (entry["path"], entry.get("unit", ""), entry.get("field", ""), entry.get("part", ""))
 
 
+def _positive_int(value) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value > 0
+
+
+def _relative(path, what: str) -> None:
+    if not isinstance(path, str) or not path:
+        raise ValueError(f"{what} must be a non-empty relative path, got {path!r}")
+    if path.startswith(("/", "~", "\\")) or Path(path).is_absolute() or re.match(r"^[A-Za-z]:", path):
+        raise ValueError(f"{what} must be relative to the root, got {path!r}")
+    if ".." in path.replace("\\", "/").split("/"):
+        raise ValueError(f"{what} must not climb out of the root with `..`, got {path!r}")
+
+
+def validate_token_config(config) -> None:
+    """Raises ValueError on the first malformed entry: a token config that
+    would crash, or silently pass, is refused before anything is measured."""
+    if not isinstance(config, dict):
+        raise ValueError(f"the token config must be an object, got {type(config).__name__}")
+    caps = config.get("token_caps", {})
+    if not isinstance(caps, dict):
+        raise ValueError(f"token_caps must be an object of path -> cap, got {type(caps).__name__}")
+    for name, cap in caps.items():
+        _relative(name, "a token_caps path")
+        if not _positive_int(cap):
+            raise ValueError(f"token_caps[{name!r}] must be a positive integer, got {cap!r}")
+    specs = config.get("field_caps", [])
+    if not isinstance(specs, list):
+        raise ValueError(f"field_caps must be a list, got {type(specs).__name__}")
+    for spec in specs:
+        if not isinstance(spec, dict):
+            raise ValueError(f"a field cap must be an object, got {spec!r}")
+        if ("field" in spec) == ("part" in spec) or spec.get("part", "body") not in PARTS:
+            raise ValueError(f"a field cap needs exactly one of field or part ({'|'.join(PARTS)}): {spec}")
+        if "field" in spec and (not isinstance(spec["field"], str) or not spec["field"]):
+            raise ValueError(f"a field cap's field must be a non-empty string: {spec}")
+        _relative(spec.get("glob"), "a field cap glob")
+        if not _positive_int(spec.get("cap")):
+            raise ValueError(f"a field cap needs a positive integer cap, got {spec.get('cap')!r}: {spec}")
+        overrides = spec.get("overrides", {})
+        if not isinstance(overrides, dict):
+            raise ValueError(f"overrides must be an object of path -> cap, got {type(overrides).__name__}")
+        for name, cap in overrides.items():
+            _relative(name, "an override path")
+            if not _positive_int(cap):
+                raise ValueError(f"overrides[{name!r}] must be a positive integer, got {cap!r}")
+
+
 def check_tokens(docs_root: Path, config: dict) -> dict:
+    validate_token_config(config)
     docs_root = Path(docs_root).expanduser()
     offenders, missing, ok = [], [], []
 
@@ -107,8 +171,6 @@ def check_tokens(docs_root: Path, config: dict) -> dict:
         place({"path": name, "unit": "tokens", "actual": token_count(_read(path)), "limit": caps[name]})
 
     for spec in config.get("field_caps", []):
-        if ("field" in spec) == ("part" in spec) or spec.get("part", "body") not in PARTS:
-            raise ValueError(f"a field cap needs exactly one of field or part ({'|'.join(PARTS)}): {spec}")
         key = {"field": spec["field"]} if "field" in spec else {"part": spec["part"]}
         matches = sorted(p for p in docs_root.glob(spec["glob"]) if p.is_file())
         # A named file may carry its own cap (a documented exception); an override
@@ -155,7 +217,12 @@ def main(argv: list[str] | None = None) -> int:
     root = Path(args.root).expanduser() if args.root else config["docs_root"]
     result = check(root, config["caps"])
     if args.tokens:
-        token_config = json.loads(Path(args.tokens).read_text(encoding="utf-8"))
+        try:
+            token_config = json.loads(Path(args.tokens).read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            parser.error(f"{args.tokens}: cannot read the token config: {exc}")
+        if not isinstance(token_config, dict):
+            parser.error(f"{args.tokens}: the token config must be an object")
         if token_config.get("method") != METHOD:
             parser.error(f"{args.tokens}: method must be {METHOD!r}, got {token_config.get('method')!r}")
         try:
@@ -164,15 +231,18 @@ def main(argv: list[str] | None = None) -> int:
             parser.error(f"{args.tokens}: {exc}")
     print(json.dumps(result, sort_keys=True, indent=2, ensure_ascii=False))
 
-    if result["offenders"]:
-        for entry in result["offenders"]:
-            label = entry["path"]
-            if args.tokens:
-                label += f" [{entry.get('field') or entry.get('part') or 'file'} {entry['unit']}]"
-            print(f"OFFENDER: {label}: {entry['actual']} > {entry['limit']}"
-                  + (f" ({entry['error']})" if entry.get("error") else ""), file=sys.stderr)
-        return 1
-    return 0
+    for entry in result["offenders"]:
+        label = entry["path"]
+        if args.tokens:
+            label += f" [{entry.get('field') or entry.get('part') or 'file'} {entry['unit']}]"
+        print(f"OFFENDER: {label}: {entry['actual']} > {entry['limit']}"
+              + (f" ({entry['error']})" if entry.get("error") else ""), file=sys.stderr)
+    # Under --tokens a missing entry fails too; the legacy line report keeps
+    # "missing" informational (a doc not written yet is not over its cap).
+    missing = result["missing"] if args.tokens else []
+    for name in missing:
+        print(f"MISSING: {name}: matches no file under the root", file=sys.stderr)
+    return 1 if result["offenders"] or missing else 0
 
 
 if __name__ == "__main__":

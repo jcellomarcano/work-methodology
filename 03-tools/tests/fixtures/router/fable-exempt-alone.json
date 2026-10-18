@@ -1,0 +1,28 @@
+{
+  "as_of": "2026-10-16",
+  "expect": {
+    "roster": [
+      {
+        "effort": "high",
+        "launch": "run",
+        "model": "claude-fable-5-1",
+        "role": "generic-deep-reasoner"
+      }
+    ],
+    "rule": "escalate-fable",
+    "status": "ok"
+  },
+  "input": {
+    "approvals": [
+      "escalate-fable"
+    ],
+    "lane": "sonnet",
+    "map_age_days": 1,
+    "modules": 1,
+    "owner_named": true,
+    "task_kind": "review",
+    "tier": "exempt"
+  },
+  "name": "fable-exempt-alone",
+  "note": "L13: the owner names an exempt task: no base team, Fable runs alone in step 1"
+}

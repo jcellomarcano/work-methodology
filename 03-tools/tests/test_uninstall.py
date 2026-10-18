@@ -308,6 +308,84 @@ class InstallerUninstallTests(Base):
         self.assertIn("kit_installed", report)
 
 
+OLD_KIT_REV = "b659bd7"  # the last kit that installed agents without the subagent core
+KIT_PARTS = ("01-roles", "02-skills", "03-tools", "CONTEXT-PACK.md")
+
+
+def _rev_reachable(rev: str) -> bool:
+    return subprocess.run(["git", "-C", str(KIT_ROOT), "cat-file", "-e", f"{rev}^{{commit}}"],
+                          capture_output=True).returncode == 0
+
+
+def _kit_agents() -> list[str]:
+    return sorted(p.name for p in (KIT_ROOT / "01-roles" / "agents").glob("generic-*.md"))
+
+
+@unittest.skipUnless((KIT_ROOT / "01-roles").is_dir(), "kit only: the installers render from 01-roles/")
+class UpgradeUninstallTests(Base):
+    """Uninstall after a kit upgrade: an agent an older kit installed, untouched since, is
+    the kit's own file and goes; a file the owner edited stays."""
+
+    def run_installer(self, kit: Path, repo: Path, *extra: str) -> subprocess.CompletedProcess:
+        proc = subprocess.run(["bash", str(kit / "03-tools" / "bin" / "install.sh"), str(repo), *extra],
+                              capture_output=True, text=True, env=self.env, timeout=600)
+        self.assertEqual(proc.returncode, 0, proc.stdout[-3000:] + proc.stderr[-3000:])
+        return proc
+
+    @unittest.skipUnless((KIT_ROOT / ".git").exists() and _rev_reachable(OLD_KIT_REV),
+                         f"needs the kit's git history down to {OLD_KIT_REV}")
+    def test_agents_an_older_kit_installed_are_removed_and_an_edited_one_is_kept(self):
+        old_kit = self.tmp / "old-kit"
+        old_kit.mkdir()
+        archive = subprocess.run(["git", "-C", str(KIT_ROOT), "archive", OLD_KIT_REV, *KIT_PARTS],
+                                 capture_output=True, check=True).stdout
+        subprocess.run(["tar", "-x", "-C", str(old_kit)], input=archive, check=True)
+        repo = make_repo(self.tmp / "upgraded", self.env)
+        self.run_installer(old_kit, repo, "--runtime", "all")
+        old_claude = (repo / ".claude" / "agents" / "generic-judge.md").read_text(encoding="utf-8")
+        # precondition: the old install differs from today's render, or this test proves nothing
+        self.assertNotIn("## Kit core", old_claude)
+        edited = repo / ".pi" / "agents" / "generic-verifier.md"
+        edited.write_text(edited.read_text(encoding="utf-8") + "\nowner edit\n", encoding="utf-8")
+
+        gone = self.uninstall(repo)
+        found = items(gone.stdout)
+        for name in _kit_agents():
+            if not (old_kit / "01-roles" / "agents" / name).is_file():
+                continue  # a role born after the old kit was never installed by it
+            for runtime in (".claude", ".pi"):
+                rel = f"{runtime}/agents/{name}"
+                if rel == ".pi/agents/generic-verifier.md":
+                    continue
+                with self.subTest(agent=rel):
+                    self.assertIn(rel, found["-"], gone.stdout[-4000:])
+        self.assertIn(".pi/agents/generic-verifier.md", found["!"], gone.stdout[-4000:])
+        self.assertTrue(edited.read_text(encoding="utf-8").endswith("owner edit\n"))
+
+    def test_without_git_history_the_pre_core_render_of_today_still_goes(self):
+        plain = self.tmp / "plain-kit"
+        ignore = shutil.ignore_patterns(".git", "out", "tests", "__pycache__", "*.personal.*", "personal")
+        for part in KIT_PARTS:
+            src = KIT_ROOT / part
+            if src.is_dir():
+                shutil.copytree(src, plain / part, ignore=ignore)
+            else:
+                shutil.copy2(src, plain / part)
+        repo = make_repo(self.tmp / "plain-target", self.env)
+        self.run_installer(plain, repo, "--runtime", "claude")
+        legacy = repo / ".claude" / "agents" / "generic-judge.md"
+        source = (plain / "01-roles" / "agents" / "generic-judge.md").read_text(encoding="utf-8")
+        legacy.write_text(source.replace("__TOOLS_DEFAULT__", "$HOME/metodologia-de-trabajo/03-tools"),
+                          encoding="utf-8")
+        edited = repo / ".claude" / "agents" / "generic-verifier.md"
+        edited.write_text(edited.read_text(encoding="utf-8") + "\nowner edit\n", encoding="utf-8")
+        gone = self.run_installer(plain, repo, "--uninstall", "--runtime", "claude")
+        found = items(gone.stdout)
+        self.assertIn("not a git checkout", gone.stdout)
+        self.assertIn(".claude/agents/generic-judge.md", found["-"], gone.stdout[-3000:])
+        self.assertEqual(found["!"], [".claude/agents/generic-verifier.md"], gone.stdout[-3000:])
+
+
 @unittest.skipUnless((KIT_ROOT / "01-roles").is_dir(), "kit only: init runs from the kit")
 class InitUninstallTests(Base):
     def setUp(self):

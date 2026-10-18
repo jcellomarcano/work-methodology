@@ -15,7 +15,9 @@
 #                the listed .pi/skills files, .pi/extensions/metodo-hooks.ts,
 #                the toolPrefix override in .pi/mcp.json, the shared
 #                mcpServers.metodo (kept while Claude Code's kit hooks remain),
-#                each exclude line once its path is gone, and empty dirs. A
+#                each exclude line once its path is gone, and empty dirs. An
+#                agent an older kit installed also counts when this kit is a
+#                git checkout (render_agents.py --candidates-dir). A
 #                modified kit file is kept as `kept: modified`.
 #
 # Writes only inside <repo>: .pi/agents, .pi/skills, .pi/extensions,
@@ -118,16 +120,27 @@ PY
   if [ -n "$recorded" ] && [ "$recorded" != "$TOOLS_DIR" ]; then ROOTS+=("$recorded"); fi
 
   shopt -s nullglob
-  for f in "$AGENTS_SRC"/generic-*.md; do
+  # An agent counts as the kit's when it matches anything an install of this
+  # kit may have written: today's render, today's render without the subagent
+  # core (the pre-core format), and, in a git checkout, each committed version
+  # rendered by the renderer, contract and core committed with it
+  # (render_agents.py --candidates-dir). Without git history only the first two.
+  if ! git -C "$KIT_ROOT" rev-parse --show-prefix >/dev/null 2>&1; then
+    echo "  note: $KIT_ROOT is not a git checkout: agents an older kit installed may be kept as modified"
+  fi
+  agents=("$AGENTS_SRC"/generic-*.md)
+  i=0
+  for root in "${ROOTS[@]}"; do
+    if [ "${#agents[@]}" -gt 0 ]; then
+      python3 "$TOOLS_ROOT/lib/render_agents.py" "${agents[@]}" --target pi --tools-default "$root" \
+        --core-source "$KIT_ROOT/CONTEXT-PACK.md" --kit-root "$KIT_ROOT" --candidates-dir "$RENDER_TMP/a$i" >/dev/null
+    fi
+    i=$((i + 1))
+  done
+  for f in ${agents[@]+"${agents[@]}"}; do
     cands=(); i=0
-    for root in "${ROOTS[@]}"; do
-      mkdir -p "$RENDER_TMP/c$i"
-      out="$RENDER_TMP/c$i/$(basename "$f")"
-      python3 "$TOOLS_ROOT/lib/render_agents.py" "$f" --target pi --tools-default "$root" \
-        --core-source "$KIT_ROOT/CONTEXT-PACK.md" --out "$out" >/dev/null
-      cands+=("$out"); i=$((i + 1))
-    done
-    remove_if_rendered "$AGENTS_DST/$(basename "$f")" "${cands[@]}"
+    for root in "${ROOTS[@]}"; do cands+=("$RENDER_TMP/a$i/$(basename "$f")"/*); i=$((i + 1)); done
+    remove_if_rendered "$AGENTS_DST/$(basename "$f")" ${cands[@]+"${cands[@]}"}
   done
   for skill in "${SKILLS[@]}"; do
     src_dir="$SKILLS_SRC/$skill"; dst_dir="$SKILLS_DST/$skill"

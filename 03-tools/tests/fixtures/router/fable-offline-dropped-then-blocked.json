@@ -1,0 +1,35 @@
+{
+  "as_of": "2026-10-16",
+  "expect": {
+    "roster": [
+      {
+        "effort": "medium",
+        "launch": "skip",
+        "model": "claude-haiku-5-5",
+        "role": "generic-cartographer"
+      },
+      {
+        "effort": "high",
+        "launch": "skip",
+        "model": "claude-fable-5-1",
+        "role": "generic-deep-reasoner"
+      }
+    ],
+    "rule": "escalate-fable",
+    "status": "blocked"
+  },
+  "input": {
+    "approvals": [
+      "escalate-fable"
+    ],
+    "lane": "sonnet",
+    "map_age_days": 1,
+    "modules": 1,
+    "offline": true,
+    "owner_named": true,
+    "task_kind": "map",
+    "tier": "medium"
+  },
+  "name": "fable-offline-dropped-then-blocked",
+  "note": "L13: offline drops the Fable step first; the team has no admitted local model, so the usual blocked"
+}

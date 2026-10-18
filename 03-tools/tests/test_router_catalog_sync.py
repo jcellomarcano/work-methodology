@@ -73,6 +73,14 @@ class RouterCatalogSyncTests(unittest.TestCase):
                 self.assertFalse(entry.get("local"))
         self.assertIsNone(router.fallback_model(CATALOG, "not-a-role"))
 
+    def test_the_fable_step_has_a_kit_role_pinned_to_the_orchestrator_fallback(self):
+        # L13: the Fable step launches as a real role; its frontmatter pins the admitted
+        # orchestrator-tier model and the router sets Fable only when the owner approves.
+        self.assertIn(router.FABLE_ROLE, self.pairs)
+        self.assertEqual(router.ROLE_TIER[router.FABLE_ROLE], CATALOG["router"]["fable"]["tier"])
+        self.assertEqual(self.pairs[router.FABLE_ROLE], ("claude-opus-5-5", "claude-opus-5-5"))
+        self.assertNotEqual(router.fallback_model(CATALOG, router.FABLE_ROLE), FABLE)
+
     def test_no_role_names_fable(self):
         for role, text in self.texts.items():
             self.assertNotIn(FABLE, text, role)

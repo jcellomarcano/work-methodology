@@ -19,7 +19,7 @@
         "effort": "high",
         "launch": "skip",
         "model": "claude-fable-5-1",
-        "role": "fable-deep-reasoning"
+        "role": "generic-deep-reasoner"
       }
     ],
     "rule": "escalate-fable",

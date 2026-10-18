@@ -1,4 +1,4 @@
-"""The 11 generic-* agent bodies after the text audit (S8, C7): no boilerplate
+"""Every generic-* agent body after the text audit (S8, C7): no boilerplate
 block repeated across bodies, no Spanish leftovers in model-facing text, no
 `../` pointer that breaks once installed, the subagent core from
 CONTEXT-PACK.md appended byte for byte to every rendered agent (Claude Code
@@ -23,13 +23,21 @@ SPANISH = re.compile(r"\b(Medido|Probado|Inferido|Asumido|Desconocido|Verificado
 MODEL_FACING = ("04-templates/brief.md", "04-templates/findings.example.json", "07-communication/identity.en.md")
 MIN_WORDS = 12
 MAX_BODIES = 2
-# Role-specific prohibitions that define the role (text-audit section 6, "Do not cut").
+# Role-specific prohibitions that define the role (text-audit section 6, "Do not cut"):
+# one pinned key line for every role (L13, finding A12).
 ROLE_LINES = {
     "generic-challenger": "Never propose the fix",
     "generic-blind-spot-adversary": "Never propose the fix",
     "generic-verifier": "Never accept the proposer's",
     "generic-mechanic": "Never resolve an ambiguity by judgment",
     "generic-cartographer": "Never issue a verdict",
+    "generic-proposer": "Never touch files outside the change card's scope-glob",
+    "generic-judge": "Never rule a truncated round as if it were complete",
+    "generic-boundary-reviewer": "Never invent a violation `dep_boundaries` didn't report",
+    "generic-style-reviewer": "Never rewrite the line itself",
+    "generic-comment-gate": "Never judge a comment the diff did not add",
+    "generic-human-reviewer": "Never judge whether a `[Measured]` claim is true",
+    "generic-deep-reasoner": "Never edit, create or delete a file",
 }
 
 
@@ -103,6 +111,9 @@ class AgentBodiesTests(unittest.TestCase):
             with self.subTest(tool=spec.name):
                 self.assertIsNone(SPANISH.search(spec.description))
 
+    def test_every_role_has_a_pinned_key_line(self):
+        self.assertEqual(sorted(ROLE_LINES), sorted(round_files.ROLES))
+
     def test_do_not_cut_lines_stay_per_role(self):
         for role, body in self.bodies.items():
             contract = json.loads((AGENTS / f"{role}.contract.json").read_text(encoding="utf-8"))
@@ -113,8 +124,7 @@ class AgentBodiesTests(unittest.TestCase):
                 self.assertIn(f"schema `{round_files.ROLE_SCHEMA[role]}`", body)
                 if "mcp__metodo__handoff_write" in contract["tools"]:
                     self.assertIn("mcp__metodo__handoff_write", body)
-                if role in ROLE_LINES:
-                    self.assertIn(ROLE_LINES[role], body)
+                self.assertIn(ROLE_LINES[role], body)
 
 
 @unittest.skipUnless(AGENTS.is_dir(), "kit only: the instance does not carry 01-roles/")

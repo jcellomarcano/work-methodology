@@ -16,7 +16,9 @@
 #                kit renders for the repo (for --tools, or for the tools root
 #                .mcp.json records), the marked hooks, mcpServers.metodo (kept
 #                while pi still uses it), the .mcp.json exclude line (only once
-#                .mcp.json is gone) and the agents/skills dirs once empty. A
+#                .mcp.json is gone) and the agents/skills dirs once empty. An
+#                agent an older kit installed also counts when this kit is a
+#                git checkout (render_agents.py --candidates-dir). A
 #                modified kit file is kept and printed as `kept: modified`.
 #                One line per item: `  - <path> (removed)`, `  ! <path> (kept:
 #                modified)`, `  = <path> (kept: <why>)`, `  . <path> (not found)`.
@@ -178,10 +180,27 @@ PY
   fi
 
   shopt -s nullglob
-  for f in "$AGENTS_SRC"/generic-*.md; do
+  # An agent counts as the kit's when it matches anything an install of this
+  # kit may have written: today's render, today's source without the subagent
+  # core (the pre-core format), and, in a git checkout, each committed version
+  # rendered by the renderer and core committed with it (render_agents.py
+  # --candidates-dir). Without git history only the first two exist.
+  if ! git -C "$KIT_ROOT" rev-parse --show-prefix >/dev/null 2>&1; then
+    echo "  note: $KIT_ROOT is not a git checkout: agents an older kit installed may be kept as modified"
+  fi
+  agents=("$AGENTS_SRC"/generic-*.md)
+  i=0
+  for e in "${EXPRS[@]}"; do
+    if [ "${#agents[@]}" -gt 0 ]; then
+      python3 "$TOOLS_ROOT/lib/render_agents.py" "${agents[@]}" --target claude --tools-default "$e" \
+        --core-source "$KIT_ROOT/CONTEXT-PACK.md" --kit-root "$KIT_ROOT" --candidates-dir "$RENDER_TMP/a$i" >/dev/null
+    fi
+    i=$((i + 1))
+  done
+  for f in ${agents[@]+"${agents[@]}"}; do
     cands=(); i=0
-    for e in "${EXPRS[@]}"; do cands+=("$(render_agent "$f" "$e" "$RENDER_TMP/c$i")"); i=$((i + 1)); done
-    remove_if_rendered "$AGENTS_DST/$(basename "$f")" "${cands[@]}"
+    for e in "${EXPRS[@]}"; do cands+=("$RENDER_TMP/a$i/$(basename "$f")"/*); i=$((i + 1)); done
+    remove_if_rendered "$AGENTS_DST/$(basename "$f")" ${cands[@]+"${cands[@]}"}
   done
   for f in "$AGENTS_SRC"/generic-*.contract.json; do
     remove_if_rendered "$AGENTS_DST/$(basename "$f")" "$f"

@@ -1,4 +1,4 @@
-"""The 11 generic-* agents and their contracts say the same thing: tools, model,
+"""Every generic-* agent and its contract say the same thing: tools, model,
 maxTurns/max_turns; every mcp__metodo__X tool exists in the catalog;
 the roles the catalog lists for a tool carry it in their
 frontmatter; Bash only in proposer and verifier; every role carries the

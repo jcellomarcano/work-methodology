@@ -53,6 +53,16 @@ def _out(ctx: Ctx, sha: str, name: str) -> Path:
     return ctx.out_dir / sha / name
 
 
+def _docs_lint_tokens(ctx: Ctx) -> list[str]:
+    """Token caps name kit paths (01-roles/, 02-skills/), so they apply only
+    when the tools root sits in a kit checkout; an instance (no token config,
+    or one synced in without the kit tree) keeps the line-only call."""
+    tokens = ctx.tools_root / "config" / "token-caps.json"
+    if not tokens.is_file() or not (ctx.kit_root / "01-roles").is_dir():
+        return []
+    return ["--tokens", str(tokens), "--root", str(ctx.kit_root)]
+
+
 def _one_of(args: dict, *keys: str) -> None:
     present = [k for k in keys if args.get(k) not in (None, "")]
     if len(present) != 1:
@@ -268,8 +278,9 @@ TOOLS: tuple[ToolSpec, ...] = (
              _obj({"repo": S, "verify_range": S, "range": S}, ("verify_range",)),
              argv=lambda a, c: _py(c, "comment_gate.py") + ["--repo", _repo(a, c), "--verify", a["verify_range"]] + (["--range", a["range"]] if a.get("range") else []),
              ok_exit=frozenset({0, 1}), roles=("mechanic",)),
-    ToolSpec("docs_lint", "Check every kit document against its line cap (config/docs-caps.json).",
-             _obj({}), argv=lambda a, c: _py(c, "docs_lint.py") + [str(c.tools_root / "config" / "docs-caps.json")],
+    ToolSpec("docs_lint", "Check every kit document against its line cap and, in a kit checkout, its token cap.",
+             _obj({}), argv=lambda a, c: _py(c, "docs_lint.py") + [str(c.tools_root / "config" / "docs-caps.json")]
+                               + _docs_lint_tokens(c),
              ok_exit=frozenset({0, 1}), timeout_s=30),
     ToolSpec("reply_lint", "Lint a human-facing reply: COM-01..18 form rules (output_lint) and COM-19 citations (cite_check).",
              _obj({"reply_path": S, "type": REPLY_TYPE_ENUM, "lang": LANG_ENUM, "audience": AUDIENCE_ENUM, "allow": A, "repo": S, "online": B},
