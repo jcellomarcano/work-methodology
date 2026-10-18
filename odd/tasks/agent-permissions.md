@@ -12,8 +12,9 @@
 
 | ID | Specs | Route | Status | Evidence |
 |---|---|---|---|---|
-| A1 | S1, S2 | worker (research) | todo | `odd/research/permissions/agent-permissions.md` |
+| A1 | S1, S2 | worker (research) | done | `odd/research/permissions/agent-permissions.md` |
 
 ## Log
 
 - **L1** (user, 2026-10-18, verbatim): "los agentes tambein deberian tener dentro un verificador de permiso como cuando manejamos unos roles de usuario con permisos a ciertas cosas, minimo al scope dado y a la carpeta donde se trabaja y si no, preguntar por permisos, temporarles o por esa sesion, pero esto es algo que resolveremos mas adelante, vale la pena investigar, mas no hacer ahora porque el automode y bypass son cosas que tambien son utiles"
+- **L2** (evidence, A1): dossier written (47/47 quotes). Today only shared build files, `.claude/**` for subagents, subagent delivery, force push and the call budget are blocked; scope is warn-only, reads, Bash writes and network are unchecked, hooks fail open. Native deny rules survive bypass in Claude Code and OpenCode `--auto`; Codex hook `ask` fails open. Eight owner questions in §5, parked until the owner resumes this feature.
