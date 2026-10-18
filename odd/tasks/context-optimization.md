@@ -17,6 +17,8 @@ Quoted fragments are the user's exact words (Spanish, 2026-10-18); the requireme
 
 - **S7 Balance and goal anchoring.** "de que manera podemos balancear que el uso de contexto de los subagentes sea optimo para no bajar la calidad de las respeustas? y siempre tener el target y objetivo claro. DE esa manera no gastar demasiado, pero si trabajar en la direccion correcta". Subagent context is sized per role and tier without starving evidence, every brief carries a verifiable goal tied to the S# it serves, and drift and over- or under-spending are measured deterministically.
 
+- **S8 Fix the text-audit findings now.** "necesito que estos sean resultos": the five problems of `text-audit.md` (duplicated boilerplate in the 11 agent bodies and doubled on pi; Spanish leftovers in model-facing text; `../../` pointers that break after install; the cold-start pack never delivered to subagents; no size cap on agents, skills and templates) and the top trims (AGENTS.md reads only the README status block; dedupe agent bodies; cap skill descriptions), never cutting safety rules, the evidence rule or the personal-files rule.
+
 ## Tasks
 
 | ID | Specs | Route | Status | Evidence |
@@ -26,7 +28,9 @@ Quoted fragments are the user's exact words (Spanish, 2026-10-18); the requireme
 | C3 | S1, S4 | worker (research: deterministic activation of kit elements) | todo | `odd/research/context/activation.md` |
 | C4 | S1, S5 | worker (research: strict done gate) | todo | `odd/research/context/done-gate.md` |
 | C6 | S6 | worker (measured audit of the kit's own texts) | todo | `odd/research/context/text-audit.md` |
-| C5 | S1-S6 | inline synthesis | todo | method + owner decisions |
+| C7 | S8 | worker A, test-first | todo | agent bodies: dedupe, English, installable pointers, cold-start core delivered, pi single copy |
+| C8 | S8 | worker B, test-first | todo | token caps in docs_lint (`config/token-caps.json`), skill description cap, AGENTS.md trim, `--root` for docs_lint |
+| C5 | S1-S7 | inline synthesis | todo | method + owner decisions |
 
 ## Log
 
@@ -34,3 +38,4 @@ Quoted fragments are the user's exact words (Spanish, 2026-10-18); the requireme
 - **L2** (decision, coordinator): no `/deepresearch` skill exists in this harness; four parallel research lanes, each fetching official/primary sources into its own temp dir and writing one dossier; research only, no code in this step.
 - **L3** (user, 2026-10-18, verbatim): "sobre lasrecuerda que todo el proyecto debe ser evaluado tambien para todo el tema de contexto y si los textos que estamos usando van optimos para eso,". Added S6 and C6.
 - **L4** (user, 2026-10-18, verbatim): "ahora de que manera podemos balancear que el uso de contexto de los subagentes sea optimo para no bajar la calidad de las respeustas? y siempre tener el target y objetivo claro. DE esa manera no gastar demasiado, pero si trabajar en la direccion correcta". Added S7; C5 worker steered to include a balance and goal-anchoring section.
+- **L5** (user, 2026-10-18): "necesito que estos sean resultos" quoting the five text-audit problems and the top trims. Added S8; C7 and C8 run in parallel with disjoint files (token caps go to a new `03-tools/config/token-caps.json` so they do not collide with H4 editing `docs-caps.json`).
