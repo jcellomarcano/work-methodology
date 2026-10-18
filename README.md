@@ -89,8 +89,8 @@ Pick the path that fits you:
 <!-- kit-status:start -->
 | Kit status (`03-tools/bin/kit-status.sh --write`, never by hand) | Value | Tag |
 |---|---|---|
-| measured_at | `44bd74c`, dirty: yes | [Measured] |
-| code_fingerprint | `sha256:30e28172fb93df2c` over 243 files (roles, skills, tools, tests) | [Measured] |
+| measured_at | `ac4586e`, dirty: yes | [Measured] |
+| code_fingerprint | `sha256:2b355a938c4391e0` over 243 files (roles, skills, tools, tests) | [Measured] |
 | structure | 11 agents, 16 skills (16 installed), 31 MCP tools, 7 Claude hooks, 902 test cases | [Measured] |
 | kit suite | OK: ran 902, failures 0, errors 0, skipped 5, expected failures 2 | [Tested] |
 | docs caps | 0 offenders, 0 missing (`config/docs-caps.json` over this checkout) | [Measured] |
@@ -131,6 +131,18 @@ Nothing is installed globally and nothing is skipped silently: whatever init can
 hierarchy, invariants, people and gates) comes back as a pending human step naming its file. Helpers such as
 Engram (memory), Context7 (docs) or gentle-ai are detected and suggested with the exact command, never
 installed. `05-adopt/checklist.md` marks every adoption item as done by init or left to a human.
+
+#### Other harnesses and local models
+
+| Harness | Kit installer | By hand (`docs/08-harnesses.md`) | Not enforced |
+|---|---|---|---|
+| Claude Code, pi | agents, skills, MCP server, hooks, budget, output check | instruction file | pi: the output check records, never blocks |
+| Codex CLI | none | MCP, skills, role TOMLs, `codex exec` per role, hooks | path guard (`apply_patch`), owner `ask`, budget |
+| Antigravity (App, `agy`) | none | MCP, skills, role agents, `agy -p` per role | every kit guard, budget, output check |
+| OpenCode | none | MCP (`metodo_*` names), skills, subagents, `edit` denies | Python guards (plugin not written), output check |
+
+Local models (Ollama, LM Studio, llama.cpp) run small-tier roles only, for offline or privacy repos, and
+only after a real run admits them; pi, Codex and OpenCode can point at them, Claude Code should not.
 
 ## How a change flows
 
@@ -249,7 +261,7 @@ only if `init.sh` reports `ready_for_benchmark` for that repo: a half-installed 
 
 | Path | Content |
 |---|---|
-| `docs/` | The friendly entry layer: principles, workflow, change card, review, work management, git/release, adoption |
+| `docs/` | The friendly entry layer: principles, workflow, change card, review, work management, git/release, adoption, other harnesses |
 | `AGENTS.md`, `CLAUDE.md`, `CONTEXT-PACK.md` | How an agent enters, and the whole method in ≤ 120 lines |
 | `00-principles/` | The operating law: evidence, why-layer, change card, review receipt, model and multi-provider routing, runtime adapters, agent protocol |
 | `01-roles/agents/` | The 11 roles, each with its `.contract.json` |
@@ -285,8 +297,10 @@ change runs scripts only. See `docs/04-review.md`.
 **Do we need AI agents?** No. The method works with humans alone; agents are optional helpers
 (`docs/07-adoption.md`), and humans own every gate.
 
-**Which AI tools does the kit support?** Claude Code and pi today, from one source (`00-principles/runtime-adapters.md`).
-Other providers' models are admitted per role only after a measured trial (`00-principles/multi-provider-routing.md`).
+**Which AI tools does the kit support?** Claude Code and pi are installed by the kit from one source
+(`00-principles/runtime-adapters.md`). Codex CLI, Antigravity and OpenCode work by hand with fewer guards, and
+local models only in the small tier (`docs/08-harnesses.md`). Other providers' models are admitted per role
+only after a measured trial (`00-principles/multi-provider-routing.md`).
 
 **Will it touch my global config or install things?** No. Everything goes into the target repo, its tools
 instance and its audit folder; global configs are read only with `--read-global-config`, and never written.
