@@ -107,6 +107,23 @@ Sources: `T` = transcripts under `~/.claude/projects`, `G` = git history of the 
 | M65 | Context handed to each subagent: Agent prompt length and the subagent's own peak context (S22) | T | Agent `tool_use.input.prompt` length; subagent file M04 | Measured | Measured |
 | M66 | Compactions per 1M input tokens, split by with/without subagents and kit vs no-kit; tokens dropped per compaction (S22) | T | `compact_boundary` pre/post | Measured | Measured |
 
+### Context method and delegation (`odd/tasks/delegation-context.md` S3, S4)
+
+All rows are `transcript_metrics.py` fields under `sessions[].context_metrics.<key>`; each value carries its `id` and `label`. Tokens marked "est" are `ceil(chars/4)` (the kit's proxy, Inferred); tokens from `usage` are Measured. No path, text, title or hash leaves the script: only counts, sizes and role names.
+
+| ID | Metric | Source | Method (`<key>`) | Phase 1 | Phase 2 |
+|---|---|---|---|---|---|
+| M100 | Per-role peak context vs the role's contract cap | T + K | `per_role_peak`: per subagent run, M04 of its `agent-*.jsonl`; role = `agentType` of the `.meta.json`, else the `subagent_type` of the Agent call it answers; cap = `max_context_tokens` of `01-roles/agents/<role>.contract.json` (`--contracts`); per role `runs`, `peak_max`, `over_cap_runs` (peak > cap), `peak_to_cap_max`; no contract → cap null | Measured | Measured |
+| M101 | Tool-output share of input | T | `tool_output_share`: Σ est tokens of main-session `tool_result` text (by tool) ÷ fresh input tokens Σ(`input_tokens` + `cache_creation_input_tokens`); meaningful with prompt caching on (the Claude Code default) | Inferred | Inferred |
+| M102 | Re-read ratio | T | `reread`: main-session `Read` calls minus distinct `file_path` ÷ `Read` calls; also same path+offset+limit, and over main + every subagent (`all_contexts`) | Measured | Measured |
+| M103 | Subagent report size vs the 2,000-token cap (D9) | T | `subagent_reports`: est tokens of the `tool_result` answering each `Agent`/`Task` call, in call order; `over_cap` = est > 2,000; per role | Inferred | Inferred |
+| M104 | Startup load | T | `startup_load`: input + cache_write + cache_read of the first deduplicated request (`usage`), main session and per subagent role; null without usage | Measured | Measured |
+| M105 | Engram recall-used rate | T | `recall_used`: recalls = `mem_search`/`mem_context` calls; keys from each result: `#<id>`, `"id": n`, `ID: n`, topic keys, titles (≥ 8 chars); used = a key appears in a later assistant text or tool input (`#<id>`, an engram call with that `id`, topic substring, title case-insensitive); `empty` = no key extracted; rate = used ÷ recalls | Inferred | Inferred |
+| M106 | Delegation ratio vs the router (S3) | T + L | `delegation` (`--routing-log`): router decisions = routing-log lines with `status: ok` whose `inputs_hash` appears in a main-session tool result, each counted once; asked = their `launch: run` entries by `delegate`; launched = `Agent`/`Task` calls by `subagent_type`; delegated = Σ role min(launched, asked subagent); ratio = delegated ÷ asked subagent; `unrequested_launches` = Σ role max(0, launched − asked); no log → status `not-run` | Inferred | Measured |
+| M107 | WARN act rate | T | `warn_act`: fires = distinct `METODO-WARN <kind>:` lines at line start in a `hook_*` attachment or a tool result (not Read/Grep/Glob output); trigger = the call the result or attachment `toolUseID` names, else the last earlier call; next = first call of a later assistant message; acted = next call's tool family differs (Edit/Write/MultiEdit/NotebookEdit are one family); rate = acted ÷ judged (fires with trigger and next) | Inferred | Inferred |
+
+Limits: M101/M103 count main-session results only; a background `Agent` call's result is its launch notice, not the report; M106 matches decisions only when the route result (MCP `route` or `route.sh` output) is in the transcript; M107 sees only warns written into the transcript.
+
 ### Determinism, scripts, lints (S10, S11)
 
 | ID | Metric | Source | Method | Phase 1 | Phase 2 |

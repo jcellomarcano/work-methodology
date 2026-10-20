@@ -1,0 +1,134 @@
+{
+ "agent_prompt_chars": [
+  7
+ ],
+ "agent_tool_calls_by_type": {
+  "generic-judge": 1
+ },
+ "api_errors": 0,
+ "branches": [
+  "main"
+ ],
+ "cache_hit_ratio": 0.895219,
+ "compactions": [
+  {
+   "post": 20000,
+   "pre": 150000,
+   "trigger": "auto"
+  }
+ ],
+ "cost_usd": 0.42,
+ "duration_s": 302.0,
+ "effort_levels": {
+  "high": 1
+ },
+ "engram": {
+  "other_calls": 0,
+  "recall_calls": 1,
+  "save_calls": 0
+ },
+ "final_replies": {
+  "chars": [
+   120,
+   8
+  ],
+  "chars_total": 128,
+  "count": 2
+ },
+ "first_ts": "2026-09-20T10:00:00.000Z",
+ "hooks": {
+  "by_event": {
+   "PostToolUse:hook_success": 1,
+   "SessionStart:hook_success": 1
+  },
+  "metodo_runs": 1
+ },
+ "human_prompts": {
+  "chars": [
+   24,
+   6
+  ],
+  "chars_total": 30,
+  "count": 2
+ },
+ "kit": {
+  "first_marker_ts": "2026-09-20T10:00:00.000Z",
+  "marker_ts": {
+   "hook:metodo": "2026-09-20T10:00:00.000Z",
+   "subagent:generic-judge": "2026-09-20T10:00:06.000Z"
+  },
+  "markers": [
+   "hook:metodo",
+   "subagent:generic-judge"
+  ],
+  "uses_kit": true,
+  "weak_markers": [
+   "skill:respuesta-humana"
+  ]
+ },
+ "last_ts": "2026-09-20T10:05:02.000Z",
+ "latency_s": {
+  "first_response": [
+   3.0,
+   2.0
+  ],
+  "turn_wall_clock": [
+   300.0
+  ]
+ },
+ "mcp_servers": {
+  "engram": 1
+ },
+ "model_switches": 1,
+ "models": {
+  "claude-haiku-5-5": 1,
+  "claude-opus-5-5": 4
+ },
+ "output_style": "Gentleman",
+ "peak_context_tokens": 2105,
+ "permission_modes": {
+  "acceptEdits": 2
+ },
+ "project": "proj",
+ "project_dir": "-home-x-proj",
+ "requests": 5,
+ "session_id": "11111111-2222-3333-4444-555555555555",
+ "skills": {
+  "respuesta-humana": 1
+ },
+ "slash_commands": 0,
+ "subagents": {
+  "by_model": {
+   "claude-sonnet-5-5": 1
+  },
+  "by_type": {
+   "generic-judge": 1
+  },
+  "count": 1,
+  "peak_context_tokens": 100,
+  "requests": 1
+ },
+ "tokens": {
+  "main": {
+   "cache_read": 8800,
+   "cache_write": 1000,
+   "input": 30,
+   "output": 160
+  },
+  "subagents": {
+   "cache_read": 0,
+   "cache_write": 0,
+   "input": 100,
+   "output": 200
+  }
+ },
+ "tool_calls": {
+  "Agent": 1,
+  "Skill": 1,
+  "mcp__engram__mem_search": 1
+ },
+ "turn_durations_ms": [],
+ "versions": [
+  "2.1.209"
+ ]
+}
