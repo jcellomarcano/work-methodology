@@ -316,6 +316,62 @@ class RouteToolTests(unittest.TestCase):
         self.assertFalse((inside / "out" / "runs" / "routing.jsonl").exists())
 
 
+class DoneCheckToolTests(unittest.TestCase):
+    """`done_check` (mcp__metodo__done_check, context-method §6): the done gate
+    on the repo and an explicit reply path; its JSON is the script's, a BLOCK
+    (exit 1) is data, not an error. Runs and receipts dirs point at temp dirs."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="mcp-done-"))
+        self.repo = self.tmp / "repo"
+        self.repo.mkdir()
+        _git(self.repo, "init", "-q")
+        _git(self.repo, "config", "user.email", "t@example.com")
+        _git(self.repo, "config", "user.name", "t")
+        (self.repo / "a.py").write_text("x = 1\n", encoding="utf-8")
+        _git(self.repo, "add", "-A")
+        _git(self.repo, "commit", "-q", "-m", "init")
+        (self.repo / "a.py").write_text("x = 2\n", encoding="utf-8")
+        env = mock.patch.dict(os.environ, {"METODO_RUNS_DIR": str(self.tmp / "runs"), "METODO_RDD_DIR": str(self.tmp / "rdd")})
+        env.start()
+        self.addCleanup(env.stop)
+        self.ctx = registry.Ctx(tools_root=TOOLS_ROOT, repo=self.repo, project_config={})
+        self.reply = self.tmp / "reply.md"
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _call(self, arguments):
+        return server.handle(_rpc(11, "tools/call", {"name": "done_check", "arguments": arguments}), self.ctx)
+
+    def test_listed_with_reply_path_required(self):
+        listed = server.handle(_rpc(1, "tools/list"), self.ctx)["result"]["tools"]
+        tool = next(t for t in listed if t["name"] == "done_check")
+        self.assertEqual(tool["inputSchema"]["required"], ["reply_path"])
+        self.assertIn("repo", tool["inputSchema"]["properties"])
+
+    def test_call_equals_the_direct_script(self):
+        self.reply.write_text("Done.\n", encoding="utf-8")
+        result = self._call({"repo": str(self.repo), "reply_path": str(self.reply), "open_jobs": 1})["result"]
+        self.assertFalse(result["isError"], result["structuredContent"])
+        direct = subprocess.run(["python3", str(TOOLS_ROOT / "lib" / "done_check.py"), "--repo", str(self.repo),
+                                 "--reply", str(self.reply), "--open-jobs", "1"], capture_output=True, text=True)
+        self.assertEqual(result["structuredContent"], json.loads(direct.stdout))
+        payload = result["structuredContent"]
+        self.assertEqual(payload["claims"], ["done"])
+        self.assertEqual(next(r for r in payload["rules"] if r["id"] == "DONE-17")["status"], "FLAG")
+        self.assertTrue(payload["flag_block"].startswith("DONE-GATE: "))
+
+    def test_no_claim_and_bad_arguments(self):
+        self.reply.write_text("Which option do you prefer?\n", encoding="utf-8")
+        payload = self._call({"reply_path": str(self.reply)})["result"]["structuredContent"]
+        self.assertEqual(payload["verdict"], "no-claim")
+        self.assertEqual(self._call({"reply_path": str(self.reply), "rpeo": "x"})["error"]["code"], server.INVALID_PARAMS)
+        self.assertEqual(self._call({"repo": str(self.repo)})["error"]["code"], server.INVALID_PARAMS)
+        missing = self._call({"reply_path": str(self.tmp / "missing.md")})["result"]
+        self.assertTrue(missing["isError"])
+
+
 class ReceiptStartBaseTests(unittest.TestCase):
     """receipt_start without `base` takes it from lib/base_ref.py: the
     config's test_sectors.base_ref, then origin/HEAD, then origin/develop."""

@@ -1,0 +1,36 @@
+{
+  "_comment": "Output of lib/done_check.py and the MCP tool done_check (context-method §6, done-gate.md §3). Same inputs, same bytes. flag_block is the DONE-GATE text the agent pastes verbatim.",
+  "type": "object",
+  "required": ["schema_version", "tool", "tool_sha", "config_sha", "repo_sha", "tree_sha", "worktree_sha", "repo_dirty",
+               "claims", "verdict", "counts", "rules", "flag_block"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"type": "integer"},
+    "tool": {"type": "string", "enum": ["done_check"]},
+    "tool_sha": {"type": "string", "pattern": "^[0-9a-f]{12}$"},
+    "config_sha": {"type": "string", "pattern": "^[0-9a-f]{12}$"},
+    "repo_sha": {"type": ["string", "null"]},
+    "tree_sha": {"type": ["string", "null"]},
+    "worktree_sha": {"type": ["string", "null"]},
+    "repo_dirty": {"type": ["boolean", "null"]},
+    "claims": {"type": "array", "items": {"type": "string", "enum": ["done", "green", "committed", "delivered"]}},
+    "verdict": {"type": "string", "enum": ["no-claim", "PASS", "FLAG", "BLOCK"]},
+    "counts": {"type": "object", "required": ["BLOCK", "FLAG", "PASS", "SKIP", "WAIVED"], "additionalProperties": false,
+      "properties": {"BLOCK": {"type": "integer"}, "FLAG": {"type": "integer"}, "PASS": {"type": "integer"},
+                     "SKIP": {"type": "integer"}, "WAIVED": {"type": "integer"}}},
+    "rules": {"type": "array", "items": {"type": "object",
+      "required": ["id", "status", "evidence", "fix", "mode", "target_mode", "waiver"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string", "pattern": "^DONE-(0[1-9]|1[0-7])$"},
+        "status": {"type": "string", "enum": ["PASS", "FLAG", "BLOCK", "SKIP"]},
+        "evidence": {"type": "array", "items": {"type": "string"}},
+        "fix": {"type": "string"},
+        "mode": {"type": "string", "enum": ["PASS", "FLAG", "BLOCK"]},
+        "target_mode": {"type": "string", "enum": ["PASS", "FLAG", "BLOCK"]},
+        "waiver": {"type": ["object", "null"], "required": ["email", "reason"], "additionalProperties": false,
+          "properties": {"email": {"type": "string"}, "reason": {"type": "string"}}}
+      }}},
+    "flag_block": {"type": "string", "pattern": "^DONE-GATE: "}
+  }
+}

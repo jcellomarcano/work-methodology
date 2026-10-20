@@ -196,6 +196,28 @@ def _route(args: dict, ctx: Ctx) -> dict:
     return dict(result, log_path=str(log_path))
 
 
+# --------------------------------------------------------------------------- done gate (lib/done_check.py)
+
+TIER_ENUM = {"type": "string", "enum": ["exempt", "low", "medium", "high"]}
+
+
+def _done_check_argv(args: dict, ctx: Ctx) -> list[str]:
+    """Runs and receipts come from the tools root (or METODO_RUNS_DIR /
+    METODO_RDD_DIR, passed to the child); everything else is explicit."""
+    cmd = _py(ctx, "done_check.py") + ["--reply", args["reply_path"], "--repo", _repo(args, ctx)]
+    for flag, key in (("--base", "base"), ("--session-dir", "session_dir"), ("--task", "task_path"), ("--card", "card_path"),
+                      ("--subagent-return", "subagent_return_path"), ("--tier", "tier")):
+        if args.get(key):
+            cmd += [flag, str(args[key])]
+    if args.get("open_jobs") is not None:
+        cmd += ["--open-jobs", str(args["open_jobs"])]
+    for flag, key in (("--known-failure", "known_failures"), ("--temp-path", "temp_paths"), ("--waivers", "waivers_paths")):
+        for value in args.get(key) or []:
+            cmd += [flag, value]
+    return cmd + (["--strict-tdd"] if args.get("strict_tdd") else []) + (["--refactor-only"] if args.get("refactor_only") else [])
+
+
+
 def _sanitize_range(value: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]", "", value.replace("/", "_").replace(":", "_").replace(" ", "_"))
 
@@ -339,6 +361,11 @@ TOOLS: tuple[ToolSpec, ...] = (
              ok_exit=frozenset({0, 2})),
     ToolSpec("route", "Decide the roster to launch (role, model, effort, step) for a task descriptor; owner approvals only via `approvals`. Logs one line.",
              _obj({"task": ROUTE_TASK, "as_of": S, "approvals": APPROVALS}, ("task", "as_of")), mode="internal", handler=_route),
+    ToolSpec("done_check", "Done gate DONE-01..17 on a final reply before it claims done/green/committed/delivered; paste its flag_block verbatim.",
+             _obj({"repo": S, "reply_path": S, "base": S, "session_dir": S, "task_path": S, "card_path": S,
+                   "subagent_return_path": S, "known_failures": A, "open_jobs": I, "temp_paths": A, "tier": TIER_ENUM,
+                   "strict_tdd": B, "refactor_only": B, "waivers_paths": A}, ("reply_path",)),
+             argv=_done_check_argv, ok_exit=frozenset({0, 1}), timeout_s=240),
     ToolSpec("receipt_validate", "Validate a receipt file: schema plus sha256 of every captured artifact.",
              _obj({"receipt_path": S}, ("receipt_path",)), argv=_receipt("validate", ("--receipt", "receipt_path", "str")),
              ok_exit=frozenset({0, 1})),
