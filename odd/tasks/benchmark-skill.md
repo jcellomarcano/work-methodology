@@ -22,7 +22,7 @@
 |---|---|---|---|---|
 | T1 | S2 | parent | done | cf0eef9 |
 | T2 | S3, S4, S5, S9 | delegated writer, parallel with T3 (disjoint surfaces; parent context past the advisory backstop) | done | queued messages + `transcript_dir` + `model_effort` ported with RED tests; `bench_session`, `bench_cli`, `sync-skill.sh`, SKILL.md (description 50/60, body 601/1000 tokens); parent fixes with RED tests: window table (1M for the 5.x family and Opus 4.6–4.8, 200K Haiku 4.5) and home prefix shown as `~` |
-| T3 | S6, S7, S8, S9 | delegated writer, parallel with T2 | todo | |
+| T3 | S6, S7, S8, S9 | delegated writer, parallel with T2 | done | `bench_ab.py` (ab/judge/report), 17 tests, 10 mutation controls killed; `native` arm keeps skills on (`--disable-slash-commands` disables skills); parent fix with RED test: cost per solved task charges failed runs too, new `spend_usd` |
 | T4 | S3, S4, S10 | parent: sync the skill copies, installer list, AGENTS/CONTEXT-PACK pointer, status block, seam check, independent verifier | todo | |
 
 ### Contract shared by T2 and T3

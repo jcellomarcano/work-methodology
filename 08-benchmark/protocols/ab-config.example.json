@@ -1,0 +1,75 @@
+{
+  "_comment": [
+    "Config for `bench.py ab --config ab.json [--preset kit-vs-vanilla] [--out DIR] [--dry-run]`.",
+    "Relative paths (repo, prompt_file) resolve against this file's directory.",
+    "repo: the checkout to measure; it is never written: each run gets `git worktree add --detach` in the system temp dir.",
+    "sha or head: the commit every run starts from; a ref in `head` is resolved once and pinned.",
+    "model, effort: the same for every arm (arms are not routed). k: repetitions per task and arm (default 3).",
+    "seed: fixes the run order shuffle and the bootstrap (default 0). bootstrap_resamples: default 10000.",
+    "timeout_s: wall-clock ceiling per run and per verify command. max_turns: passed to `claude -p` (default 80).",
+    "allowed_tools: the `--allowedTools` string, identical in every arm.",
+    "tasks[].kind: 'review' (gets the findings contract and a VERDICT line; `base` adds the diff for the judges)",
+    "  or 'change' (`verify` is a shell command run in the worktree after the arm; exit 0 = pass).",
+    "  {sha} and {base} in a task prompt become the pinned commits. `seeded` lists known defects for",
+    "  deterministic recall: a finding matches on file, |line - seeded.line| <= window and, when given, category.",
+    "arms[]: prompt_template must contain {task}; env and flags apply to that arm only; overlay lists untracked",
+    "  repo-relative paths copied into the worktree; evidence is a regex the run's transcript must match,",
+    "  or null for no check (a non-matching run is `invalid-arm`, never scored).",
+    "  `--preset kit-vs-vanilla` replaces arms with vanilla, kit-neutral, kit-invoked and native.",
+    "judges[]: command is an argv that reads the judge prompt on stdin and prints the reply. Use two",
+    "  model families when you can; one family is allowed and reported as a limitation.",
+    "comparisons (optional): judge pairs [[arm, arm], ...]; default: each arm vs vanilla, and kit-invoked vs native."
+  ],
+  "repo": "..",
+  "head": "HEAD",
+  "model": "claude-opus-5-5",
+  "effort": "high",
+  "k": 3,
+  "seed": 0,
+  "timeout_s": 1800,
+  "allowed_tools": "Read,Grep,Glob,Agent,Skill,Bash(git diff:*),Bash(git show:*),Bash(git log:*),mcp__metodo__*",
+  "tasks": [
+    {
+      "id": "review-last-commit",
+      "kind": "review",
+      "base": "HEAD~1",
+      "prompt": "Review the changes between {base} and {sha} (git diff {base}...{sha}). Work only from the diff and the files it touches.",
+      "seeded": [
+        {"file": "src/example.py", "line": 42, "window": 3, "category": "correctness", "severity": "blocker"}
+      ]
+    },
+    {
+      "id": "fix-failing-test",
+      "kind": "change",
+      "prompt": "Make the failing test in tests/test_example.py pass without changing the test.",
+      "verify": "python3 -m unittest tests.test_example"
+    }
+  ],
+  "arms": [
+    {
+      "name": "vanilla",
+      "prompt_template": "{task}",
+      "env": {"METODO_TOOLS": "/nonexistent"},
+      "flags": ["--disable-slash-commands", "--strict-mcp-config"],
+      "overlay": [],
+      "evidence": null
+    },
+    {
+      "name": "kit-neutral",
+      "prompt_template": "{task}",
+      "env": {},
+      "flags": [],
+      "overlay": [".claude", ".mcp.json"],
+      "evidence": "subagent_type\":\"generic-|\"name\":\"mcp__metodo__|\"name\":\"Skill\",\"input\":\\{\"skill\":\"(receipt-review|adversarial-round|review-comment|cartography|verify-per-commit)\""
+    }
+  ],
+  "judges": [
+    {
+      "_comment": "Same-family judge: allowed, reported as a limitation unless a second family is added.",
+      "name": "claude-judge",
+      "family": "anthropic",
+      "command": ["claude", "-p", "--model", "claude-opus-5-5", "--output-format", "json",
+                  "--disable-slash-commands", "--strict-mcp-config", "--max-turns", "3"]
+    }
+  ]
+}

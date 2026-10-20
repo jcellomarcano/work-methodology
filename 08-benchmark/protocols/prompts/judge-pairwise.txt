@@ -1,0 +1,26 @@
+You are judging the findings of two code reviews of the same change. Review A and Review B come from two different setups; you are not told which is which and must not guess. The order in which they appear means nothing.
+
+For every finding in both reviews, decide one of:
+- "valid": the defect exists at the cited location and the quoted evidence supports it;
+- "invalid": the claim is wrong, or the evidence does not support it;
+- "Unknown": you cannot decide from the material below.
+Judge each finding on its own. Do not reward length: more findings, longer claims or more detail are not better, and a review with fewer findings and no invalid ones beats a longer review with one invalid finding.
+
+Then say which review you prefer overall: "A", "B" or "tie".
+
+Answer with one JSON object in a fenced ```json block and nothing else:
+{"A": {"per_finding": {"F1": "valid"}}, "B": {"per_finding": {"F1": "Unknown"}}, "preferred": "tie"}
+
+Do not use any tool; judge from the text below.
+
+<diff>
+<DIFF>
+</diff>
+
+<review id="A">
+<FINDINGS_A>
+</review>
+
+<review id="B">
+<FINDINGS_B>
+</review>
