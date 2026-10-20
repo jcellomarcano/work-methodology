@@ -20,10 +20,19 @@
 
 | ID | Specs | Route | Status | Evidence |
 |---|---|---|---|---|
-| T1 | S2 | parent | todo | |
-| T2 | S3, S4, S5, S9 | TBD after the map | todo | |
-| T3 | S6, S7, S8, S9 | TBD after the map | todo | |
-| T4 | S3, S10 | parent: installer list, docs, status block, seam check, independent verifier | todo | |
+| T1 | S2 | parent | done | cf0eef9 |
+| T2 | S3, S4, S5, S9 | delegated writer, parallel with T3 (disjoint surfaces; parent context past the advisory backstop) | todo | |
+| T3 | S6, S7, S8, S9 | delegated writer, parallel with T2 | todo | |
+| T4 | S3, S4, S10 | parent: sync the skill copies, installer list, AGENTS/CONTEXT-PACK pointer, status block, seam check, independent verifier | todo | |
+
+### Contract shared by T2 and T3
+
+- Sources of truth in `08-benchmark/lib/`: `transcript_metrics.py` (existing), `bench_session.py` (T2), `bench_ab.py` (T3), `bench_cli.py` (T2). `08-benchmark/bin/sync-skill.sh` (T2) copies them into `02-skills/harness-benchmark/` as top-level files (`bench_cli.py` becomes `bench.py`), because the installer copies only top-level files of a skill folder; a test fails when a copy drifts.
+- CLI: `bench.py session [--root DIR] [--project PATH|SUBSTR] [--since YYYY-MM-DD] [--out DIR]`; `bench.py ab --config ab.json [--out DIR] [--dry-run]`; `bench.py judge --run DIR`; `bench.py report --run DIR [--out DIR]`. `bench_cli.main(argv)` dispatches `session` to `bench_session.main(argv)` and `ab`/`judge`/`report` to `bench_ab.main_ab/main_judge/main_report(argv)`.
+- Transcripts: `${CLAUDE_PROJECTS_DIR:-~/.claude/projects}`; a repo's dir is its `realpath` with every non-alphanumeric character turned into "-" (helper `transcript_metrics.transcript_dir(path)`).
+- Runs: each A/B run executes in a fresh `git worktree add --detach` of the repo at the pinned sha, outside the repo; an arm's `overlay` lists untracked paths copied from the repo into that worktree (the kit's `.claude/`, `.mcp.json`), so a vanilla arm sees no kit file at all. `CLAUDE_BIN` overrides the binary (tests use a stub).
+- The skill is not a kit marker: `harness-benchmark` stays out of `KIT_SKILLS`, so measuring a vanilla session that used it does not flag the kit.
+- Router: arms are not routed by design (one model and effort for every arm, from the config); judge models are explicit in the config.
 
 ## Log
 
