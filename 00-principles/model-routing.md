@@ -48,6 +48,8 @@ dominated by file reading, not by the brief.
 `03-tools/config/model-tiers.json`; agent frontmatter is only the fallback. Fable 5.1 never enters a
 default roster and the router never proposes it (L11): the owner requests it (`owner_named`), it
 joins the team as one extra step at most `high` with a bounded context, and runs only on approval.
+The main session always coordinates; per entry the router sets `delegate` (review roles always
+`subagent`; writers `main` only on a small task) and `background` (S1, `routing-method.md` §3).
 `03-tools/lib/router_eval.py` and its fixtures in `03-tools/tests/fixtures/router/` guard the
 decision table: every reachable rule is covered and a miss fails the run.
 

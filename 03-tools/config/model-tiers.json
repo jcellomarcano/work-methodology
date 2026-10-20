@@ -40,6 +40,12 @@
       "request_field": "owner_named",
       "note": "L11/L13: on demand only; joins the matched roster as one extra final step (alone when the base roster is empty), never replaces it; no substitute while unapproved; effort capped at the entry's effort_ceiling (router hard cap high, fail closed above it); optional: offline and the budget drop it first, a catalog without the model skips it. The role's frontmatter pins the admitted orchestrator model; the router sets Fable only when approved"
     },
+    "delegation": {
+      "_comment": "S1 (odd/tasks/delegation-context.md): thresholds of the router's per-entry delegate rule; positive ints, a missing block or key keeps the router default. Review roles always run in a subagent whatever these say. A writer (proposer, mechanic) runs in the main session when the task is small: tier exempt or low, or tier medium with modules <= writer_main_max_modules and a known changed_lines <= writer_main_max_changed_lines (mirrors rdd.low_max_changed_lines). The cartographer runs in the main session unless the map is stale (router.map_stale_days), modules >= 2 or read_files > explorer_main_max_read_files. Assumed values, not measured.",
+      "writer_main_max_changed_lines": 120,
+      "writer_main_max_modules": 1,
+      "explorer_main_max_read_files": 8
+    },
     "log_default": "out/runs/routing.jsonl"
   },
   "tiers": {

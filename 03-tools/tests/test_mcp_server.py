@@ -238,6 +238,18 @@ class RouteToolTests(unittest.TestCase):
         self._call({"task": REVIEW_TASK, "as_of": "2026-10-16"})
         self.assertEqual(len(self.log.read_text(encoding="utf-8").splitlines()), 2)
 
+    def test_delegation_reaches_the_payload_and_the_log(self):
+        # S1: read_files is a task field; coordinator, delegate and background come back; the log counts them
+        payload = self._call({"task": dict(REVIEW_TASK, read_files=3), "as_of": "2026-10-16"})["result"]["structuredContent"]
+        self.assertEqual(payload["coordinator"], "main")
+        self.assertEqual([(e["delegate"], e["background"]) for e in payload["roster"]],
+                         [("subagent", True), ("subagent", True), ("subagent", False)])
+        line = json.loads(self.log.read_text(encoding="utf-8").splitlines()[-1])
+        self.assertEqual(line["delegation"], {"subagent": 3, "main": 0, "background": 2})
+        result = self._call({"task": dict(REVIEW_TASK, read_files=-1), "as_of": "2026-10-16"})["result"]
+        self.assertTrue(result["isError"], result)
+        self.assertIn("read_files", result["structuredContent"]["error"])
+
     def test_approvals_reach_the_router_and_the_log(self):
         task = dict(REVIEW_TASK, owner_named=True)
         denied = self._call({"task": task, "as_of": "2026-10-16"})["result"]["structuredContent"]

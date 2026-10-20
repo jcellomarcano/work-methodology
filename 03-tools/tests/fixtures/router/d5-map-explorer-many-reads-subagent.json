@@ -1,0 +1,27 @@
+{
+  "as_of": "2026-10-16",
+  "expect": {
+    "roster": [
+      {
+        "background": true,
+        "delegate": "subagent",
+        "effort": "medium",
+        "launch": "run",
+        "model": "claude-haiku-5-5",
+        "role": "generic-cartographer"
+      }
+    ],
+    "rule": "B2",
+    "status": "ok"
+  },
+  "input": {
+    "lane": "sonnet",
+    "map_age_days": 1,
+    "modules": 1,
+    "read_files": 12,
+    "task_kind": "map",
+    "tier": "medium"
+  },
+  "name": "d5-map-explorer-many-reads-subagent",
+  "note": "S1: 12 reads > 8: the cartographer runs in a subagent, in the background (parallel read-only, no owner gate)"
+}

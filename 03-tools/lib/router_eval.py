@@ -6,7 +6,9 @@ against the catalog (config/model-tiers.json) and scores each decision
 (routing-method.md §4):
 
 - rule_ok, status_ok: the rule id and status match `expect`.
-- roster_ok: exact multiset of (role, model, effort, launch).
+- roster_ok: exact multiset of (role, model, effort, launch), plus
+  `delegate` and `background` (S1) when any expected entry carries them, so
+  fixtures written before S1 stay valid.
 - roles_missing / roles_extra: role names expected to run that do not, and
   roles that run without being expected (under- and over-provisioning).
 - effort_or_tier_above / below: for a role in both rosters with another
@@ -25,7 +27,7 @@ reachable rest (router.UNREACHABLE_RULES are listed apart). The report is
 deterministic JSON (sorted keys, no timestamps), byte-identical per input.
 
 Fixture: {"name", "as_of", "input": <task>, "expect": {"rule", "status",
-"roster": [{"role", "model", "effort", "launch"}], "cost_max_usd"?},
+"roster": [{"role", "model", "effort", "launch", "delegate"?, "background"?}], "cost_max_usd"?},
 "catalog_patch"?}. catalog_patch is merged onto a copy of the catalog for that
 fixture only (objects merge key by key, anything else replaces), e.g. to
 prove guard:catalog; scoring still reads the unpatched catalog.
@@ -52,6 +54,8 @@ from lib import baseline, router  # noqa: E402
 DEFAULT_FIXTURES = TOOLS_ROOT / "tests" / "fixtures" / "router"
 DEFAULT_CONFIG = TOOLS_ROOT / "config" / "model-tiers.json"
 KEYS = ("role", "model", "effort", "launch")
+# S1: compared only when the fixture's expectation carries them.
+OPTIONAL_KEYS = ("delegate", "background")
 
 
 def load_fixtures(folder) -> list[dict]:
@@ -81,8 +85,13 @@ def _effort_cmp(catalog: dict, model: str, actual: str, expected: str) -> int:
     return (a > e) - (a < e)
 
 
-def _tuples(roster: list[dict]) -> Counter:
-    return Counter(tuple(e[k] for k in KEYS) for e in roster)
+def _order(entry: tuple) -> tuple:
+    """Sort key for entry tuples that may mix strings, booleans and None."""
+    return tuple(str(v) for v in entry)
+
+
+def _tuples(roster: list[dict], keys: tuple = KEYS) -> Counter:
+    return Counter(tuple(e.get(k) for k in keys) for e in roster)
 
 
 def _running_roles(roster: list[dict]) -> Counter:
@@ -131,9 +140,10 @@ def evaluate_fixture(fixture: dict, catalog: dict) -> dict:
     expect = fixture["expect"]
     routed_on = patched(catalog, fixture["catalog_patch"]) if "catalog_patch" in fixture else catalog
     result = router.route(fixture["input"], routed_on, fixture["as_of"])
-    actual = [{k: e[k] for k in KEYS} for e in result["roster"]]
-    expected = [{k: e[k] for k in KEYS} for e in expect.get("roster") or []]
-    act_t, exp_t = _tuples(actual), _tuples(expected)
+    keys = KEYS + tuple(k for k in OPTIONAL_KEYS if any(k in e for e in expect.get("roster") or []))
+    actual = [{k: e.get(k) for k in keys} for e in result["roster"]]
+    expected = [{k: e.get(k) for k in keys} for e in expect.get("roster") or []]
+    act_t, exp_t = _tuples(actual, keys), _tuples(expected, keys)
     act_r, exp_r = _running_roles(actual), _running_roles(expected)
     above, below = _drift(catalog, actual, expected)
     per_step = Counter(e["step"] for e in result["roster"] if e["launch"] == "run")
@@ -149,8 +159,8 @@ def evaluate_fixture(fixture: dict, catalog: dict) -> dict:
         "roster_ok": act_t == exp_t,
         "roles_missing": sorted((exp_r - act_r).elements()),
         "roles_extra": sorted((act_r - exp_r).elements()),
-        "entries_missing": [dict(zip(KEYS, t)) for t in sorted((exp_t - act_t).elements())],
-        "entries_extra": [dict(zip(KEYS, t)) for t in sorted((act_t - exp_t).elements())],
+        "entries_missing": [dict(zip(keys, t)) for t in sorted((exp_t - act_t).elements(), key=_order)],
+        "entries_extra": [dict(zip(keys, t)) for t in sorted((act_t - exp_t).elements(), key=_order)],
         "effort_or_tier_above": above,
         "effort_or_tier_below": below,
         "cost": cost,

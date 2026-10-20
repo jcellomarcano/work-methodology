@@ -780,8 +780,8 @@ class LogTests(unittest.TestCase):
             lines = log_path.read_text(encoding="utf-8").splitlines()
             self.assertEqual(len(lines), 1)
             line = json.loads(lines[0])
-            self.assertEqual(set(line), {"approvals", "as_of", "base_rule", "catalog_version", "inputs_hash", "rule",
-                                         "status", "roster"})
+            self.assertEqual(set(line), {"approvals", "as_of", "base_rule", "catalog_version", "delegation",
+                                         "inputs_hash", "rule", "status", "roster"})
             self.assertEqual(line["approvals"], [])
             self.assertEqual((line["rule"], line["base_rule"], line["status"], line["as_of"]), ("B6", "B6", "ok", AS_OF))
             self.assertEqual(json.loads(proc.stdout)["inputs_hash"], line["inputs_hash"])
@@ -1137,6 +1137,217 @@ class OfflineSourceTests(unittest.TestCase):
             # the task's own key wins over both
             code, result = self._main(dict(task, offline=False), {"METODO_PROJECT_CONFIG": str(config), "METODO_OFFLINE": "1"})
             self.assertEqual((code, result["status"]), (0, "ok"))
+
+
+REVIEW_ROLES = ("generic-challenger", "generic-blind-spot-adversary", "generic-judge", "generic-verifier",
+                "generic-deep-reasoner", "generic-style-reviewer", "generic-boundary-reviewer",
+                "generic-human-reviewer", "generic-comment-gate")
+
+
+def _by_role(result, role):
+    return [e for e in result["roster"] if e["role"] == role]
+
+
+def _delegation_catalog(**values):
+    cat = copy.deepcopy(CATALOG)
+    cat["router"].setdefault("delegation", {}).update(values)
+    return cat
+
+
+class DelegationTests(unittest.TestCase):
+    """S1 (odd/tasks/delegation-context.md): per roster entry the router says
+    who runs it (`delegate`: subagent | main) and how (`background`); the main
+    session is always the coordinator. Review roles are always subagents."""
+
+    PRIORS = ([{}, {"findings": 2}, {"findings": 0}, {"disagreement": True}, {"p0_from_lower_tier": "small"},
+               {"verifier": "FAIL"}]
+              + [{"schema_fail": 1, "role": r} for r in REVIEW_ROLES]
+              + [{"truncated": True, "role": r} for r in REVIEW_ROLES])
+    CATALOG_TRIAL = _fixture_catalog(trial=True)
+
+    def _grid(self):
+        for kind in router.TASK_KINDS:
+            for tier in router.RDD_TIERS:
+                lane = "opus" if tier == "high" else "sonnet"
+                for prior in self.PRIORS:
+                    for extra in ({}, {"owner_named": True, "approvals": ["escalate-fable"]},
+                                  {"critical_hit": True, "new_comments": 2}, {"changed_lines": 1, "modules": 1}):
+                        task = _task(task_kind=kind, tier=tier, lane=lane, prior=prior, **extra)
+                        yield task, router.route(task, self.CATALOG_TRIAL, AS_OF)
+
+    def test_every_review_role_is_a_subagent_in_every_rule_row(self):
+        seen, rules = set(), set()
+        for task, result in self._grid():
+            rules.add(result["rule"])
+            for e in result["roster"]:
+                with self.subTest(kind=task["task_kind"], tier=task["tier"], prior=task["prior"], role=e["role"]):
+                    self.assertIn(e["delegate"], ("subagent", "main"))
+                    self.assertIsInstance(e["background"], bool)
+                    self.assertIsInstance(e["delegation_reason"], str)
+                    self.assertTrue(e["delegation_reason"] and "\n" not in e["delegation_reason"])
+                    if e["role"] in REVIEW_ROLES:
+                        seen.add(e["role"])
+                        self.assertEqual(e["delegate"], "subagent", e["delegation_reason"])
+                    if e["delegate"] == "main":
+                        self.assertFalse(e["background"])
+        self.assertEqual(seen, set(REVIEW_ROLES))
+        self.assertTrue({"B1", "B2", "B3", "B4", "B5", "B6", "B8", "P2", "P3", "P4", "P5", "P6", router.FABLE_RULE} <= rules)
+        self.assertTrue(set(REVIEW_ROLES) <= set(router.REVIEW_ROLES))
+
+    def test_the_main_session_is_always_the_coordinator(self):
+        for result in (_route(), _route(task_kind="dance"), _route(budget_usd=-1), _route(tier="exempt")):
+            with self.subTest(rule=result["rule"]):
+                self.assertEqual(result["coordinator"], "main")
+
+    def test_small_writer_runs_in_the_main_session(self):
+        result = _route(changed_lines=50, modules=1)
+        proposer = _by_role(result, "generic-proposer")[0]
+        self.assertEqual((proposer["delegate"], proposer["background"]), ("main", False))
+        self.assertIn("small", proposer["delegation_reason"])
+        self.assertEqual(_by_role(result, "generic-verifier")[0]["delegate"], "subagent")
+
+    def test_large_writer_runs_in_a_subagent(self):
+        for overrides in ({"changed_lines": 121}, {"modules": 2}, {"modules": ["a", "b"]}, {"changed_lines": None},
+                          {"tier": "high", "lane": "opus", "changed_lines": 1}):
+            with self.subTest(overrides=overrides):
+                proposer = _by_role(_route(**overrides), "generic-proposer")[0]
+                self.assertEqual((proposer["delegate"], proposer["background"]), ("subagent", False))
+                self.assertIn("not small", proposer["delegation_reason"])
+        boundary = _by_role(_route(changed_lines=120), "generic-proposer")[0]
+        self.assertEqual(boundary["delegate"], "main")
+
+    def test_writer_at_exempt_or_low_tier_is_small_whatever_its_size(self):
+        for tier in ("exempt", "low"):
+            with self.subTest(tier=tier):
+                result = _route(tier=tier, changed_lines=5000, modules=9, prior={"verifier": "FAIL"})
+                self.assertEqual(result["rule"], "P6")
+                self.assertEqual(_by_role(result, "generic-proposer")[0]["delegate"], "main")
+
+    def test_mechanic_follows_the_writer_rule(self):
+        prior = {"schema_fail": 1, "role": "generic-mechanic"}
+        small = _by_role(_route(prior=prior, changed_lines=10), "generic-mechanic")[0]
+        large = _by_role(_route(prior=prior, changed_lines=500), "generic-mechanic")[0]
+        self.assertEqual((small["delegate"], large["delegate"]), ("main", "subagent"))
+        self.assertEqual((small["background"], large["background"]), (False, False))
+
+    def test_cartographer_on_a_fresh_map_one_module_few_reads_is_main(self):
+        for overrides in ({}, {"read_files": 8}, {"read_files": 0}):
+            with self.subTest(overrides=overrides):
+                result = _route(task_kind="map", modules=1, map_age_days=1, **overrides)
+                self.assertEqual([e["delegate"] for e in result["roster"]], ["main"])
+
+    def test_cartographer_stale_many_modules_or_many_reads_is_a_subagent(self):
+        cases = ({"map_age_days": None}, {"map_age_days": 8}, {"modules": 2}, {"read_files": 9})
+        for overrides in cases:
+            with self.subTest(overrides=overrides):
+                task = dict({"task_kind": "map", "modules": 1, "map_age_days": 1}, **overrides)
+                result = _route(**task)
+                self.assertEqual({e["delegate"] for e in result["roster"]}, {"subagent"})
+        stale = _by_role(_route(map_age_days=30, changed_lines=10), "generic-cartographer")[0]
+        self.assertEqual((stale["delegate"], stale["optional"]), ("subagent", "stale-map-cartographer"))
+        self.assertIn("stale", stale["delegation_reason"])
+
+    def test_parallel_read_only_entries_run_in_the_background(self):
+        result = _route(task_kind="review", prior={"findings": 2})
+        flags = [(e["role"], e["step"], e["background"]) for e in result["roster"]]
+        self.assertEqual(flags, [("generic-challenger", 1, True), ("generic-verifier", 1, True),
+                                 ("generic-judge", 2, False)])
+        mapped = _route(task_kind="map", modules=4)
+        self.assertEqual([e["background"] for e in mapped["roster"]], [True] * 4)
+
+    def test_writer_entries_are_foreground(self):
+        for overrides in ({"changed_lines": 10}, {"changed_lines": 900}, {"prior": {"truncated": True,
+                                                                                   "role": "generic-proposer"},
+                                                                         "modules": 3, "changed_lines": 900}):
+            with self.subTest(overrides=overrides):
+                writers = [e for e in _route(**overrides)["roster"] if e["role"] in router.WRITER_ROLES]
+                self.assertTrue(writers)
+                self.assertEqual({e["background"] for e in writers}, {False})
+
+    def test_the_step_before_a_verifier_or_an_owner_gate_is_foreground(self):
+        high = _route(task_kind="review", tier="high", lane="opus")
+        adversaries = [e for e in high["roster"] if e["step"] == 1]
+        self.assertEqual(len(adversaries), 2)
+        self.assertEqual({e["background"] for e in adversaries}, {False})
+        self.assertIn("verifier", adversaries[0]["delegation_reason"])
+        # zero findings: the judge is skipped, step 1 is the last running step
+        free = _route(task_kind="review", prior={"findings": 0})
+        gated = _route(task_kind="review", prior={"findings": 0}, owner_gate=True)
+        self.assertEqual([e["background"] for e in free["roster"] if e["step"] == 1], [True, True])
+        self.assertEqual([e["background"] for e in gated["roster"] if e["step"] == 1], [False, False])
+        self.assertIn("owner gate", gated["roster"][0]["delegation_reason"])
+        mapped = _route(task_kind="map", modules=4, owner_gate=True)
+        self.assertEqual([(e["step"], e["background"]) for e in mapped["roster"]],
+                         [(1, True), (1, True), (1, True), (2, False)])
+
+    def test_background_is_one_deterministic_function(self):
+        roster = [{"role": "generic-challenger", "order": "parallel", "step": 1, "launch": "run"},
+                  {"role": "generic-verifier", "order": "parallel", "step": 1, "launch": "run"},
+                  {"role": "generic-verifier", "order": "sequential", "step": 2, "launch": "run"}]
+        self.assertEqual(router.background(roster[0], "subagent", roster, False)[0], False)
+        self.assertEqual(router.background(roster[0], "main", roster[:2], False)[0], False)
+        self.assertEqual(router.background(roster[0], "subagent", roster[:2], False)[0], True)
+        self.assertEqual(router.background(roster[0], "subagent", roster[:2], True)[0], False)
+        self.assertEqual(router.background(roster[2], "subagent", roster, False)[0], False)
+
+    def test_config_thresholds_are_respected(self):
+        tight = _delegation_catalog(writer_main_max_changed_lines=40)
+        self.assertEqual(_by_role(_route(catalog=tight, changed_lines=50), "generic-proposer")[0]["delegate"],
+                         "subagent")
+        wide = _delegation_catalog(writer_main_max_modules=2)
+        self.assertEqual(_by_role(_route(catalog=wide, modules=2), "generic-proposer")[0]["delegate"], "main")
+        reads = _delegation_catalog(explorer_main_max_read_files=20)
+        mapped = _route(catalog=reads, task_kind="map", modules=1, read_files=9)
+        self.assertEqual(mapped["roster"][0]["delegate"], "main")
+
+    def test_kit_catalog_declares_the_delegation_thresholds(self):
+        block = CATALOG["router"]["delegation"]
+        self.assertIn("_comment", block)
+        self.assertEqual({k: v for k, v in block.items() if not k.startswith("_")}, router.DELEGATION_DEFAULTS)
+
+    def test_missing_delegation_block_uses_the_defaults(self):
+        cat = copy.deepcopy(CATALOG)
+        del cat["router"]["delegation"]
+        self.assertEqual(router.dumps(_route(catalog=cat)), router.dumps(_route()))
+        partial = copy.deepcopy(CATALOG)
+        partial["router"]["delegation"] = {"writer_main_max_modules": 1}
+        self.assertEqual(router.dumps(_route(catalog=partial)), router.dumps(_route()))
+
+    def test_malformed_delegation_thresholds_are_guard_catalog(self):
+        cases = [["x"], "8", {"writer_main_max_lines": 3}]
+        for key in router.DELEGATION_DEFAULTS:
+            cases += [{key: v} for v in (0, -1, "8", True, 1.5, None)]
+        for block in cases:
+            with self.subTest(block=block):
+                cat = copy.deepcopy(CATALOG)
+                cat["router"]["delegation"] = block
+                _guarded(self, _route(catalog=cat), "guard:catalog", "delegation")
+
+    def test_read_files_is_a_non_negative_int(self):
+        for value in (-1, "3", True, 1.5):
+            with self.subTest(value=value):
+                _guarded(self, _route(read_files=value), "guard:input", "read_files")
+        for value in (0, 7, None):
+            self.assertEqual(_route(read_files=value)["status"], "ok")
+
+    def test_log_line_counts_delegation_over_running_entries(self):
+        review = json.loads(router.log_line(_route(task_kind="review", prior={"findings": 2})))
+        self.assertEqual(review["delegation"], {"subagent": 3, "main": 0, "background": 2})
+        small = json.loads(router.log_line(_route(changed_lines=10)))
+        self.assertEqual(small["delegation"], {"subagent": 1, "main": 1, "background": 0})
+        skipped = json.loads(router.log_line(_route(task_kind="review", prior={"findings": 0})))
+        self.assertEqual(skipped["delegation"], {"subagent": 2, "main": 0, "background": 2})
+        guard = json.loads(router.log_line(_route(task_kind="dance")))
+        self.assertEqual(guard["delegation"], {"subagent": 0, "main": 0, "background": 0})
+
+    def test_delegation_is_deterministic(self):
+        for overrides in ({}, {"task_kind": "review", "tier": "high", "lane": "opus"}, {"task_kind": "map", "modules": 5}):
+            with self.subTest(overrides=overrides):
+                task = _task(**overrides)
+                reordered = dict(reversed(list(task.items())))
+                one = router.route(task, CATALOG, AS_OF)
+                self.assertEqual(router.dumps(one), router.dumps(router.route(reordered, copy.deepcopy(CATALOG), AS_OF)))
+                self.assertEqual(router.log_line(one), router.log_line(router.route(task, CATALOG, AS_OF)))
 
 
 if __name__ == "__main__":

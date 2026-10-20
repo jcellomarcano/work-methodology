@@ -1,0 +1,35 @@
+{
+  "as_of": "2026-10-16",
+  "expect": {
+    "roster": [
+      {
+        "background": false,
+        "delegate": "main",
+        "effort": "medium",
+        "launch": "run",
+        "model": "claude-sonnet-5-5",
+        "role": "generic-proposer"
+      },
+      {
+        "background": false,
+        "delegate": "subagent",
+        "effort": "high",
+        "launch": "run",
+        "model": "claude-sonnet-5-5",
+        "role": "generic-verifier"
+      }
+    ],
+    "rule": "B3",
+    "status": "ok"
+  },
+  "input": {
+    "changed_lines": 40,
+    "lane": "sonnet",
+    "map_age_days": 1,
+    "modules": 1,
+    "task_kind": "implement",
+    "tier": "medium"
+  },
+  "name": "d1-writer-small-main",
+  "note": "S1: tier medium, one module, 40 changed lines <= 120: the proposer runs in the main session; the verifier is a review role, always a subagent"
+}

@@ -68,7 +68,7 @@ class ShippedFixtureTests(unittest.TestCase):
                 self.assertTrue({"name", "input", "as_of", "expect"} <= set(fx))
                 self.assertTrue({"rule", "status", "roster"} <= set(fx["expect"]))
                 for entry in fx["expect"]["roster"]:
-                    self.assertEqual(set(entry), {"role", "model", "effort", "launch"})
+                    self.assertTrue(set(router_eval.KEYS) <= set(entry) <= set(router_eval.KEYS + router_eval.OPTIONAL_KEYS))
             names.append(fx["name"])
         self.assertEqual(len(names), len(set(names)))
 
@@ -104,6 +104,51 @@ class ShippedFixtureTests(unittest.TestCase):
         proc = _cli()
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("0 failed", proc.stderr)
+
+
+class DelegationExpectationTests(unittest.TestCase):
+    """S1: an expectation may carry `delegate` and `background`; only then the
+    evaluator compares them, so the older fixtures stay valid."""
+
+    def _with_delegation(self, proposer=("main", False), verifier=("subagent", False)):
+        fx = copy.deepcopy(B3_FIXTURE)
+        fx["input"]["changed_lines"] = 40
+        for entry, (who, bg) in zip(fx["expect"]["roster"], (proposer, verifier)):
+            entry.update(delegate=who, background=bg)
+        return fx
+
+    def test_matching_delegation_passes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _write(tmp, self._with_delegation())
+            got = _by_name(router_eval.evaluate(tmp))["b3-tmp"]
+        self.assertTrue(got["passed"], got)
+
+    def test_wrong_delegate_or_background_fails_and_names_the_entry(self):
+        for kwargs in ({"proposer": ("subagent", False)}, {"verifier": ("subagent", True)}):
+            with self.subTest(kwargs=kwargs), tempfile.TemporaryDirectory() as tmp:
+                _write(tmp, self._with_delegation(**kwargs))
+                got = _by_name(router_eval.evaluate(tmp))["b3-tmp"]
+                self.assertFalse(got["roster_ok"] or got["passed"])
+                self.assertEqual((got["roles_missing"], got["roles_extra"]), ([], []))
+                self.assertTrue(all({"delegate", "background"} <= set(e) for e in got["entries_missing"]))
+
+    def test_an_expectation_without_delegation_ignores_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _write(tmp, B3_FIXTURE)
+            got = _by_name(router_eval.evaluate(tmp))["b3-tmp"]
+        self.assertTrue(got["passed"])
+        self.assertEqual(got["entries_missing"], [])
+
+    def test_shipped_fixtures_cover_the_delegation_rule(self):
+        pairs = set()
+        for path in sorted(FIXTURES.glob("*.json")):
+            for e in baseline.load_json(path)["expect"]["roster"]:
+                if "delegate" in e:
+                    pairs.add((e["role"] in router.WRITER_ROLES, e["role"] in router.EXPLORER_ROLES,
+                               e["delegate"], e["background"]))
+        self.assertTrue({(True, False, "main", False), (True, False, "subagent", False),
+                         (False, True, "main", False), (False, True, "subagent", True),
+                         (False, False, "subagent", True), (False, False, "subagent", False)} <= pairs, pairs)
 
 
 class NegativeControlTests(unittest.TestCase):

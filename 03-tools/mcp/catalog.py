@@ -156,7 +156,7 @@ ROUTE_TASK = _obj({"task_kind": {"type": "string", "enum": list(router.TASK_KIND
                    "lane": S, "critical_hit": B, "owner_gate": B, "changed_lines": I, "modules": {"type": ["integer", "array"]},
                    "full_required": B, "map_age_days": {"type": ["integer", "null"]}, "offline": B, "owner_named": B,
                    "prior": ROUTE_PRIOR, "approvals": APPROVALS, "budget_usd": {"type": "number"}, "lens_focus": S,
-                   "new_comments": I, "repo": S}, ("task_kind", "tier"))
+                   "new_comments": I, "read_files": I, "repo": S}, ("task_kind", "tier"))
 
 
 def _inside(path: Path, root: Path) -> bool:

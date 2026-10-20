@@ -33,8 +33,15 @@ Input first goes through one validation step: a malformed catalog is
 `guard:catalog`, a malformed task field `guard:input`, a date that is not a
 real calendar day `guard:as_of`; each returns status error, an empty roster
 and a reason naming the field, never an exception. `new_comments` is a
-non-negative int (a bool is rejected); `modules` is a non-negative int count
-or a list of module-name strings.
+non-negative int (a bool is rejected), as are `changed_lines` and
+`read_files`; `modules` is a non-negative int count or a list of module-name
+strings.
+
+Delegation (S1, odd/tasks/delegation-context.md), after the post-passes: the
+result says `coordinator: main` and every entry gains `delegate` (subagent |
+main), `background` and a one-line `delegation_reason` (delegation() and
+background(); thresholds in the catalog's router.delegation). Review roles are
+always subagents; the log line counts the running entries per kind.
 
 Offline (decision L4, R9): when the task has no `offline` key, main()
 reads `offline` from the active project config (METODO_PROJECT_CONFIG, else
@@ -111,6 +118,26 @@ ROLE_TIER = {
     "generic-challenger": "large",
     "generic-blind-spot-adversary": "large",
     FABLE_ROLE: "orchestrator",
+}
+
+# S1 (odd/tasks/delegation-context.md): the main session is always the
+# coordinator and the voice to the owner; per roster entry the router says
+# who runs it (`delegate`) and whether the coordinator waits (`background`).
+COORDINATOR = "main"
+# Independence: the author never reviews itself, so these always run in a subagent.
+REVIEW_ROLES = ("generic-challenger", "generic-blind-spot-adversary", "generic-judge", "generic-verifier",
+                FABLE_ROLE, "generic-style-reviewer", "generic-boundary-reviewer", "generic-human-reviewer",
+                "generic-comment-gate")
+# Roles that edit the tree: the main session on a small task, else a subagent.
+WRITER_ROLES = ("generic-proposer", "generic-mechanic")
+# Exploration: the main session on a fresh map, one module and few reads.
+EXPLORER_ROLES = ("generic-cartographer",)
+# Thresholds of the delegation rule; the catalog's router.delegation overrides
+# them key by key (a missing block or key keeps the default).
+DELEGATION_DEFAULTS = {
+    "writer_main_max_changed_lines": 120,
+    "writer_main_max_modules": 1,
+    "explorer_main_max_read_files": 8,
 }
 
 ROUTER_DEFAULTS = {
@@ -216,6 +243,9 @@ def catalog_problem(catalog) -> str | None:
         return "catalog router.fable must be {model, tier, effort} strings"
     if fable.get("effort", FABLE_EFFORT_CAP) not in EFFORT_RANK:
         return "catalog router.fable.effort must be a known effort level"
+    problem = _delegation_problem((catalog.get("router") or {}).get("delegation", {}))
+    if problem:
+        return problem
     for tier in ladder:
         if tier not in tiers:
             return f"catalog tier {tier!r} is missing"
@@ -237,6 +267,21 @@ def catalog_problem(catalog) -> str | None:
 
 def _positive(value) -> bool:
     return _count(value) and value > 0
+
+
+def _delegation_problem(block) -> str | None:
+    """router.delegation: an object of positive int thresholds; keys that
+    start with `_` are comments, any other unknown key is a typo."""
+    if not isinstance(block, dict):
+        return "catalog router.delegation must be an object"
+    for key, value in sorted(block.items()):
+        if key.startswith("_"):
+            continue
+        if key not in DELEGATION_DEFAULTS:
+            return f"catalog router.delegation.{key} is not a known threshold ({', '.join(DELEGATION_DEFAULTS)})"
+        if not _positive(value):
+            return f"catalog router.delegation.{key} must be a positive int, got {value!r}"
+    return None
 
 
 def _tier_problem(tier: str, body) -> str | None:
@@ -307,7 +352,7 @@ def input_problem(task, catalog: dict) -> str | None:
     for key in ("budget_usd", "map_age_days"):
         if task.get(key) is not None and not _amount(task[key]):
             return f"{key} must be a non-negative number"
-    for key in ("changed_lines", "new_comments"):
+    for key in ("changed_lines", "new_comments", "read_files"):
         if task.get(key) is not None and not _count(task[key]):
             return f"{key} must be a non-negative int"
     modules = task.get("modules")
@@ -839,6 +884,96 @@ def _budget(catalog: dict, roster: list[dict], budget: float, as_of: str, reason
     return "over_budget"
 
 
+# ------------------------------------------------------------ delegation
+
+def _delegation_cfg(catalog: dict) -> dict:
+    block = (catalog.get("router") or {}).get("delegation") or {}
+    return {key: int(block.get(key, value)) for key, value in DELEGATION_DEFAULTS.items()}
+
+
+def _small_task(task: dict, catalog: dict) -> tuple[bool, str]:
+    """S1: small = tier exempt or low, or tier medium with at most
+    writer_main_max_modules modules and a known changed_lines at most
+    writer_main_max_changed_lines. High is never small."""
+    tier = task["tier"]
+    if tier in ("exempt", "low"):
+        return True, f"tier {tier}"
+    if tier != "medium":
+        return False, f"tier {tier}"
+    cfg = _delegation_cfg(catalog)
+    modules, lines = _modules(task), task.get("changed_lines")
+    if modules > cfg["writer_main_max_modules"]:
+        return False, f"tier medium, {modules} modules > {cfg['writer_main_max_modules']}"
+    if lines is None:
+        return False, "tier medium, changed_lines unknown"
+    if lines > cfg["writer_main_max_changed_lines"]:
+        return False, f"tier medium, {lines} changed lines > {cfg['writer_main_max_changed_lines']}"
+    return True, (f"tier medium, {modules} module(s) <= {cfg['writer_main_max_modules']}, "
+                  f"{lines} changed lines <= {cfg['writer_main_max_changed_lines']}")
+
+
+def delegation(task: dict, catalog: dict, role: str) -> tuple[str, str]:
+    """(delegate, reason) for one roster role: review roles always a
+    subagent; writers in the main session only on a small task; the explorer
+    in the main session only on a fresh map, one module and few reads;
+    any other role a subagent."""
+    if role in REVIEW_ROLES:
+        return "subagent", "review role: always a subagent (the author never reviews itself)"
+    if role in WRITER_ROLES:
+        small, why = _small_task(task, catalog)
+        if small:
+            return "main", f"writer, small task ({why}): main session"
+        return "subagent", f"writer, task not small ({why}): subagent"
+    if role in EXPLORER_ROLES:
+        cap = _delegation_cfg(catalog)["explorer_main_max_read_files"]
+        days, age = _cfg(catalog)["map_stale_days"], task.get("map_age_days")
+        modules, reads = _modules(task), task.get("read_files")
+        why = []
+        if age is None:
+            why.append("map stale (missing)")
+        elif int(age) > int(days):
+            why.append(f"map stale ({age} > {days} days)")
+        if modules >= 2:
+            why.append(f"{modules} modules")
+        if reads is not None and reads > cap:
+            why.append(f"{reads} reads > {cap}")
+        if why:
+            return "subagent", "explorer, " + ", ".join(why) + ": subagent"
+        return "main", f"explorer, fresh map, one module, {reads or 0} reads <= {cap}: main session"
+    return "subagent", f"{role} has no main-session rule: subagent"
+
+
+def background(entry: dict, delegate: str, roster: list[dict], owner_gate: bool) -> tuple[bool, str]:
+    """(background, reason): the one rule. Background only for a parallel
+    read-only subagent entry whose output nobody waits on before the
+    coordinator's next action: never the main session, a writer or an entry
+    alone in its step; never the step right before a verifier step, nor the
+    last running step when an owner gate follows."""
+    if delegate != "subagent":
+        return False, "foreground: the main session runs it"
+    if entry["role"] in WRITER_ROLES:
+        return False, "foreground: a writer"
+    if entry["order"] != "parallel":
+        return False, "foreground: alone in its step, the coordinator waits on it"
+    running = [e for e in roster if e["launch"] == "run"]
+    later = sorted({e["step"] for e in running if e["step"] > entry["step"]})
+    if later and any(e["step"] == later[0] and e["role"] == "generic-verifier" for e in running):
+        return False, f"foreground: the verifier in step {later[0]} waits on it"
+    if not later and owner_gate:
+        return False, "foreground: last step before the owner gate"
+    return True, "background: parallel read-only step"
+
+
+def _delegate_all(task: dict, catalog: dict, roster: list[dict]) -> None:
+    """Adds delegate, background and a one-line delegation_reason to every
+    entry, over the final roster (after the post-passes)."""
+    gate = bool(task.get("owner_gate"))
+    for e in roster:
+        who, why_who = delegation(task, catalog, e["role"])
+        bg, why_bg = background(e, who, roster, gate)
+        e.update(delegate=who, background=bg, delegation_reason=f"{why_who}; {why_bg}")
+
+
 # ------------------------------------------------------------- route()
 
 def route(task: dict, catalog: dict, as_of: str) -> dict:
@@ -889,6 +1024,7 @@ def route(task: dict, catalog: dict, as_of: str) -> dict:
         for e in roster:
             if status == "ok" and e["optional"] == FABLE_OPTIONAL and e["launch"] == "run":
                 reasons.append(f"owner approved {FABLE_RULE}: {e['model']} runs")
+        _delegate_all(task, catalog, roster)
     return _result(task, catalog, as_of, rule, roster, status, reasons, base or rule)
 
 
@@ -904,6 +1040,8 @@ def _result(task, catalog, as_of, rule, roster, status, reasons, base_rule=None)
         # L13: the table row that ran before the Fable step (equals `rule` without one).
         "base_rule": base_rule or rule,
         "catalog_version": catalog.get("version") if isinstance(catalog, dict) else None,
+        # S1: the main session always coordinates and talks to the owner.
+        "coordinator": COORDINATOR,
         "cost_estimate_usd": cost,
         "inputs_hash": inputs_hash(task),
         "reasons": reasons,
@@ -922,6 +1060,13 @@ def log_line(result: dict) -> str:
     line["roster"] = summary
     # L6: an owner approval (e.g. escalate-fable) is recorded in the log itself.
     line["approvals"] = list(result.get("approvals") or [])
+    # S1/S3: who the router asked to run what, over the entries that launch.
+    running = [e for e in result["roster"] if e["launch"] == "run"]
+    line["delegation"] = {
+        "subagent": sum(1 for e in running if e.get("delegate") == "subagent"),
+        "main": sum(1 for e in running if e.get("delegate") == "main"),
+        "background": sum(1 for e in running if e.get("background") is True),
+    }
     return json.dumps(line, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 

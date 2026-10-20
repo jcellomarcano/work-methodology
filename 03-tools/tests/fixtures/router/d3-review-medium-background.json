@@ -1,0 +1,45 @@
+{
+  "as_of": "2026-10-16",
+  "expect": {
+    "roster": [
+      {
+        "background": true,
+        "delegate": "subagent",
+        "effort": "high",
+        "launch": "run",
+        "model": "claude-sonnet-5-5",
+        "role": "generic-challenger"
+      },
+      {
+        "background": true,
+        "delegate": "subagent",
+        "effort": "medium",
+        "launch": "run",
+        "model": "claude-sonnet-5-5",
+        "role": "generic-verifier"
+      },
+      {
+        "background": false,
+        "delegate": "subagent",
+        "effort": "high",
+        "launch": "run",
+        "model": "claude-sonnet-5-5",
+        "role": "generic-judge"
+      }
+    ],
+    "rule": "B5",
+    "status": "ok"
+  },
+  "input": {
+    "lane": "sonnet",
+    "map_age_days": 1,
+    "modules": 1,
+    "prior": {
+      "findings": 2
+    },
+    "task_kind": "review",
+    "tier": "medium"
+  },
+  "name": "d3-review-medium-background",
+  "note": "S1: the parallel read-only challenger and verifier run in the background; the judge, alone in its step, is foreground"
+}

@@ -1,0 +1,46 @@
+{
+  "as_of": "2026-10-16",
+  "expect": {
+    "roster": [
+      {
+        "background": false,
+        "delegate": "subagent",
+        "effort": "high",
+        "launch": "run",
+        "model": "claude-sonnet-5-5",
+        "role": "generic-challenger"
+      },
+      {
+        "background": false,
+        "delegate": "subagent",
+        "effort": "medium",
+        "launch": "run",
+        "model": "claude-sonnet-5-5",
+        "role": "generic-verifier"
+      },
+      {
+        "background": false,
+        "delegate": "subagent",
+        "effort": "high",
+        "launch": "skip",
+        "model": "claude-sonnet-5-5",
+        "role": "generic-judge"
+      }
+    ],
+    "rule": "B5",
+    "status": "ok"
+  },
+  "input": {
+    "lane": "sonnet",
+    "map_age_days": 1,
+    "modules": 1,
+    "owner_gate": true,
+    "prior": {
+      "findings": 0
+    },
+    "task_kind": "review",
+    "tier": "medium"
+  },
+  "name": "d7-review-medium-owner-gate-foreground",
+  "note": "S1: zero findings skip the judge, so step 1 is the last running step and an owner gate follows: foreground"
+}

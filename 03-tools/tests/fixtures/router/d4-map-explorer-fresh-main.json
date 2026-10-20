@@ -1,0 +1,27 @@
+{
+  "as_of": "2026-10-16",
+  "expect": {
+    "roster": [
+      {
+        "background": false,
+        "delegate": "main",
+        "effort": "medium",
+        "launch": "run",
+        "model": "claude-haiku-5-5",
+        "role": "generic-cartographer"
+      }
+    ],
+    "rule": "B2",
+    "status": "ok"
+  },
+  "input": {
+    "lane": "sonnet",
+    "map_age_days": 1,
+    "modules": 1,
+    "read_files": 3,
+    "task_kind": "map",
+    "tier": "medium"
+  },
+  "name": "d4-map-explorer-fresh-main",
+  "note": "S1: fresh map, one module, 3 reads <= 8: the cartographer runs in the main session"
+}
