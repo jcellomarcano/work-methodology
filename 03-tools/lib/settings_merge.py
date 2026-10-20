@@ -12,9 +12,15 @@ Usage:
     lib/settings_merge.py <settings.json> --hooks <hooks.settings.json> [--marker M] [--tools-default PATH]
     lib/settings_merge.py <settings.json> --remove [--marker M]
 
-Output: {path, changed, added, removed}. Idempotent: an identical second
-pass does not change the file. --remove deletes the file when removing the
-kit's hooks leaves it empty ({}): the kit created it, nothing else is in it.
+Kit-owned top-level keys (KIT_SETTINGS) are set only when the owner has not
+set them, and --remove takes one out only while it still holds the kit's
+value: autoCompactWindow 300000 is the orchestrator's auto-compact window
+(decision D1; code.claude.com/docs/en/settings-reference#autocompactwindow).
+
+Output: {path, changed, added, removed, keys_added, keys_removed}.
+Idempotent: an identical second pass does not change the file. --remove
+deletes the file when removing the kit's hooks and keys leaves it empty
+({}): the kit created it, nothing else is in it.
 """
 from __future__ import annotations
 
@@ -26,6 +32,7 @@ from pathlib import Path
 DEFAULT_MARKER = "metodo-hook"
 TOOLS_TOKEN = "__TOOLS_DEFAULT__"
 DEFAULT_TOOLS = "$HOME/metodologia-de-trabajo/03-tools"
+KIT_SETTINGS = {"autoCompactWindow": 300000}
 
 
 def _is_kit_entry(entry: dict, marker: str) -> bool:
@@ -79,13 +86,35 @@ def remove_hooks(settings: dict, marker: str = DEFAULT_MARKER) -> tuple[dict, di
     return merged, {"added": 0, "removed": removed}
 
 
+def merge_keys(settings: dict) -> tuple[dict, list[str]]:
+    """Adds each kit-owned key the owner has not set; an owner value is never overwritten."""
+    merged = dict(settings)
+    added = [key for key in KIT_SETTINGS if key not in settings]
+    for key in added:
+        merged[key] = KIT_SETTINGS[key]
+    return merged, added
+
+
+def remove_keys(settings: dict) -> tuple[dict, list[str]]:
+    """Takes out each kit-owned key that still holds the kit's value; an edited one is the owner's."""
+    merged = dict(settings)
+    removed = [key for key, value in KIT_SETTINGS.items() if key in settings and settings[key] == value]
+    for key in removed:
+        merged.pop(key)
+    return merged, removed
+
+
 def apply(settings_path: Path, kit_hooks_path: Path | None, marker: str, remove: bool, tools_default: str = DEFAULT_TOOLS) -> dict:
     settings = json.loads(settings_path.read_text(encoding="utf-8")) if settings_path.exists() else {}
     if remove:
         merged, counts = remove_hooks(settings, marker)
+        merged, keys_removed = remove_keys(merged)
+        counts.update(keys_added=[], keys_removed=keys_removed)
     else:
         kit_hooks = json.loads(Path(kit_hooks_path).read_text(encoding="utf-8"))
         merged, counts = merge_hooks(settings, kit_hooks, marker, tools_default)
+        merged, keys_added = merge_keys(merged)
+        counts.update(keys_added=keys_added, keys_removed=[])
     changed = merged != settings
     if changed and remove and not merged and settings_path.exists():
         settings_path.unlink()

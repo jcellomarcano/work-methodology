@@ -90,6 +90,64 @@ class SettingsMergeTests(unittest.TestCase):
             self.assertTrue(settings_path.exists())
 
 
+class AutoCompactWindowTests(unittest.TestCase):
+    """T3 (D1): the orchestrator's auto-compact window is 300k, a documented settings key
+    (settings-reference#autocompactwindow), set only when the owner has not set it."""
+
+    def _apply(self, path, remove=False, kit_path=None):
+        return settings_merge.apply(path, kit_path, settings_merge.DEFAULT_MARKER, remove)
+
+    def _kit(self, tmp):
+        kit_path = Path(tmp) / "kit.json"
+        kit_path.write_text(json.dumps(KIT), encoding="utf-8")
+        return kit_path
+
+    def test_install_sets_the_window_when_absent(self):
+        self.assertEqual(settings_merge.KIT_SETTINGS, {"autoCompactWindow": 300000})
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "settings.local.json"
+            path.write_text(json.dumps({"permissions": {"allow": []}}), encoding="utf-8")
+            result = self._apply(path, kit_path=self._kit(tmp))
+            self.assertTrue(result["changed"])
+            self.assertEqual(result["keys_added"], ["autoCompactWindow"])
+            data = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(data["autoCompactWindow"], 300000)
+            self.assertEqual(data["permissions"], {"allow": []})
+            # idempotent: a second pass changes nothing
+            self.assertFalse(self._apply(path, kit_path=self._kit(tmp))["changed"])
+
+    def test_install_keeps_an_owner_value(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "settings.local.json"
+            path.write_text(json.dumps({"autoCompactWindow": 500000}), encoding="utf-8")
+            result = self._apply(path, kit_path=self._kit(tmp))
+            self.assertEqual(result["keys_added"], [])
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["autoCompactWindow"], 500000)
+            # and remove never takes an owner value out
+            gone = self._apply(path, remove=True)
+            self.assertEqual(gone["keys_removed"], [])
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")), {"autoCompactWindow": 500000})
+
+    def test_remove_takes_the_kit_value_out_and_the_file_with_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / ".claude" / "settings.local.json"
+            self._apply(path, kit_path=self._kit(tmp))
+            gone = self._apply(path, remove=True)
+            self.assertTrue(gone["changed"])
+            self.assertEqual(gone["keys_removed"], ["autoCompactWindow"])
+            # the kit created the file and nothing else is in it
+            self.assertFalse(path.exists())
+
+    def test_remove_keeps_other_keys_and_an_edited_window(self):
+        merged = settings_merge.merge_keys({"permissions": {"allow": ["x"]}})[0]
+        removed, keys = settings_merge.remove_keys(merged)
+        self.assertEqual(removed, {"permissions": {"allow": ["x"]}})
+        self.assertEqual(keys, ["autoCompactWindow"])
+        # negative control: the owner changed the kit's value after install, so it is the owner's now
+        edited = dict(merged, autoCompactWindow=250000)
+        self.assertEqual(settings_merge.remove_keys(edited), (edited, []))
+
+
 class McpConfigTests(unittest.TestCase):
     def test_merge_keeps_other_servers(self):
         existing = {"mcpServers": {"github": {"type": "http", "url": "https://x"}}}

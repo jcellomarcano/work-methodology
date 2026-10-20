@@ -89,6 +89,7 @@ merge. It lives in `config/project.json` as `rdd.review_authority`:
 Read the switch with `gentle-ai review mode status`, which changes nothing. When it says off, nothing
 is running on the gentle-ai side and `"kit"` is the honest value. `session_start_status.py` prints the
 chosen authority on every session start, so the answer is on screen before the first edit.
+On compact and resume it adds a goal anchor (task doc, open T# + S#, last receipt; ≤ 120 tokens).
 
 ## 5. Memory with engram
 
