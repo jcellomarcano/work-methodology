@@ -39,6 +39,8 @@ def main() -> int:
         c.emit_pretool("deny", f"budget exhausted ({cap} tool calls): stop now and emit your JSON with truncated:true and not_covered.")
     elif count == math.ceil(0.8 * int(cap)):
         c.ledger(inp, HOOK, "budget-warn", "warn", "block", f"{count} of {cap}")
+        c.emit_warn(inp.get("hook_event_name"), "budget-warn",
+                    f"{count} of {cap} tool calls used; finish the essentials and emit your JSON before the cap.")
     return 0
 
 

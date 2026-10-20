@@ -54,6 +54,8 @@ def main() -> int:
         c.emit_pretool("deny", reason + ". Stay inside the change card's scope boundary.")
     else:
         c.ledger(inp, HOOK, "scope-outside", "warn", mode, reason, path=rel)
+        c.emit_warn(inp.get("hook_event_name"), "scope-outside",
+                    reason + "; stay inside the change card's scope or report the need in your output.")
     return 0
 
 

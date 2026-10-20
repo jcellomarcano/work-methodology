@@ -71,6 +71,19 @@ class HookFixture(unittest.TestCase):
     def decision(self, out):
         return (out.get("hookSpecificOutput") or {}).get("permissionDecision")
 
+    def assert_visible_warn(self, out, kind, event="PreToolUse"):
+        """T2 (WU5): a warn reaches the agent as additionalContext, never as a
+        permissionDecision (an allow would bypass the owner's prompts)."""
+        import math
+        specific = out.get("hookSpecificOutput") or {}
+        self.assertEqual(specific.get("hookEventName"), event, out)
+        self.assertNotIn("permissionDecision", specific)
+        self.assertNotIn("decision", out)
+        text = specific.get("additionalContext") or ""
+        self.assertTrue(text.startswith(f"METODO-WARN {kind}: "), text)
+        self.assertLessEqual(math.ceil(len(text) / 4), 80, text)
+        return text
+
     def ledger(self, session="s1"):
         path = self.hooks_dir / session / "ledger.jsonl"
         return [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines()] if path.exists() else []
@@ -108,7 +121,7 @@ class GuardPathsTests(HookFixture):
 
     def test_scope_outside_warns_then_denies_in_block(self):
         out, _ = self.run_hook("guard_paths.py", self._edit("domain/Bar.kt", agent_type="generic-proposer", agent_id="a1"))
-        self.assertEqual(out, {})
+        self.assert_visible_warn(out, "scope-outside")
         self.assertEqual(self.ledger()[-1]["kind"], "scope-outside")
         self.set_config(enabled=True, mode="block")
         out, _ = self.run_hook("guard_paths.py", self._edit("domain/Bar.kt", agent_type="generic-proposer", agent_id="a1"))
@@ -170,7 +183,7 @@ class GuardGatesTests(HookFixture):
 
     def test_main_push_without_receipt_warns_in_warn_and_asks_in_block(self):
         out, _ = self.run_hook("guard_gates.py", self._bash("git push origin main"))
-        self.assertEqual(out, {})
+        self.assert_visible_warn(out, "gate-push")
         line = self.ledger()[-1]
         self.assertEqual((line["kind"], line["decision"], line["receipt"]), ("gate-push", "warn", "none"))
         self.set_config(enabled=True, mode="block")
@@ -214,7 +227,7 @@ class BudgetTests(HookFixture):
         self.assertFalse(self.hooks_dir.exists())
 
     def test_denies_past_the_contract_cap(self):
-        self.assertEqual(self._call(3), {})
+        self.assertIsNone(self.decision(self._call(3)))
         out = self._call(1)
         self.assertEqual(self.decision(out), "deny")
         self.assertIn("truncated:true", out["hookSpecificOutput"]["permissionDecisionReason"])
@@ -225,6 +238,138 @@ class BudgetTests(HookFixture):
         # negative control
         out = self._call(5, agent_type="domain-redteam", agent_id="z")
         self.assertEqual(out, {})
+
+
+class VisibleWarnTests(HookFixture):
+    """T2 (WU5, context-method.md section 5): every warn branch that only wrote
+    the ledger now also tells the agent, through one helper; the ledger line
+    and block mode stay exactly as before."""
+
+    def _edit(self, path):
+        return {"tool_name": "Edit", "tool_input": {"file_path": str(self.repo / path)},
+                "agent_type": "generic-proposer", "agent_id": "a1"}
+
+    def _push(self, command="git push origin main"):
+        return {"tool_name": "Bash", "tool_input": {"command": command}}
+
+    def _read(self, agent_type="generic-verifier", agent_id="v1"):
+        return {"tool_name": "Read", "tool_input": {}, "agent_type": agent_type, "agent_id": agent_id}
+
+    def _ledger_core(self, line):
+        return {k: line[k] for k in ("hook", "kind", "decision", "mode", "reason", "path", "tree", "receipt")}
+
+    # guard_paths: scope-outside
+    def test_scope_outside_warn_is_visible_and_names_the_fix(self):
+        out, _ = self.run_hook("guard_paths.py", self._edit("domain/Bar.kt"))
+        text = self.assert_visible_warn(out, "scope-outside")
+        self.assertIn("domain/Bar.kt", text)
+        self.assertIn("app/**", text)
+
+    def test_scope_outside_ledger_line_is_unchanged(self):
+        self.run_hook("guard_paths.py", self._edit("domain/Bar.kt"))
+        self.assertEqual(self._ledger_core(self.ledger()[-1]), {
+            "hook": "guard_paths", "kind": "scope-outside", "decision": "warn", "mode": "warn",
+            "reason": "domain/Bar.kt is outside the role's may_write / receipt scope (app/**)",
+            "path": "domain/Bar.kt", "tree": None, "receipt": None})
+
+    def test_scope_outside_block_is_a_plain_deny(self):
+        self.set_config(enabled=True, mode="block")
+        out, _ = self.run_hook("guard_paths.py", self._edit("domain/Bar.kt"))
+        self.assertEqual(self.decision(out), "deny")
+        self.assertNotIn("additionalContext", out["hookSpecificOutput"])
+        self.assertEqual((self.ledger()[-1]["decision"], self.ledger()[-1]["mode"]), ("deny", "block"))
+
+    def test_long_scope_list_is_truncated_under_the_cap(self):
+        globs = [f"module{i:03d}/src/main/kotlin/**" for i in range(40)]
+        self.write_receipt(state="started", verdict=None, scope_globs=globs)
+        out, _ = self.run_hook("guard_paths.py", self._edit("domain/Bar.kt"))
+        text = self.assert_visible_warn(out, "scope-outside")
+        self.assertTrue(text.endswith("\u2026"), text)
+        again, _ = self.run_hook("guard_paths.py", self._edit("domain/Bar.kt"))
+        self.assertEqual(out, again)
+
+    # guard_gates: delivery without receipt
+    def test_push_without_receipt_warn_is_visible(self):
+        out, _ = self.run_hook("guard_gates.py", self._push())
+        text = self.assert_visible_warn(out, "gate-push")
+        self.assertIn("receipt", text)
+
+    def test_pr_without_receipt_warn_carries_its_kind(self):
+        out, _ = self.run_hook("guard_gates.py", self._push("gh pr create --fill"))
+        self.assert_visible_warn(out, "gate-pr")
+
+    def test_push_without_receipt_ledger_line_is_unchanged(self):
+        self.run_hook("guard_gates.py", self._push())
+        self.assertEqual(self._ledger_core(self.ledger()[-1]), {
+            "hook": "guard_gates", "kind": "gate-push", "decision": "warn", "mode": "warn",
+            "reason": f"no approved receipt for tree {self.tree[:12]} (receipt: none)",
+            "path": None, "tree": self.tree, "receipt": "none"})
+
+    def test_push_without_receipt_block_is_a_plain_ask(self):
+        self.set_config(enabled=True, mode="block")
+        out, _ = self.run_hook("guard_gates.py", self._push())
+        self.assertEqual(self.decision(out), "ask")
+        self.assertNotIn("additionalContext", out["hookSpecificOutput"])
+
+    def test_approved_push_and_post_tool_use_stay_silent(self):
+        # negative controls: no warn, no text
+        out, proc = self.run_hook("guard_gates.py", dict(self._push(), hook_event_name="PostToolUse"))
+        self.assertEqual(proc.stdout, "")
+        self.write_receipt()
+        out, proc = self.run_hook("guard_gates.py", self._push())
+        self.assertEqual(proc.stdout, "")
+
+    # budget: budget-warn at 80% of the contract cap
+    def _verifier_cap(self, cap):
+        (self.repo / ".claude" / "agents" / "generic-verifier.contract.json").write_text(json.dumps(
+            {"agent": "generic-verifier", "may_write": [], "max_tool_calls": cap}), encoding="utf-8")
+
+    def test_budget_warn_is_visible_once_at_eighty_percent(self):
+        self._verifier_cap(5)  # ceil(0.8 * 5) = 4
+        outs = [self.run_hook("budget.py", self._read())[0] for _ in range(6)]
+        self.assertEqual(outs[:3], [{}, {}, {}])
+        text = self.assert_visible_warn(outs[3], "budget-warn")
+        self.assertIn("4 of 5", text)
+        self.assertEqual(outs[4], {})
+        self.assertEqual(self.decision(outs[5]), "deny")
+        self.assertNotIn("additionalContext", outs[5]["hookSpecificOutput"])
+
+    def test_budget_warn_ledger_line_is_unchanged(self):
+        self._verifier_cap(5)
+        for _ in range(4):
+            self.run_hook("budget.py", self._read())
+        self.assertEqual(self._ledger_core(self.ledger()[-1]), {
+            "hook": "budget", "kind": "budget-warn", "decision": "warn", "mode": "block", "reason": "4 of 5",
+            "path": None, "tree": None, "receipt": None})
+
+    # the helper itself
+    def _emit(self, *args):
+        import contextlib
+        import importlib.util
+        import io
+        spec = importlib.util.spec_from_file_location("metodo_hooks_common", HOOKS / "_common.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            module.emit_warn(*args)
+        return json.loads(buf.getvalue())
+
+    def test_emit_warn_shape(self):
+        out = self._emit("PreToolUse", "scope-outside", "stay inside app/**")
+        self.assertEqual(out, {"hookSpecificOutput": {"hookEventName": "PreToolUse",
+                                                      "additionalContext": "METODO-WARN scope-outside: stay inside app/**"}})
+
+    def test_emit_warn_truncates_deterministically_at_80_tokens(self):
+        fix = "x" * 1000
+        a, b = self._emit("PreToolUse", "budget-warn", fix), self._emit("PreToolUse", "budget-warn", fix)
+        self.assertEqual(a, b)
+        text = self.assert_visible_warn(a, "budget-warn")
+        self.assertEqual(len(text), 320)
+        self.assertTrue(text.endswith("\u2026"))
+        # exactly at the cap: untouched
+        exact = "y" * (320 - len("METODO-WARN k: "))
+        self.assertEqual(self._emit("PreToolUse", "k", exact)["hookSpecificOutput"]["additionalContext"], "METODO-WARN k: " + exact)
 
 
 class ValidateOutputTests(HookFixture):

@@ -208,6 +208,22 @@ def emit_pretool(decision: str, reason: str) -> None:
                                              "permissionDecisionReason": reason}}, ensure_ascii=False))
 
 
+WARN_MAX_TOKENS = 80  # context-method.md section 5; tokens = ceil(chars / 4)
+
+
+def emit_warn(event: str | None, kind: str, fix: str) -> None:
+    """The visible WARN channel: one `METODO-WARN <kind>: <fix>` line the agent
+    reads as additionalContext. Never a permissionDecision: an `allow` would
+    skip the owner's own permission prompts. Over the cap it is cut to 80
+    tokens ending in an ellipsis, the same way every time."""
+    text = f"METODO-WARN {kind}: {fix}"
+    limit = WARN_MAX_TOKENS * 4
+    if len(text) > limit:
+        text = text[:limit - 1] + "\u2026"
+    print(json.dumps({"hookSpecificOutput": {"hookEventName": event or "PreToolUse", "additionalContext": text}},
+                     ensure_ascii=False))
+
+
 def emit_stop_block(reason: str) -> None:
     print(json.dumps({"decision": "block", "reason": reason}, ensure_ascii=False))
 

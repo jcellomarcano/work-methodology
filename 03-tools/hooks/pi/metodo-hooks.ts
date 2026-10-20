@@ -97,7 +97,22 @@ const ROLE_MARKER = /<!--\s*metodo-role:\s*([A-Za-z0-9][A-Za-z0-9_-]{0,63})\s*--
 const PROCESS_AGENT_ID = `pi-${process.pid}-${Date.now().toString(36)}`;
 let markerRole = "";
 
-type Decision = { decision?: string; reason: string };
+type Decision = { decision?: string; reason: string; context?: string };
+
+// Visible WARN (T2): a hook's additionalContext line ("METODO-WARN <kind>:
+// <fix>") is queued here and handed to the model as the before_agent_start
+// message, the one injection channel this extension already uses. That is
+// the next turn, not this tool call: a subagent that never gets another
+// prompt never sees its warn. Whether pi feeds the message to the model is
+// not verified: pi: not visible to the model [Unverified]. The ledger line is
+// written by the Python hook either way. At most WARN_MAX distinct lines per
+// turn, the latest ones.
+const WARN_MAX = 3;
+let pendingWarns: string[] = [];
+
+function queueWarn(text: string): void {
+	pendingWarns = [...pendingWarns.filter((line) => line !== text), text].slice(-WARN_MAX);
+}
 
 function sessionId(ctx: any): string {
 	try {
@@ -152,8 +167,9 @@ function runHook(script: string, body: unknown): Decision | undefined {
 		if (!out.startsWith("{")) return undefined;
 		const parsed = JSON.parse(out);
 		const specific = parsed.hookSpecificOutput;
-		if (!specific?.permissionDecision) return undefined;
-		return { decision: specific.permissionDecision, reason: specific.permissionDecisionReason || "" };
+		const context = typeof specific?.additionalContext === "string" ? specific.additionalContext.trim() : "";
+		if (!specific?.permissionDecision && !context) return undefined;
+		return { decision: specific.permissionDecision || undefined, reason: specific.permissionDecisionReason || "", context: context || undefined };
 	} catch {
 		return undefined;
 	}
@@ -229,12 +245,15 @@ export default function (pi: ExtensionAPI) {
 			const markers = [...systemPrompt.matchAll(ROLE_MARKER)];
 			markerRole = markers.length ? markers[markers.length - 1][1] : "";
 		}
-		if (statusInjected || !startupStatus) return undefined;
-		statusInjected = true;
+		const warns = pendingWarns.join("\n");
+		pendingWarns = [];
+		const status = !statusInjected && startupStatus ? startupStatus : "";
+		if (status) statusInjected = true;
+		if (!status && !warns) return undefined;
 		return {
 			message: {
-				customType: "metodo-status",
-				content: startupStatus,
+				customType: status ? "metodo-status" : "metodo-warn",
+				content: [status, warns].filter(Boolean).join("\n"),
 				display: true,
 			},
 		};
@@ -249,6 +268,10 @@ export default function (pi: ExtensionAPI) {
 		for (const script of scriptsFor("PreToolUse", toolName)) {
 			const verdict = runHook(script, body);
 			if (!verdict) continue;
+			if (verdict.context) {
+				queueWarn(verdict.context);
+				if (ctx.hasUI) ctx.ui.notify(verdict.context, "warning");
+			}
 			if (verdict.decision === "deny") {
 				if (ctx.hasUI) ctx.ui.notify(`metodo: ${verdict.reason}`, "warning");
 				return { block: true, reason: verdict.reason };

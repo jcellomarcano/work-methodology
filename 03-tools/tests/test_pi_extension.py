@@ -286,6 +286,51 @@ class BashPostToolUse(PiExtensionFixture):
         self.assertEqual(json.loads(lines[0])["path"], "app/Foo.kt")
 
 
+class VisibleWarnOnPi(PiExtensionFixture):
+    """T2 (WU5): a hook's additionalContext is read, never treated as a
+    decision, and handed to the model through the one channel the extension
+    already uses: the before_agent_start message (next turn). Whether a real
+    pi feeds that message to the model is not proven here [Unverified]."""
+
+    START = {"event": "before_agent_start", "payload": {"prompt": "next", "systemPrompt": "no marker"}}
+
+    def test_owner_push_warn_reaches_the_next_turn(self):
+        out = self.run_ext([self.call("bash", command="git push origin main"), self.START, self.START])
+        self.assertIsNone(out["results"][0], "a warn never blocks the call")
+        message = out["results"][1]["message"]
+        self.assertEqual(message["customType"], "metodo-warn")
+        self.assertTrue(message["content"].startswith("METODO-WARN gate-push: "), message)
+        self.assertIsNone(out["results"][2], "a warn is delivered once")
+        line = self.pi_ledger()[-1]
+        self.assertEqual((line["kind"], line["decision"], line["mode"]), ("gate-push", "warn", "warn"))
+
+    def test_subagent_budget_warn_is_queued_without_blocking(self):
+        out = self.run_ext([self.call("read", path="a")] * 3 + [self.START], child=True, role="generic-proposer")
+        self.assertEqual(out["results"][:3], [None] * 3)
+        self.assertIn("METODO-WARN budget-warn: 3 of 3", out["results"][3]["message"]["content"])
+
+    def test_owner_sees_the_warn_in_the_ui(self):
+        out = self.run_ext([self.call("bash", command="git push origin main")], has_ui=True)
+        self.assertEqual(out["notes"][0][0], "warning")
+        self.assertIn("METODO-WARN gate-push", out["notes"][0][1])
+
+    def test_at_most_three_distinct_warns_per_turn(self):
+        pushes = [self.call("bash", command=f"git push origin main && echo {i}") for i in range(2)]
+        prs = [self.call("bash", command=c) for c in ("gh pr create --fill", "gh pr merge 1", "git tag v1", "git merge main")]
+        out = self.run_ext(pushes + prs + [self.START])
+        lines = out["results"][-1]["message"]["content"].splitlines()
+        self.assertLessEqual(len(lines), 3)
+        self.assertEqual(len(lines), len(set(lines)))
+        self.assertTrue(all(l.startswith("METODO-WARN ") for l in lines), lines)
+
+    def test_block_mode_ask_still_holds_without_ui(self):
+        # negative control: block mode unchanged, nothing queued
+        self.set_config(enabled=True, mode="block")
+        out = self.run_ext([self.call("bash", command="git push origin main"), self.START])
+        self.assertTrue(out["results"][0]["block"])
+        self.assertIsNone(out["results"][1])
+
+
 class ParityWithClaudeCode(PiExtensionFixture):
     """The pi dispatch table is the Claude Code one: same scripts, same
     matchers, read from hooks.settings.json so the two cannot drift."""

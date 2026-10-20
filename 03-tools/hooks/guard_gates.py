@@ -146,6 +146,7 @@ def main() -> int:
         c.emit_pretool("ask", reason + ". Run receipt-review first, or confirm to deliver without receipt (it will be recorded).")
     else:
         c.ledger(inp, HOOK, kind, "warn", mode, reason, tree=tree, receipt=receipt_state)
+        c.emit_warn(event, kind, reason + "; run receipt-review first, or tell the owner this delivers without review.")
     return 0
 
 
