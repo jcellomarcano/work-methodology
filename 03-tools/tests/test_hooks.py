@@ -45,6 +45,8 @@ class HookFixture(unittest.TestCase):
         self.hooks_dir = self.tmp / "hooks-out"
         self.rdd_dir = self.tmp / "rdd"
         self.config_path = self.tmp / "project.json"
+        # T7 (S2): the routing log guard_paths reads; absent unless a test writes it.
+        self.routing_log = self.tmp / "runs" / "routing.jsonl"
         self.set_config(enabled=True, mode="warn")
 
     def tearDown(self):
@@ -59,7 +61,8 @@ class HookFixture(unittest.TestCase):
     def run_hook(self, name: str, payload: dict, session="s1", env_extra=None):
         payload = dict({"session_id": session, "cwd": str(self.repo), "hook_event_name": "PreToolUse"}, **payload)
         env = dict(os.environ, METODO_TOOLS=str(TOOLS_ROOT), METODO_PROJECT_CONFIG=str(self.config_path),
-                   METODO_HOOKS_DIR=str(self.hooks_dir), METODO_RDD_DIR=str(self.rdd_dir), CLAUDE_PROJECT_DIR=str(self.repo))
+                   METODO_HOOKS_DIR=str(self.hooks_dir), METODO_RDD_DIR=str(self.rdd_dir), CLAUDE_PROJECT_DIR=str(self.repo),
+                   METODO_ROUTING_LOG=str(self.routing_log))
         env.update(env_extra or {})
         proc = subprocess.run(["python3", str(HOOKS / name)], input=json.dumps(payload), capture_output=True, text=True, env=env)
         self.assertEqual(proc.returncode, 0, proc.stderr)

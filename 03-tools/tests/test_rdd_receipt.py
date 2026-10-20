@@ -78,9 +78,16 @@ class ReceiptFixture(unittest.TestCase):
         self.round_dir.mkdir()
         self.receipts = self.tmp / "rdd"
         os.environ["METODO_RDD_DIR"] = str(self.receipts)
+        # T7: capture reads authorship from the hook ledger; never the checkout's own out/hooks.
+        self._hooks_env = os.environ.get("METODO_HOOKS_DIR")
+        os.environ["METODO_HOOKS_DIR"] = str(self.tmp / "hooks-out")
 
     def tearDown(self):
         os.environ.pop("METODO_RDD_DIR", None)
+        if self._hooks_env is None:
+            os.environ.pop("METODO_HOOKS_DIR", None)
+        else:
+            os.environ["METODO_HOOKS_DIR"] = self._hooks_env
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def _commit(self, rel: str, content: str, msg: str = "change") -> str:

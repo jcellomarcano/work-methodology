@@ -57,6 +57,7 @@ export const HOOK_MATRIX: Record<string, { matcher: string; script: string }[]> 
 	PostToolUse: [
 		{ matcher: "Bash", script: "guard_gates.py" },
 		{ matcher: "Edit|Write|MultiEdit", script: "touched_paths.py" },
+		{ matcher: "mcp__metodo__output_write", script: "output_author.py" },
 	],
 };
 

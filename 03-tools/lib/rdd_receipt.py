@@ -49,6 +49,13 @@ REQUIRED_ROLES = {
     "high": ["script:role_contract", "script:comment_gate", "script:docs_lint", "generic-challenger",
              "generic-verifier", "generic-blind-spot-adversary", "generic-judge"],
 }
+# T7 (S2): the author never reviews itself. A capture of one of these roles
+# whose `author` is the main session makes the receipt inconclusive.
+REVIEW_ROLES = ("generic-challenger", "generic-blind-spot-adversary", "generic-judge", "generic-verifier",
+                "generic-deep-reasoner")
+MAIN_AUTHOR = "main"
+AUTHORED_KIND = "output-authored"
+AUTHORED_RE = re.compile(r"(\w+)=(\S+)")
 DECISIONS = ("consent", "push-without-receipt", "accept-escalation", "unreviewed")
 # English is canonical in round outputs; the Spanish forms stay accepted as aliases.
 BROKEN_VERDICTS = frozenset({"BROKEN", "ROTO"})
@@ -306,6 +313,38 @@ def _summarize(schema_name: str | None, document) -> dict:
     return summary
 
 
+def hooks_dir() -> Path:
+    return Path(os.environ.get("METODO_HOOKS_DIR") or (TOOLS_ROOT / "out" / "hooks"))
+
+
+def author_of(sha256: str, role: str) -> str | None:
+    """Who wrote the artifact, from the `output-authored` lines that
+    hooks/output_author.py ledgers (PostToolUse output_write), matched by the
+    artifact's sha256 and role across every session ledger. The main session
+    wins over any other match; no line -> None (authorship unknown)."""
+    authors = set()
+    for ledger in sorted(hooks_dir().glob("*/ledger.jsonl")):
+        try:
+            lines = ledger.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            continue
+        for raw in lines:
+            if AUTHORED_KIND not in raw or sha256 not in raw:
+                continue
+            try:
+                line = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(line, dict) or line.get("kind") != AUTHORED_KIND:
+                continue
+            fields = dict(AUTHORED_RE.findall(str(line.get("reason") or "")))
+            if fields.get("sha256") == sha256 and fields.get("role") == role and fields.get("author"):
+                authors.add(fields["author"])
+    if not authors:
+        return None
+    return MAIN_AUTHOR if MAIN_AUTHOR in authors else sorted(authors)[0]
+
+
 def capture(tree: str, role: str, artifact_path: Path, repo: Path | None = None, handoff_to: str | None = None,
             summary_text: str | None = None, config: dict | None = None) -> tuple[dict, dict]:
     receipt = load_receipt(tree)
@@ -358,6 +397,9 @@ def capture(tree: str, role: str, artifact_path: Path, repo: Path | None = None,
         "summary": _summarize(schema_name, document),
         "handoff": handoff_ref,
     }
+    author = author_of(entry["sha256"], role_name) if schema_name is not None else None
+    if author is not None:
+        entry["author"] = author
     receipt["captures"].append(entry)
     receipt["state"] = "captured"
     save_receipt(receipt)
@@ -450,6 +492,13 @@ def finalize(tree: str) -> dict:
     missing = [r for r in REQUIRED_ROLES[receipt["risk"]["tier"]] if r not in last]
     if verdict is None and missing:
         verdict, reasons = "inconclusive", ["required roles missing: " + ", ".join(missing)]
+
+    # Every review capture finalize reads counts, required or not: a
+    # main-authored judge could REFUTE a BROKEN finding.
+    self_reviewed = sorted(r for r, e in last.items() if r in REVIEW_ROLES and e.get("author") == MAIN_AUTHOR)
+    if verdict is None and self_reviewed:
+        verdict, reasons = "inconclusive", [
+            f"review authored by the main session ({', '.join(self_reviewed)}): the author never reviews itself"]
 
     if verdict is None:
         script_reasons = _script_rejections(receipt, last)

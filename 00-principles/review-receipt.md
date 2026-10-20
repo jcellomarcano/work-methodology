@@ -37,6 +37,8 @@ captures: a truncated capture or a missing mandatory role -> inconclusive; then 
 or a `docs_lint` offender -> rejected (the loop never approves what its own scripts reject;
 `comment_gate` gives facts, not a verdict); a verifier FAIL or BROKEN without REFUTED -> rejected;
 UNRESOLVED, OPEN WITH OWNER without a fail or the owner's gate -> escalated.
+A review capture (challenger, adversary, judge, verifier, deep reasoner) whose `author` is the main session
+(`output_author.py` ledger, matched by sha256 at capture) -> inconclusive: the author never reviews itself.
 A `rejected` allows `start --supersedes` once on the same card; the second one escalates. An approval at
 the low or medium layer is inherited (`--inherit-from`) if the candidate's files come out byte-identical
 after the rebase; high repeats.

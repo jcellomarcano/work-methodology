@@ -1054,7 +1054,9 @@ def _result(task, catalog, as_of, rule, roster, status, reasons, base_rule=None)
 # ---------------------------------------------------------------- the CLI
 
 def log_line(result: dict) -> str:
-    summary = [{k: e[k] for k in ("role", "tier", "model", "effort", "launch", "step")} for e in result["roster"]]
+    # Per-entry delegate/background so readers (the main-session guard) never infer them from counts.
+    summary = [{**{k: e[k] for k in ("role", "tier", "model", "effort", "launch", "step")},
+                "delegate": e.get("delegate"), "background": e.get("background")} for e in result["roster"]]
     line = {k: result[k] for k in ("as_of", "catalog_version", "inputs_hash", "rule", "status")}
     line["base_rule"] = result.get("base_rule") or result["rule"]
     line["roster"] = summary

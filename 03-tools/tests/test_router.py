@@ -786,6 +786,14 @@ class LogTests(unittest.TestCase):
             self.assertEqual((line["rule"], line["base_rule"], line["status"], line["as_of"]), ("B6", "B6", "ok", AS_OF))
             self.assertEqual(json.loads(proc.stdout)["inputs_hash"], line["inputs_hash"])
 
+    def test_log_line_carries_delegate_and_background_per_entry(self):
+        # T7 follow-up: the main-session guard reads per-entry delegation, never infers it from counts
+        line = json.loads(router.log_line(_route(task_kind="implement", tier="medium", modules=3, changed_lines=400)))
+        self.assertTrue(line["roster"])
+        for entry in line["roster"]:
+            self.assertIn(entry["delegate"], ("subagent", "main"))
+            self.assertIsInstance(entry["background"], bool)
+
     def test_log_inside_target_repo_is_refused(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp) / "target"

@@ -85,7 +85,8 @@ class PiExtensionFixture(HookFixture):
         env = {k: v for k, v in os.environ.items()
                if not k.startswith(("GENTLE_PI_", "PI_", "METODO_")) and k != "CLAUDE_PROJECT_DIR"}
         env.update(METODO_TOOLS=str(TOOLS_ROOT), METODO_REPO=str(self.repo), METODO_PROJECT_CONFIG=str(self.config_path),
-                   METODO_HOOKS_DIR=str(self.hooks_dir), METODO_RDD_DIR=str(self.rdd_dir), METODO_MEMORY="off")
+                   METODO_HOOKS_DIR=str(self.hooks_dir), METODO_RDD_DIR=str(self.rdd_dir), METODO_MEMORY="off",
+                   METODO_ROUTING_LOG=str(self.routing_log))
         if child:
             env["GENTLE_PI_AGENTS_CHILD"] = "1"
         if role:
@@ -357,6 +358,43 @@ class ParityWithClaudeCode(PiExtensionFixture):
         self.set_config(enabled=False)
         out = self.run_ext([self.call("bash", command="git push --force origin feat")])
         self.assertTrue(out["results"][0]["block"])
+
+
+class MainSessionGuardOnPi(PiExtensionFixture):
+    """T7 (S2): the same two hooks on pi. A main-session source edit with the
+    writer delegated queues one delegate-writer warn; output_write through a
+    direct MCP tool name records its author."""
+
+    START = {"event": "before_agent_start", "payload": {"prompt": "next", "systemPrompt": "no marker"}}
+
+    def _delegated_log(self):
+        from tests.test_main_session_guard import DELEGATED, _line
+        self.routing_log.parent.mkdir(parents=True, exist_ok=True)
+        self.routing_log.write_text(_line(**DELEGATED) + "\n", encoding="utf-8")
+
+    def test_owner_edit_with_writer_delegated_warns_on_the_next_turn(self):
+        self._delegated_log()
+        edit = self.call("edit", path=str(self.repo / "app" / "Foo.kt"))
+        out = self.run_ext([edit, self.START, edit, self.START])
+        self.assertIsNone(out["results"][0], "a warn never blocks the call")
+        self.assertTrue(out["results"][1]["message"]["content"].startswith("METODO-WARN delegate-writer: "))
+        self.assertIsNone(out["results"][3], "once per session per routing decision")
+        kinds = [l["kind"] for l in self.pi_ledger()]
+        self.assertEqual(kinds.count("main-edit-delegated-role"), 1)
+
+    def test_subagent_edit_with_writer_delegated_is_silent(self):
+        self._delegated_log()
+        out = self.run_ext([self.call("edit", path=str(self.repo / "app" / "Foo.kt")), self.START],
+                           child=True, role="generic-proposer")
+        self.assertEqual(out["results"], [None, None])
+
+    def test_output_write_records_the_author(self):
+        from tests.test_hooks import FINDINGS
+        args = {"round_dir": str(self.tmp / "round"), "role": "challenger", "document": FINDINGS}
+        self.run_ext([self.result("mcp__metodo__output_write", **args)])
+        self.run_ext([self.result("mcp__metodo__output_write", **args)], child=True, role="generic-challenger")
+        authors = [l["reason"].split()[0] for l in self.pi_ledger() if l["kind"] == "output-authored"]
+        self.assertEqual(authors, ["author=main", "author=generic-challenger"])
 
 
 if __name__ == "__main__":
