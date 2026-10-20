@@ -13,6 +13,11 @@
         "forbidden_hits": {"type": "array"}, "outside_allowlist": {"type": "array"}}},
     "handoff_to": {"type": "array", "items": {"type": "string"}},
     "truncated": {"type": "boolean"},
+    "spec_verdicts": {"type": "array", "items": {"type": "object", "required": ["spec", "verdict"],
+      "additionalProperties": false, "properties": {"spec": {"type": "string", "pattern": "^S[0-9]+$"},
+        "verdict": {"type": "string", "enum": ["PASS", "FAIL", "PARTIAL", "NOT_COVERED"]},
+        "evidence": {"type": "string"}}}},
+    "context_tokens_used": {"type": "integer"},
     "not_covered": {"type": "array", "items": {"type": "string"}}
   }
 }

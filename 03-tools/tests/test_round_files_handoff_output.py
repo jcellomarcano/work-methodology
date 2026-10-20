@@ -136,6 +136,51 @@ class RoundOutputTests(Fixture):
                 self.assertEqual(round_output.write_output(self.round_dir, "deep-reasoner", broken,
                                                            repo=self.repo)["verdict"], "FAIL")
 
+    def test_report_over_the_cap_is_written_with_a_warning(self):
+        # D9: what output_write writes is the report; over 2,000 tokens (ceil(chars / 4)) it is reported, not refused
+        base = len(json.dumps(dict(VALID_FINDINGS, summary=""), ensure_ascii=False))
+        at_cap = dict(VALID_FINDINGS, summary="x" * (8000 - base))
+        result = round_output.write_output(self.round_dir, "challenger", at_cap, repo=self.repo)
+        self.assertEqual((result["verdict"], result["report_tokens"], result["warnings"]), ("PASS", 2000, []))
+        over = dict(VALID_FINDINGS, summary="x" * (8001 - base))
+        result = round_output.write_output(self.round_dir, "challenger", over, repo=self.repo)
+        self.assertEqual((result["verdict"], result["report_tokens"]), ("PASS", 2001))
+        self.assertIsNotNone(result["path"])
+        self.assertEqual(len(result["warnings"]), 1)
+        self.assertTrue(result["warnings"][0].startswith("report-over-cap"))
+        self.assertIn("mcp__metodo__handoff_write", result["warnings"][0])
+
+    def test_context_over_the_contract_cap_is_a_warning(self):
+        contract = json.loads((TOOLS_ROOT.parent / "01-roles" / "agents" / "generic-challenger.contract.json")
+                              .read_text(encoding="utf-8"))
+        cap = contract["max_context_tokens"]
+        over = round_output.write_output(self.round_dir, "challenger", dict(VALID_FINDINGS, context_tokens_used=cap + 1),
+                                         repo=self.repo)
+        self.assertEqual(over["verdict"], "PASS")
+        self.assertEqual([w.split(":")[0] for w in over["warnings"]], ["context-over-cap"])
+        # negative control: exactly at the cap
+        at = round_output.write_output(self.round_dir, "challenger", dict(VALID_FINDINGS, context_tokens_used=cap),
+                                       repo=self.repo)
+        self.assertEqual(at["warnings"], [])
+
+    def test_contract_in_the_analyzed_repo_wins_over_the_kit(self):
+        agents = self.repo / ".claude" / "agents"
+        agents.mkdir(parents=True)
+        (agents / "generic-challenger.contract.json").write_text(
+            json.dumps({"agent": "generic-challenger", "max_context_tokens": 100}), encoding="utf-8")
+        result = round_output.write_output(self.round_dir, "challenger", dict(VALID_FINDINGS, context_tokens_used=101),
+                                           repo=self.repo)
+        self.assertEqual([w.split(":")[0] for w in result["warnings"]], ["context-over-cap"])
+
+    def test_spec_verdicts_valid_and_malformed(self):
+        mechanic = {"fix_id": "FX-1", "applied": True, "files_changed": ["a.py"]}
+        for role, doc in (("challenger", VALID_FINDINGS), ("mechanic", mechanic)):
+            good = dict(doc, spec_verdicts=[{"spec": "S4", "verdict": "PASS", "evidence": "a.py:1"}])
+            self.assertEqual(round_output.write_output(self.round_dir, role, good, repo=self.repo)["verdict"], "PASS", role)
+            bad = dict(doc, spec_verdicts=[{"spec": "S4", "verdict": "DONE"}])
+            result = round_output.write_output(self.round_dir, role, bad, repo=self.repo)
+            self.assertEqual((result["verdict"], result["path"]), ("FAIL", None), role)
+
     def test_cli_exit_one_on_fail_and_zero_on_pass(self):
         doc_path = self.tmp / "doc.json"
         doc_path.write_text(json.dumps(VALID_FINDINGS), encoding="utf-8")

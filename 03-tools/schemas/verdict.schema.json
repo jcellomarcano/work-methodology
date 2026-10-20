@@ -1,5 +1,8 @@
 {
   "properties": {
+    "context_tokens_used": {
+      "type": "integer"
+    },
     "not_covered": {
       "items": {
         "type": "string"
@@ -60,6 +63,35 @@
           "ruling",
           "evidence",
           "epistemic"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "spec_verdicts": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence": {
+            "type": "string"
+          },
+          "spec": {
+            "pattern": "^S[0-9]+$",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "PASS",
+              "FAIL",
+              "PARTIAL",
+              "NOT_COVERED"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "spec",
+          "verdict"
         ],
         "type": "object"
       },

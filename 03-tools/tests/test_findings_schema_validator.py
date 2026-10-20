@@ -299,5 +299,93 @@ class AdditionalPropertiesTests(unittest.TestCase):
         self.assertEqual(fsv.validate_value({"repo": "/r", "extra": 1}, open_schema, "$"), [])
 
 
+class PatternTests(unittest.TestCase):
+    SCHEMA = {"type": "string", "pattern": "^S[0-9]+$"}
+
+    def test_matching_string_passes(self):
+        self.assertEqual(fsv.validate_value("S12", self.SCHEMA, "$.spec"), [])
+
+    def test_non_matching_string_is_an_error(self):
+        for bad in ("S", "s1", "4", "S4 ", "S4a"):
+            self.assertEqual(len(fsv.validate_value(bad, self.SCHEMA, "$.spec")), 1, bad)
+
+
+class ReportSizeTests(unittest.TestCase):
+    """D9: a subagent report is capped at 2,000 tokens, counted as ceil(chars / 4)."""
+
+    def test_boundary(self):
+        self.assertEqual(fsv.REPORT_CAP_TOKENS, 2000)
+        self.assertEqual(fsv.report_tokens("x" * 8000), 2000)
+        self.assertEqual(fsv.report_tokens("x" * 8001), 2001)
+        self.assertIsNone(fsv.report_over_cap("x" * 8000))
+        self.assertEqual(fsv.report_over_cap("x" * 8001), 2001)
+
+    def test_fix_names_the_handoff_tool_and_the_cap(self):
+        self.assertIn("mcp__metodo__handoff_write", fsv.REPORT_CAP_FIX)
+        self.assertIn("2,000 tokens", fsv.REPORT_CAP_FIX)
+
+    def test_context_over_cap(self):
+        self.assertEqual(fsv.context_over_cap({"context_tokens_used": 30001}, 30000), 30001)
+        # negative controls: at the cap, no cap, no field, a bool or a string are not measurements over the cap
+        for doc, cap in (({"context_tokens_used": 30000}, 30000), ({"context_tokens_used": 9}, None),
+                         ({}, 30000), ({"context_tokens_used": True}, 0), ({"context_tokens_used": "9"}, 0)):
+            self.assertIsNone(fsv.context_over_cap(doc, cap), (doc, cap))
+
+
+ROLE_SCHEMAS = ("claims", "proposer-output", "findings", "blindspots", "verdict", "verification",
+                "boundary-reviewer-output", "style-reviewer-output", "comment-gate-output", "mechanic-output",
+                "human-reviewer-output", "deep-reasoning-output")
+
+BASE_DOCS = {
+    "findings": VALID_FINDINGS_DOC,
+    "verdict": {"round": 1, "role": "judge", "rulings": [
+        {"finding_id": "F-01", "ruling": "CONFIRMED", "evidence": ["a.py:1"], "epistemic": "Tested"}]},
+    "verification": {"change_card_id": "CC-1", "battery": ["unit"], "verdict": "PASS", "evidence": ["ok"]},
+    "claims": {"claims": []},
+}
+
+
+class SpecVerdictsTests(unittest.TestCase):
+    """Every role output may carry spec_verdicts: one {spec: S<n>, verdict, evidence?}
+    per S# its brief named. Optional for now; when present its shape is strict."""
+
+    GOOD = [{"spec": "S1", "verdict": "PASS", "evidence": "tests/x.py:3"}, {"spec": "S4", "verdict": "PARTIAL"},
+            {"spec": "S12", "verdict": "FAIL"}, {"spec": "S2", "verdict": "NOT_COVERED"}]
+    BAD = ([{"spec": "4", "verdict": "PASS"}], [{"spec": "S4", "verdict": "met"}], [{"spec": "S4"}],
+           [{"verdict": "PASS"}], [{"spec": "S4", "verdict": "PASS", "evidence": 3}],
+           [{"spec": "S4", "verdict": "PASS", "note": "x"}], {"S4": "PASS"}, ["S4"])
+
+    def test_every_role_schema_declares_the_same_optional_fields(self):
+        reference = _load_schema("findings.schema.json")["properties"]["spec_verdicts"]
+        for name in ROLE_SCHEMAS:
+            schema = _load_schema(f"{name}.schema.json")
+            self.assertEqual(schema["properties"].get("spec_verdicts"), reference, name)
+            self.assertEqual(schema["properties"].get("context_tokens_used"), {"type": "integer"}, name)
+            self.assertNotIn("spec_verdicts", schema["required"], name)
+            self.assertNotIn("context_tokens_used", schema["required"], name)
+
+    def test_valid_spec_verdicts_pass(self):
+        for name, doc in BASE_DOCS.items():
+            result = fsv.validate(dict(doc, spec_verdicts=self.GOOD, context_tokens_used=1200),
+                                  _load_schema(f"{name}.schema.json"))
+            self.assertEqual(result, {"verdict": "PASS", "errors": []}, name)
+
+    def test_malformed_spec_verdicts_fail(self):
+        for name, doc in BASE_DOCS.items():
+            for bad in self.BAD:
+                result = fsv.validate(dict(doc, spec_verdicts=bad), _load_schema(f"{name}.schema.json"))
+                self.assertEqual(result["verdict"], "FAIL", (name, bad))
+                self.assertTrue(all("spec_verdicts" in e for e in result["errors"]), result)
+
+    def test_malformed_entry_fails_even_when_truncated(self):
+        doc = dict(VALID_FINDINGS_DOC, truncated=True, spec_verdicts=[{"spec": "S4", "verdict": "met"}])
+        self.assertEqual(fsv.validate(doc, _load_schema("findings.schema.json"))["verdict"], "FAIL")
+
+    def test_outputs_without_the_new_fields_still_pass(self):
+        # negative control: the fields are optional
+        for name, doc in BASE_DOCS.items():
+            self.assertEqual(fsv.validate(doc, _load_schema(f"{name}.schema.json"))["verdict"], "PASS", name)
+
+
 if __name__ == "__main__":
     unittest.main()

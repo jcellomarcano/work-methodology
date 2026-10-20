@@ -3,6 +3,11 @@
   "required": ["claims"],
   "properties": {
     "truncated": {"type": "boolean"},
+    "spec_verdicts": {"type": "array", "items": {"type": "object", "required": ["spec", "verdict"],
+      "additionalProperties": false, "properties": {"spec": {"type": "string", "pattern": "^S[0-9]+$"},
+        "verdict": {"type": "string", "enum": ["PASS", "FAIL", "PARTIAL", "NOT_COVERED"]},
+        "evidence": {"type": "string"}}}},
+    "context_tokens_used": {"type": "integer"},
     "not_covered": {"type": "array", "items": {"type": "string"}},
     "claims": {
       "type": "array",

@@ -4,10 +4,15 @@ for the v3 methodology documents (findings/blindspots/verdict/
 claims/brief/handoff) in schemas/*.schema.json.
 
 Only understands the subset those files use: "type", "required",
-"properties", "items", "enum" and "additionalProperties": false (for the
-MCP tools' input schemas, where a mistyped field has to fail before the
-script runs). It is not a generic JSON Schema engine, and does not aim
-to be.
+"properties", "items", "enum", "pattern" (re.search, as JSON Schema) and
+"additionalProperties": false (for the MCP tools' input schemas and the
+per-S# verdict entries, where a mistyped field has to fail). It is not a
+generic JSON Schema engine, and does not aim to be.
+
+The subagent report cap (D9, context-method §3) lives here, in one place:
+REPORT_CAP_TOKENS, counted as ceil(chars / 4). validate_subagent_output.py
+(the final reply) and round_output.py (what output_write writes) both read
+it; so does the context_tokens_used vs max_context_tokens measurement.
 
 Adversarial round: findings/blindspots/verdict/claims can declare
 `truncated: true` (with `not_covered: [...]`) when the agent ran out of
@@ -28,8 +33,39 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
+import re
 import sys
 from pathlib import Path
+
+# D9 (odd/tasks/context-optimization.md L6): a subagent's report is at most
+# 2,000 tokens; detail beyond that goes to a handoff file.
+REPORT_CAP_TOKENS = 2000
+REPORT_CAP_FIX = ("move detail to a handoff file (`mcp__metodo__handoff_write`) "
+                  f"and keep the report \u2264 {REPORT_CAP_TOKENS:,} tokens")
+
+
+def report_tokens(text: str) -> int:
+    """Token estimate the kit uses for reports: ceil(chars / 4)."""
+    return math.ceil(len(text) / 4)
+
+
+def report_over_cap(text: str) -> int | None:
+    """The report's token count when it is over REPORT_CAP_TOKENS, else None."""
+    tokens = report_tokens(text)
+    return tokens if tokens > REPORT_CAP_TOKENS else None
+
+
+def context_over_cap(document, max_context_tokens) -> int | None:
+    """context_tokens_used when it is an int above the contract's
+    max_context_tokens, else None. A measurement, never a shape check."""
+    used = document.get("context_tokens_used") if isinstance(document, dict) else None
+    numeric = (int, float)
+    if not isinstance(used, int) or isinstance(used, bool):
+        return None
+    if not isinstance(max_context_tokens, numeric) or isinstance(max_context_tokens, bool):
+        return None
+    return used if used > max_context_tokens else None
 
 _TYPE_MAP = {
     "string": str,
@@ -77,6 +113,9 @@ def validate_value(value, schema: dict, path: str) -> list[str]:
 
     if "enum" in schema and value not in schema["enum"]:
         errors.append(f"{path}: '{value}' is not in {schema['enum']}")
+
+    if "pattern" in schema and isinstance(value, str) and not re.search(schema["pattern"], value):
+        errors.append(f"{path}: '{value}' does not match {schema['pattern']}")
 
     if matched_type == "object":
         for required_key in schema.get("required", []):
