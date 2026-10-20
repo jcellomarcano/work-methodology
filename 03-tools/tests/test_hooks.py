@@ -216,6 +216,33 @@ class GuardGatesTests(HookFixture):
         self.assertEqual(out, {})
         self.assertEqual(self.ledger()[-1]["kind"], "gate-push-outcome")
 
+    WAIVE_COMMANDS = ("03-tools/bin/done-waive.sh DONE-02 --reason 'runs in CI'", "bash bin/done-waive.sh DONE-04 --reason x",
+                      "cd /x && ./done-waive.sh DONE-02 --reason x", "METODO_TOOLS=/t /t/bin/done-waive.sh DONE-10 --reason x")
+
+    def test_subagent_done_waiver_is_denied(self):
+        # T14: a waiver is the owner's; a subagent never grants one, RDD on or off
+        self.set_config(enabled=False)
+        for cmd in self.WAIVE_COMMANDS:
+            out, _ = self.run_hook("guard_gates.py", self._bash(cmd, agent_type="generic-proposer", agent_id="a1"))
+            self.assertEqual(self.decision(out), "deny", cmd)
+            self.assertIn("waiver", out["hookSpecificOutput"]["permissionDecisionReason"])
+        self.assertEqual(self.ledger()[-1]["kind"], "gate-waiver")
+
+    def test_main_session_done_waiver_asks_the_owner(self):
+        for enabled, mode in ((True, "warn"), (False, "warn"), (True, "block")):
+            self.set_config(enabled=enabled, mode=mode)
+            for cmd in self.WAIVE_COMMANDS:
+                out, _ = self.run_hook("guard_gates.py", self._bash(cmd))
+                self.assertEqual(self.decision(out), "ask", (enabled, mode, cmd))
+        line = self.ledger()[-1]
+        self.assertEqual((line["kind"], line["decision"]), ("gate-waiver", "ask"))
+
+    def test_text_about_done_waive_is_not_a_waiver(self):
+        # negative control: only the command word counts
+        for cmd in ("grep -n done-waive 03-tools/README.md", "echo 'run done-waive.sh DONE-02'", "cat bin/done-waive.sh"):
+            out, _ = self.run_hook("guard_gates.py", self._bash(cmd))
+            self.assertIsNone(self.decision(out), cmd)
+
 
 class BudgetTests(HookFixture):
     def _call(self, n_calls, agent_type="generic-proposer", agent_id="a1"):
@@ -456,13 +483,20 @@ class SessionStartTouchedReplyTests(HookFixture):
         lines = (self.hooks_dir / "s1" / "touched.jsonl").read_text(encoding="utf-8").splitlines()
         self.assertEqual(json.loads(lines[0]), {"path": "app/Foo.kt", "agent_type": "generic-proposer"})
 
-    def test_the_kit_ships_no_stop_hook(self):
-        # T1 (D3): reply_lint warned hundreds of times and changed nothing; the Stop hook is off,
-        # the human-reply skill keeps the lint on demand
+    def test_the_only_stop_hooks_are_the_done_gate(self):
+        # T1 (D3): reply_lint warned hundreds of times and changed nothing; its Stop hook stays off,
+        # the human-reply skill keeps the lint on demand. T14: the done gate is the Stop and
+        # SubagentStop hook (writer roles are filtered in the script).
         import json as _json
         settings = _json.loads((HOOKS / "hooks.settings.json").read_text(encoding="utf-8"))
-        self.assertNotIn("Stop", settings["hooks"])
         self.assertNotIn("reply_lint", _json.dumps(settings))
+        for event in ("Stop", "SubagentStop"):
+            entries = settings["hooks"][event]
+            self.assertEqual(len(entries), 1, event)
+            self.assertEqual(entries[0]["matcher"], "", event)
+            command = entries[0]["hooks"][0]["command"]
+            self.assertTrue(command.startswith(": metodo-hook;"), command)
+            self.assertIn('"$H/done_gate.py"', command)
 
     def test_reply_lint_never_blocks(self):
         text = ("Vale, entonces te cuento: " + "esto es una frase larga que no dice nada concreto y sigue y sigue " * 12)
@@ -473,7 +507,8 @@ class SessionStartTouchedReplyTests(HookFixture):
         missing = self.tmp / "nope.json"
         for name, payload in (("guard_gates.py", {"tool_name": "Bash", "tool_input": {"command": "git push origin main"}}),
                               ("session_start_status.py", {"hook_event_name": "SessionStart"}),
-                              ("touched_paths.py", {"hook_event_name": "PostToolUse", "tool_name": "Edit", "tool_input": {"file_path": "a"}})):
+                              ("touched_paths.py", {"hook_event_name": "PostToolUse", "tool_name": "Edit", "tool_input": {"file_path": "a"}}),
+                              ("done_gate.py", {"hook_event_name": "Stop", "last_assistant_message": "Done."})):
             _, proc = self.run_hook(name, payload, env_extra={"METODO_PROJECT_CONFIG": str(missing)})
             self.assertEqual(proc.stdout, "", name)
 
@@ -712,3 +747,8 @@ class RunLineTests(HookFixture):
         self.assertEqual(e(None, "delegate-writer"), e("guard_paths", "main-edit-delegated-role"))
         self.assertEqual(e("budget", "budget-warn", "warn", True), "budget_deny")
         self.assertEqual(e("validate_subagent_output", "report-over-cap", "block", True), "subagent_output")
+        # T14: the done gate's fires, let-throughs and owner waivers count for one element
+        for kind in ("done-gate", "done-unproven", "done-waiver", "gate-waiver"):
+            self.assertEqual(e("done_gate", kind, "warn", False), "done_gate", kind)
+        self.assertEqual(e("guard_gates", "gate-waiver", "deny", True), "done_gate")
+        self.assertEqual(e("done_gate"), "done_gate")

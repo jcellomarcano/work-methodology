@@ -1,27 +1,161 @@
 {
   "_comment": "Activation policy (odd/research/context/activation.md section 3; lib/activation.py). matrix: per kit element, its mode in each profile bare|light|scripts|standard|full; OFF does not run, LOG is a silent ledger line, WARN is visible and does not stop, BLOCK denies, asks or sends back once (ON that only records = LOG, ON that prints = WARN). absolute: the elements that stay BLOCK in every profile, owner-only; the loader refuses a config that drops one or lowers its mode. roles_cap: the roles the router may pick inside a profile (not yet wired into the router). thresholds: the promote/demote rule of activation.md section 4; changing one needs a change card. The hooks read this file beside project.json (or METODO_ACTIVATION_CONFIG); without it hook modes are exactly rdd.hook_modes, then rdd.mode, then warn.",
   "version": 1,
-  "absolute": ["subagent_build_files", "force_push", "subagent_delivery", "budget_deny", "main_build_file_ask"],
+  "absolute": [
+    "subagent_build_files",
+    "force_push",
+    "subagent_delivery",
+    "budget_deny",
+    "main_build_file_ask"
+  ],
   "matrix": {
-    "push_gate": {"bare": "OFF", "light": "OFF", "scripts": "WARN", "standard": "WARN", "full": "BLOCK"},
-    "history_rewrite": {"bare": "OFF", "light": "LOG", "scripts": "LOG", "standard": "LOG", "full": "LOG"},
-    "subagent_scope": {"bare": "OFF", "light": "OFF", "scripts": "LOG", "standard": "LOG", "full": "BLOCK"},
-    "subagent_output": {"bare": "OFF", "light": "OFF", "scripts": "BLOCK", "standard": "BLOCK", "full": "BLOCK"},
-    "touched_paths": {"bare": "OFF", "light": "LOG", "scripts": "LOG", "standard": "LOG", "full": "LOG"},
-    "session_start_status": {"bare": "OFF", "light": "WARN", "scripts": "WARN", "standard": "WARN", "full": "WARN"},
-    "reply_lint": {"bare": "OFF", "light": "OFF", "scripts": "OFF", "standard": "OFF", "full": "OFF"},
-    "human_reply_skill": {"bare": "OFF", "light": "OFF", "scripts": "OFF", "standard": "OFF", "full": "WARN"},
-    "roles": {"bare": "OFF", "light": "OFF", "scripts": "WARN", "standard": "WARN", "full": "WARN"},
-    "comment_gate": {"bare": "OFF", "light": "OFF", "scripts": "WARN", "standard": "WARN", "full": "WARN"},
-    "docs_caps": {"bare": "OFF", "light": "BLOCK", "scripts": "BLOCK", "standard": "BLOCK", "full": "BLOCK"},
-    "test_sectors": {"bare": "OFF", "light": "OFF", "scripts": "BLOCK", "standard": "BLOCK", "full": "BLOCK"},
-    "kit_status_drift": {"bare": "BLOCK", "light": "BLOCK", "scripts": "BLOCK", "standard": "BLOCK", "full": "BLOCK"},
-    "router": {"bare": "WARN", "light": "WARN", "scripts": "WARN", "standard": "WARN", "full": "WARN"},
-    "subagent_build_files": {"bare": "BLOCK", "light": "BLOCK", "scripts": "BLOCK", "standard": "BLOCK", "full": "BLOCK"},
-    "force_push": {"bare": "BLOCK", "light": "BLOCK", "scripts": "BLOCK", "standard": "BLOCK", "full": "BLOCK"},
-    "subagent_delivery": {"bare": "BLOCK", "light": "BLOCK", "scripts": "BLOCK", "standard": "BLOCK", "full": "BLOCK"},
-    "budget_deny": {"bare": "BLOCK", "light": "BLOCK", "scripts": "BLOCK", "standard": "BLOCK", "full": "BLOCK"},
-    "main_build_file_ask": {"bare": "BLOCK", "light": "BLOCK", "scripts": "BLOCK", "standard": "BLOCK", "full": "BLOCK"}
+    "push_gate": {
+      "bare": "OFF",
+      "light": "OFF",
+      "scripts": "WARN",
+      "standard": "WARN",
+      "full": "BLOCK"
+    },
+    "history_rewrite": {
+      "bare": "OFF",
+      "light": "LOG",
+      "scripts": "LOG",
+      "standard": "LOG",
+      "full": "LOG"
+    },
+    "subagent_scope": {
+      "bare": "OFF",
+      "light": "OFF",
+      "scripts": "LOG",
+      "standard": "LOG",
+      "full": "BLOCK"
+    },
+    "subagent_output": {
+      "bare": "OFF",
+      "light": "OFF",
+      "scripts": "BLOCK",
+      "standard": "BLOCK",
+      "full": "BLOCK"
+    },
+    "touched_paths": {
+      "bare": "OFF",
+      "light": "LOG",
+      "scripts": "LOG",
+      "standard": "LOG",
+      "full": "LOG"
+    },
+    "session_start_status": {
+      "bare": "OFF",
+      "light": "WARN",
+      "scripts": "WARN",
+      "standard": "WARN",
+      "full": "WARN"
+    },
+    "reply_lint": {
+      "bare": "OFF",
+      "light": "OFF",
+      "scripts": "OFF",
+      "standard": "OFF",
+      "full": "OFF"
+    },
+    "human_reply_skill": {
+      "bare": "OFF",
+      "light": "OFF",
+      "scripts": "OFF",
+      "standard": "OFF",
+      "full": "WARN"
+    },
+    "roles": {
+      "bare": "OFF",
+      "light": "OFF",
+      "scripts": "WARN",
+      "standard": "WARN",
+      "full": "WARN"
+    },
+    "comment_gate": {
+      "bare": "OFF",
+      "light": "OFF",
+      "scripts": "WARN",
+      "standard": "WARN",
+      "full": "WARN"
+    },
+    "docs_caps": {
+      "bare": "OFF",
+      "light": "BLOCK",
+      "scripts": "BLOCK",
+      "standard": "BLOCK",
+      "full": "BLOCK"
+    },
+    "test_sectors": {
+      "bare": "OFF",
+      "light": "OFF",
+      "scripts": "BLOCK",
+      "standard": "BLOCK",
+      "full": "BLOCK"
+    },
+    "kit_status_drift": {
+      "bare": "BLOCK",
+      "light": "BLOCK",
+      "scripts": "BLOCK",
+      "standard": "BLOCK",
+      "full": "BLOCK"
+    },
+    "router": {
+      "bare": "WARN",
+      "light": "WARN",
+      "scripts": "WARN",
+      "standard": "WARN",
+      "full": "WARN"
+    },
+    "subagent_build_files": {
+      "bare": "BLOCK",
+      "light": "BLOCK",
+      "scripts": "BLOCK",
+      "standard": "BLOCK",
+      "full": "BLOCK"
+    },
+    "force_push": {
+      "bare": "BLOCK",
+      "light": "BLOCK",
+      "scripts": "BLOCK",
+      "standard": "BLOCK",
+      "full": "BLOCK"
+    },
+    "subagent_delivery": {
+      "bare": "BLOCK",
+      "light": "BLOCK",
+      "scripts": "BLOCK",
+      "standard": "BLOCK",
+      "full": "BLOCK"
+    },
+    "budget_deny": {
+      "bare": "BLOCK",
+      "light": "BLOCK",
+      "scripts": "BLOCK",
+      "standard": "BLOCK",
+      "full": "BLOCK"
+    },
+    "main_build_file_ask": {
+      "bare": "BLOCK",
+      "light": "BLOCK",
+      "scripts": "BLOCK",
+      "standard": "BLOCK",
+      "full": "BLOCK"
+    },
+    "done_gate": {
+      "bare": "OFF",
+      "light": "OFF",
+      "scripts": "WARN",
+      "standard": "WARN",
+      "full": "WARN"
+    },
+    "tool_output_filter": {
+      "bare": "OFF",
+      "light": "LOG",
+      "scripts": "LOG",
+      "standard": "LOG",
+      "full": "LOG"
+    }
   },
   "notes": {
     "push_gate": "main session, no approved receipt; full asks; light is OFF because an exempt receipt is born approved",
@@ -33,15 +167,33 @@
     "docs_caps": "light: BLOCK at finalize",
     "test_sectors": "scripts and standard: touched sectors; full: full_required; M5: OFF without a Gradle build",
     "kit_status_drift": "only when kit_repo (modifier kit_repo false makes it OFF)",
-    "router": "bare and light: when launching; otherwise ON"
+    "router": "bare and light: when launching; otherwise ON",
+    "done_gate": "never BLOCK by profile (D2): a rule blocks only when done-gate.json sets it",
+    "tool_output_filter": "LOG and above: long Bash outputs are replaced by a summary; bare: untouched"
   },
   "roles_cap": {
     "bare": [],
     "light": [],
-    "scripts": ["generic-mechanic", "generic-proposer"],
-    "standard": ["generic-mechanic", "generic-proposer", "generic-challenger", "generic-verifier"],
-    "full": ["generic-mechanic", "generic-proposer", "generic-challenger", "generic-verifier", "generic-blind-spot-adversary",
-             "generic-judge", "generic-boundary-reviewer", "generic-cartographer"]
+    "scripts": [
+      "generic-mechanic",
+      "generic-proposer"
+    ],
+    "standard": [
+      "generic-mechanic",
+      "generic-proposer",
+      "generic-challenger",
+      "generic-verifier"
+    ],
+    "full": [
+      "generic-mechanic",
+      "generic-proposer",
+      "generic-challenger",
+      "generic-verifier",
+      "generic-blind-spot-adversary",
+      "generic-judge",
+      "generic-boundary-reviewer",
+      "generic-cartographer"
+    ]
   },
   "thresholds": {
     "min_days": 7,

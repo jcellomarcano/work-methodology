@@ -4,7 +4,11 @@ PostToolUse Bash only logs. Absolute: `git push --force` without lease is
 always denied; a subagent never pushes, opens a PR, merges, tags, or
 opens/closes/acknowledges receipts. Non-absolute (RDD): in the main session a
 push/PR/merge without an approved receipt for the pushed tree warns or asks
-(block); --no-verify, --amend and rebase are only logged."""
+(block); --no-verify, --amend and rebase are only logged.
+
+A done-gate waiver (bin/done-waive.sh, T14) is the owner's: a subagent is
+denied and the main session's agent always gets an ask, RDD on or off, so a
+waiver is never self-granted silently."""
 from __future__ import annotations
 
 import re
@@ -29,7 +33,10 @@ GATES = (
     ("gate-merge", re.compile(GIT + r"merge\b")),
     ("gate-tag", re.compile(GIT + r"tag\s+(?!-l|--list)(-a|-s|-m|-f|[A-Za-z0-9])")),
     ("gate-receipt", re.compile(PREFIX + r"(?:python3?\s+)?\S*rdd_receipt\.py\s+(?:--\S+\s+\S+\s+)*(start|finalize|acknowledge)\b")),
+    ("gate-waiver", re.compile(PREFIX + r"(?:(?:ba)?sh\s+)?(?:\S*/)?done-waive(?:\.sh)?(?:\s|$)")),
 )
+WAIVER_REASON = ("a done-gate waiver is the owner's step (bin/done-waive.sh from the owner's terminal); "
+                 "confirm only if the owner asked for this waiver, it is recorded with their email")
 LOG_ONLY = (
     ("no-verify", re.compile(GIT + r"(?:push|commit)\b.*--no-verify")),
     ("amend", re.compile(GIT + r"commit\b.*--amend")),
@@ -115,9 +122,20 @@ def main() -> int:
         return 0
 
     if subagent:
-        if event == "PreToolUse":
+        if event == "PreToolUse" and "gate-waiver" in kinds:
+            c.ledger(inp, HOOK, "gate-waiver", "deny", "block", "subagents never waive a done-gate rule")
+            c.emit_pretool("deny", "A done-gate waiver is the owner's: report the unproven rule in your output.")
+        elif event == "PreToolUse":
             c.ledger(inp, HOOK, kinds[0], "deny", "block", "subagents never deliver or open/close receipts")
             c.emit_pretool("deny", "Delivery (push, PR, merge, tag) and receipt start/finalize/acknowledge are the owner's: report it in your output.")
+        return 0
+
+    if "gate-waiver" in kinds:
+        if event == "PreToolUse":
+            c.ledger(inp, HOOK, "gate-waiver", "ask", "block", "owner gate")
+            c.emit_pretool("ask", WAIVER_REASON)
+        else:
+            c.ledger(inp, HOOK, "gate-waiver-outcome", "ran", "block", "")
         return 0
 
     config = c.load_config()

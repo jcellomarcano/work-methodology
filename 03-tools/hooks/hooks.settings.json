@@ -1,5 +1,5 @@
 {
-  "_comment": "The kit's hook entries for <repo>/.claude/settings.local.json. Merged in by lib/settings_merge.py, which substitutes __TOOLS_DEFAULT__ and recognizes its own entries by the ': metodo-hook;' marker. validate_subagent_output does not go here: it travels in each schema-bearing role's frontmatter.",
+  "_comment": "The kit's hook entries for <repo>/.claude/settings.local.json. Merged in by lib/settings_merge.py, which substitutes __TOOLS_DEFAULT__ and recognizes its own entries by the ': metodo-hook;' marker. validate_subagent_output does not go here: it travels in each schema-bearing role's frontmatter. done_gate runs on Stop and on every SubagentStop and filters the writer roles itself (no documented agent-type matcher is cited in the kit); its timeout is 30 s because it runs docs_lint, kit-status --check and cite_check.",
   "hooks": {
     "PreToolUse": [
       {"matcher": "Edit|Write|MultiEdit", "hooks": [{"type": "command", "timeout": 10,
@@ -18,6 +18,14 @@
         "command": ": metodo-hook; H=\"${METODO_TOOLS:-__TOOLS_DEFAULT__}/hooks\"; [ -f \"$H/touched_paths.py\" ] || exit 0; exec python3 \"$H/touched_paths.py\""}]},
       {"matcher": "mcp__metodo__output_write", "hooks": [{"type": "command", "timeout": 10,
         "command": ": metodo-hook; H=\"${METODO_TOOLS:-__TOOLS_DEFAULT__}/hooks\"; [ -f \"$H/output_author.py\" ] || exit 0; exec python3 \"$H/output_author.py\""}]}
+    ],
+    "Stop": [
+      {"matcher": "", "hooks": [{"type": "command", "timeout": 30,
+        "command": ": metodo-hook; H=\"${METODO_TOOLS:-__TOOLS_DEFAULT__}/hooks\"; [ -f \"$H/done_gate.py\" ] || exit 0; exec python3 \"$H/done_gate.py\""}]}
+    ],
+    "SubagentStop": [
+      {"matcher": "", "hooks": [{"type": "command", "timeout": 30,
+        "command": ": metodo-hook; H=\"${METODO_TOOLS:-__TOOLS_DEFAULT__}/hooks\"; [ -f \"$H/done_gate.py\" ] || exit 0; exec python3 \"$H/done_gate.py\""}]}
     ],
     "SessionStart": [
       {"matcher": "startup|resume|compact|clear", "hooks": [{"type": "command", "timeout": 10,

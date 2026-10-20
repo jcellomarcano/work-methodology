@@ -54,7 +54,7 @@ PHASES = ("explore", "edit", "deliver")
 
 ELEMENTS = ("push_gate", "history_rewrite", "subagent_scope", "subagent_output", "touched_paths",
             "session_start_status", "reply_lint", "human_reply_skill", "roles", "comment_gate", "docs_caps",
-            "test_sectors", "kit_status_drift", "router")
+            "test_sectors", "kit_status_drift", "router", "done_gate", "tool_output_filter")
 ABSOLUTE = ("subagent_build_files", "force_push", "subagent_delivery", "budget_deny", "main_build_file_ask")
 MAIN_ONLY = ("push_gate", "session_start_status", "reply_lint", "human_reply_skill")
 MODIFIER_KEYS = ("caller", "runtime", "offline", "gradle", "kit_repo", "verdicts")

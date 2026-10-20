@@ -1,5 +1,7 @@
 {
   "_comment": "Thresholds and lists for output_lint.py (COM-xx rules from 07-communication/rules.md). Changing a threshold is a change that needs a change card. Lists are compared in lowercase except epistemic_tags. The owner's personal terms do NOT live here: they go in output-lint.personal.json (not portable, out of client repos).",
+  "com20_status": "WARN",
+  "_com20_comment": "COM-20 (T14): a done claim (lib/done_check.detect_claims) without a pasted DONE-GATE block. Ships WARN (D2, warn first); FAIL needs a change card.",
   "thresholds": {
     "two_layers_min_lines": 12,
     "max_top_level_bullets": 5,

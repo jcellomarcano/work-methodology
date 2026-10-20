@@ -35,6 +35,10 @@ EXPECTED_MATRIX = {
     "test_sectors": ("OFF", "OFF", "BLOCK", "BLOCK", "BLOCK"),
     "kit_status_drift": ("BLOCK", "BLOCK", "BLOCK", "BLOCK", "BLOCK"),
     "router": ("WARN", "WARN", "WARN", "WARN", "WARN"),
+    # T14 (WU17, D2): the done gate warns from scripts up; a profile never makes it BLOCK (blocking is per rule)
+    "done_gate": ("OFF", "OFF", "WARN", "WARN", "WARN"),
+    # T11 follow-up (L10): OFF only in bare; in the others the filter replaces long outputs
+    "tool_output_filter": ("OFF", "LOG", "LOG", "LOG", "LOG"),
 }
 ABSOLUTE = ("subagent_build_files", "force_push", "subagent_delivery", "budget_deny", "main_build_file_ask")
 
@@ -110,8 +114,8 @@ class MatrixLookups(unittest.TestCase):
         config = act.validate_config(data)
         self.assertEqual(set(config["matrix"]), set(EXPECTED_MATRIX) | set(ABSOLUTE))
 
-    def test_fourteen_elements_match_activation_md(self):
-        self.assertEqual(len(EXPECTED_MATRIX), 14)
+    def test_sixteen_elements_match_activation_md_plus_t14(self):
+        self.assertEqual(len(EXPECTED_MATRIX), 16)
         self.assertEqual(tuple(act.ELEMENTS), tuple(EXPECTED_MATRIX))
         for element, row in EXPECTED_MATRIX.items():
             for profile, mode in zip(PROFILES, row):
@@ -338,3 +342,9 @@ class Cli(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DoneGateNeverBlocksByProfile(unittest.TestCase):
+    def test_done_gate_is_never_block_in_any_profile(self):
+        for profile in PROFILES:
+            self.assertNotEqual(act.element_mode(profile, "done_gate"), "BLOCK", profile)

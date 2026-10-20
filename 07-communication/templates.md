@@ -45,6 +45,7 @@ Unlike the deli, here the second time takes a seat someone else needed.
 
 Siguiente paso: <the concrete action and when>
 No probado: <what has not been verified yet>
+DONE-GATE: BLOCK 0 · FLAG 0 · tree <sha7> · tool <sha7>
 
 ## Detalle técnico
 - <commit, branch, test, measurement> [Probado]

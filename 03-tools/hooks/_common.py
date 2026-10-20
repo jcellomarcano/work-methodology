@@ -90,7 +90,8 @@ def rdd_enabled(config: dict) -> bool:
 
 # T8 (WU14): the activation element each non-absolute hook's mode stands for.
 HOOK_ELEMENT = {"guard_gates": "push_gate", "guard_paths": "subagent_scope",
-                "validate_subagent_output": "subagent_output", "reply_lint": "reply_lint"}
+                "validate_subagent_output": "subagent_output", "reply_lint": "reply_lint",
+                "done_gate": "done_gate", "tool_output_filter": "tool_output_filter"}
 # The warn kinds each hook emits, so a profile OFF/LOG keeps that hook's warn silent.
 WARN_KIND_HOOK = (("scope-outside", "guard_paths"), ("gate-", "guard_gates"))
 _SILENT_HOOKS: set = set()
@@ -301,6 +302,15 @@ def emit_stop_block(reason: str) -> None:
     print(json.dumps({"decision": "block", "reason": reason}, ensure_ascii=False))
 
 
+def emit_stop_message(text: str) -> None:
+    """The visible WARN of a Stop-family event: `systemMessage`, the field the
+    Stop events document for a message shown to the user (context-method.md
+    section 5, "Stop events: systemMessage to the owner"). It never stops
+    anything: the turn is already over."""
+    _RUN["shown"].append("warn")
+    print(json.dumps({"systemMessage": text}, ensure_ascii=False))
+
+
 # T9 (WU9): run counters and latency. One `run` line per hook invocation in
 # out/hooks/<session>/hook-runs.jsonl, beside the ledger (whose lines and seq
 # stay exactly as before). hooks_report reads it for the fire rate (fires over
@@ -319,11 +329,13 @@ KIND_ELEMENT = {"force-push": "force_push", "budget-deny": "budget_deny", "budge
                 "delegate-writer": "main_session_guard", "output-invalid": "subagent_output",
                 "output-truncated": "subagent_output", "output-fenced": "subagent_output",
                 "report-over-cap": "subagent_output", "context-over-cap": "subagent_output",
-                "reply-lint": "reply_lint", "session-start": "session_start_status", "output-authored": "output_author"}
+                "reply-lint": "reply_lint", "session-start": "session_start_status", "output-authored": "output_author",
+                "done-gate": "done_gate", "done-unproven": "done_gate", "done-waiver": "done_gate",
+                "gate-waiver": "done_gate"}
 HOOK_DEFAULT_ELEMENT = {"budget": "budget_deny", "guard_gates": "push_gate", "guard_paths": "subagent_scope",
                         "validate_subagent_output": "subagent_output", "reply_lint": "reply_lint",
                         "touched_paths": "touched_paths", "session_start_status": "session_start_status",
-                        "output_author": "output_author"}
+                        "output_author": "output_author", "done_gate": "done_gate"}
 
 
 def element_for(hook: str | None, kind: str | None = None, decision: str | None = None, subagent: bool = False) -> str:

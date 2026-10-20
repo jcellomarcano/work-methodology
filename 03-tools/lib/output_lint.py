@@ -44,6 +44,27 @@ _WORD = re.compile(r"[a-záéíóúñüàèòçäöß]+", re.IGNORECASE)
 _TAG = re.compile(r"\[([A-ZÁÉÍÓÚ][a-záéíóúñ]+)(?:[ :][^\]]*)?\]")
 _QUOTED = re.compile(r"\"[^\"\n]*\"|`[^`\n]*`")
 _TABLE_SEP = re.compile(r"^\s*\|?\s*:?-{3,}")
+# COM-20: the header line lib/done_check.py prints first in its flag block.
+_DONE_GATE_HEADER = re.compile(r"(?m)^\s*DONE-GATE: BLOCK \d+ \u00b7 FLAG \d+ \u00b7 tree ")
+COM20_FIX = ("run mcp__metodo__done_check on this reply and paste its DONE-GATE block verbatim "
+             "(done-gate.md section 4)")
+_DONE_GATE_CONFIG: dict | None = None
+
+
+def _done_claims(text: str) -> list[str] | None:
+    """The done gate's own claim detector (DONE-01) over the reply, or None
+    when lib/done_check.py or its config cannot be loaded."""
+    global _DONE_GATE_CONFIG
+    try:
+        root = str(Path(__file__).resolve().parent.parent)
+        if root not in sys.path:
+            sys.path.insert(0, root)
+        from lib import done_check
+        if _DONE_GATE_CONFIG is None:
+            _DONE_GATE_CONFIG = done_check.load_config(done_check.DEFAULT_CONFIG)
+        return done_check.detect_claims(text, _DONE_GATE_CONFIG)
+    except (ImportError, OSError, ValueError):
+        return None
 
 
 def _sha(path: Path) -> str:
@@ -313,6 +334,19 @@ def check(text: str, config: dict, kind: str | None = None, lang: str | None = N
         human_text = " ".join(l for _, l in human).lower()
         hidden = [(n, l, m) for n, l in technical for m in [_contains_any(l, irreversible)] if m and m not in human_text]
         rules.append(_rule("COM-18", "FAIL" if hidden else "PASS", "script", [_evidence(n, l) for n, l, _ in hidden], ("only in the technical layer: " + ", ".join(sorted({m for _, _, m in hidden}))) if hidden else ""))
+
+    # COM-20 a done claim carries the done gate's block (status from config: WARN first, D2)
+    claims = _done_claims(text)
+    if claims is None:
+        rules.append(_rule("COM-20", "SKIP", "script", [], "lib/done_check.py or config/done-gate.json not loadable"))
+    elif not claims:
+        rules.append(_rule("COM-20", "SKIP", "script", [], "no done claim"))
+    elif _DONE_GATE_HEADER.search(text):
+        rules.append(_rule("COM-20", "PASS", "script", [], "claims: " + ", ".join(claims)))
+    else:
+        status = config.get("com20_status", "WARN")
+        rules.append(_rule("COM-20", status if status in ("WARN", "FAIL") else "WARN", "script", [],
+                           f"done claim ({', '.join(claims)}) without a DONE-GATE block: {COM20_FIX}"))
 
     for rule_id in sorted(PROPOSED):
         rules.append(_rule(rule_id, "SKIP", "reviewer", [], PROPOSED[rule_id]))

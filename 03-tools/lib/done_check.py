@@ -35,11 +35,14 @@ timeout):
 "After the last edit" is the worktree fingerprint of lib/run_check.py: a run
 proves the current tree only if its worktree_sha equals the current one.
 
-Owner waivers are read, never written here (`--waive` is the owner's step):
-one JSON line {"kind": "done-waiver", "rule": "DONE-xx", "tree_sha": ...,
-"worktree_sha": ..., "reason": ..., "email": ...}. It applies while
-worktree_sha equals the current one (without worktree_sha: tree_sha equal on
-a clean tree); the block then shows `WAIVED by <email>: <reason>`.
+Owner waivers are read here, never written by this CLI (`--waive` is
+refused): bin/done-waive.sh (waive_main) is the owner's step, and
+hooks/guard_gates.py asks the owner (main session) or denies (subagent)
+before an agent runs it. One JSON line {"kind": "done-waiver", "rule":
+"DONE-xx", "tree_sha": ..., "worktree_sha": ..., "reason": ..., "email": ...}.
+It applies while worktree_sha equals the current one (without worktree_sha:
+tree_sha equal on a clean tree); the block then shows
+`WAIVED by <email>: <reason>`.
 
 Output: sorted JSON (schemas/done-check-output.schema.json), same inputs
 same bytes. Exit 0 when no unwaived BLOCK, 1 on any, 2 usage.
@@ -772,13 +775,16 @@ def load_config(path: Path) -> dict:
     return config
 
 
-def run(args) -> tuple[dict, int]:
+def run(args, reply: str | None = None) -> tuple[dict, int]:
+    """`reply` given: the text itself (the Stop hook's last message), not --reply."""
     config_path = Path(args.config)
     try:
         config = load_config(config_path)
     except (OSError, ValueError) as exc:
         raise UsageError(f"cannot read the config: {exc}")
-    if args.reply == "-":
+    if reply is not None:
+        pass
+    elif args.reply == "-":
         reply = sys.stdin.read()
     elif args.reply:
         try:
@@ -811,6 +817,71 @@ def run(args) -> tuple[dict, int]:
     payload = dict(base, repo_sha=g.fp["head_sha"], tree_sha=g.fp["tree_sha"], worktree_sha=g.fp["worktree_sha"],
                    repo_dirty=g.fp["dirty"], claims=claims, verdict=verdict, counts=counts, rules=rules, flag_block=block)
     return payload, 1 if counts["BLOCK"] else 0
+
+
+# --------------------------------------------------------------------------- owner waiver (bin/done-waive.sh)
+
+SESSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+
+
+def _latest_session(hooks: Path) -> str | None:
+    """The session whose ledger or run-meta changed last, or None."""
+    best = None
+    for sdir in hooks.glob("*") if hooks.is_dir() else []:
+        stamps = [f.stat().st_mtime for f in (sdir / "ledger.jsonl", sdir / "run-meta.json") if f.is_file()]
+        if stamps and (best is None or (max(stamps), sdir.name) > best):
+            best = (max(stamps), sdir.name)
+    return best[1] if best else None
+
+
+def waive_main(argv: list[str] | None = None) -> int:
+    """bin/done-waive.sh DONE-xx --reason "..." [--session S] [--repo R] [--hooks-dir D]:
+    appends one owner waiver to out/hooks/<session>/ledger.jsonl, bound to the
+    current tree_sha and worktree_sha. Exit 0 written, 2 usage (nothing written)."""
+    p = argparse.ArgumentParser(prog="done-waive.sh", description=waive_main.__doc__)
+    p.add_argument("rule")
+    p.add_argument("--reason", required=True)
+    p.add_argument("--session")
+    p.add_argument("--repo", default=".")
+    p.add_argument("--hooks-dir")
+    try:
+        args = p.parse_args(argv)
+    except SystemExit as exc:
+        return exc.code if isinstance(exc.code, int) else 2
+    try:
+        if args.rule not in RULE_IDS or args.rule == "DONE-01":
+            raise UsageError(f"{args.rule}: waive one of DONE-02..DONE-17")
+        reason = " ".join(args.reason.split())
+        if not reason:
+            raise UsageError("--reason must say why (it is shown in every DONE-GATE block)")
+        root = run_check.repo_root(Path(args.repo)) if Path(args.repo).is_dir() else None
+        if root is None:
+            raise UsageError(f"{args.repo} is not a git repo")
+        hooks = Path(args.hooks_dir or os.environ.get("METODO_HOOKS_DIR") or TOOLS_ROOT / "out" / "hooks")
+        session = args.session or _latest_session(hooks)
+        if not session:
+            raise UsageError(f"no session under {hooks}: pass --session <id>")
+        if not SESSION_RE.match(session):
+            raise UsageError(f"bad session id {session!r}")
+    except UsageError as exc:
+        print(f"done-waive: {exc}", file=sys.stderr)
+        return 2
+    fp = run_check.worktree_fingerprint(root)
+    email = subprocess.run(["git", "-C", str(root), "config", "user.email"], capture_output=True, text=True,
+                           timeout=30).stdout.strip() or "unknown"
+    sdir = hooks / session
+    sdir.mkdir(parents=True, exist_ok=True)
+    ledger = sdir / "ledger.jsonl"
+    seq = sum(1 for _ in ledger.open("r", encoding="utf-8")) + 1 if ledger.exists() else 1
+    record = {"seq": seq, "hook": "done_waive", "event": None, "agent_type": None, "agent_id": None, "tool": None,
+              "kind": "done-waiver", "decision": "waive", "mode": "owner", "reason": reason, "path": None,
+              "tree": fp["tree_sha"], "receipt": None, "rule": args.rule, "tree_sha": fp["tree_sha"],
+              "worktree_sha": fp["worktree_sha"], "email": email}
+    with ledger.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+    print(f"done-waive: {args.rule} waived by {email} on worktree {fp['worktree_sha'][:12]} "
+          f"(session {session}); it dies when the tree changes")
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:

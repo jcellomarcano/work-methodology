@@ -32,6 +32,11 @@ Siguiente paso: cerrar la pantalla de resumen y pedir el banco para el jueves.
 
 No probado: el arranque en frío con red caída.
 
+```text
+DONE-GATE: BLOCK 0 · FLAG 1 · tree a1b2c3d · tool 9f8e7d6
+- DONE-03 FLAG no failing run of sector app recorded · fix: rerun the new test against the old code
+```
+
 ## Detalle técnico
 
 - Repositorio en `BookingRepo.kt:41-88` @ a1b2c3d, con test de idempotencia [Probado]
@@ -57,6 +62,7 @@ class CleanSampleTests(unittest.TestCase):
         self.assertEqual(result["verdict"], "PASS", result)
         for rule_id in ("COM-01", "COM-02", "COM-03", "COM-04", "COM-05", "COM-06", "COM-08", "COM-09", "COM-10", "COM-11", "COM-12", "COM-14", "COM-15", "COM-18"):
             self.assertIn(status(result, rule_id), ("PASS", "WARN"), rule_id)
+        self.assertEqual(status(result, "COM-20"), "PASS")  # "Hecho" and "verdes" are claims; the block is pasted
 
     def test_proposed_rules_are_skip_with_reviewer_detector(self):
         result = output_lint.check(CLEAN_ESTADO, CONFIG)
@@ -77,6 +83,8 @@ class CleanSampleTests(unittest.TestCase):
         for kind, body in blocks:
             result = output_lint.check(body, CONFIG, kind=kind, lang="en", audience="public", personal_terms=PERSONAL)
             self.assertEqual(result["verdict"], "PASS", (kind, [r for r in result["rules"] if r["status"] == "FAIL"]))
+            if kind == "estado":  # the status skeleton claims done, so it models COM-20 with a pasted block
+                self.assertEqual(status(result, "COM-20"), "PASS", body)
 
 
 class RuleTests(unittest.TestCase):
@@ -234,6 +242,34 @@ class RuleTests(unittest.TestCase):
         surfaced = "Se borró la tabla antigua sin copia: 40.000 recibos ya no existen (drop table).\n\nSiguiente paso: decidir si se restaura.\nNo probado: nada nuevo.\n" + TECH + "- Se ejecutó DROP TABLE bookings_legacy sin copia [Medido]\n"
         self.assertEqual(status(output_lint.check(surfaced, CONFIG, kind="estado"), "COM-18"), "PASS")
         self.assertEqual(status(output_lint.check("Respuesta.\n", CONFIG), "COM-18"), "SKIP")
+
+    def test_com20_no_done_claim_is_skip(self):
+        result = output_lint.check("¿Prefieres la opción A o la B?\n", CONFIG)
+        self.assertEqual(status(result, "COM-20"), "SKIP")
+        self.assertIn("no done claim", rule(result, "COM-20")["note"])
+
+    def test_com20_claim_without_the_done_gate_block_warns_first_with_the_fix(self):
+        # D2: shipped as WARN (output-lint.json com20_status); the verdict stays PASS
+        result = output_lint.check("Listo: el cambio está hecho y los tests pasan.\n", CONFIG)
+        entry = rule(result, "COM-20")
+        self.assertEqual(entry["status"], "WARN")
+        self.assertIn("mcp__metodo__done_check", entry["note"])
+        self.assertIn("DONE-GATE", entry["note"])
+        self.assertEqual(result["verdict"], "PASS")
+
+    def test_com20_fails_when_the_config_says_fail(self):
+        config = dict(CONFIG, com20_status="FAIL")
+        result = output_lint.check("Done: all tests pass.\n", config)
+        self.assertEqual(status(result, "COM-20"), "FAIL")
+        self.assertEqual(result["verdict"], "FAIL")
+        pasted = "Done: all tests pass.\n\nDONE-GATE: BLOCK 0 · FLAG 0 · tree a1b2c3d · tool 9f8e7d6\n"
+        self.assertEqual(status(output_lint.check(pasted, config), "COM-20"), "PASS")
+
+    def test_com20_a_block_header_must_be_the_real_one(self):
+        # negative control: naming the gate is not pasting its block
+        config = dict(CONFIG, com20_status="FAIL")
+        result = output_lint.check("Done. The DONE-GATE: said nothing.\n", config)
+        self.assertEqual(status(result, "COM-20"), "FAIL")
 
     def test_allow_downgrades_fail_to_warn_and_records_it(self):
         steps = "Respuesta.\n" + "\n".join(f"- punto {i}" for i in range(7))

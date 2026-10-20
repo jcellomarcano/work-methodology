@@ -96,6 +96,8 @@ bin/run-check.sh <name> [--runs-dir DIR] [--cwd DIR] -- <command...>   # runs a 
                                          # one line in out/runs/runs.jsonl: the only "green" proof the done gate accepts
 python3 lib/done_check.py --repo <repo> --reply <file|-> [--task F] [--card F] [--tier T] [--waivers F] [--format block]
                                          # DONE-01..17 + a DONE-GATE: block to paste verbatim; exit 1 on BLOCK (MCP done_check)
+bin/done-waive.sh DONE-xx --reason "..." [--session S] [--repo R]   # owner waiver into the session ledger, bound to
+                                         # the current worktree (dies on any edit); an agent running it is asked or denied
 python3 lib/activation.py --tier T [--task-kind K] [--runtime claude|pi] [--caller main|subagent] [--offline]
                           [--session S]   # profile bare|light|scripts|standard|full + element modes (JSON)
 python3 -m unittest discover tests

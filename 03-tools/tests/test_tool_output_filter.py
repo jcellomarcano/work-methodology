@@ -198,6 +198,36 @@ class NotFiltered(ToolOutputFixture):
         self.assertEqual(_git(self.repo, "status", "--porcelain"), before)
 
 
+class ActivationMode(ToolOutputFixture):
+    """L10 follow-up: the filter honors hook_mode; OFF passes the output through untouched."""
+
+    def with_tier(self, tier):
+        import shutil
+        from tests.test_hooks import TOOLS_ROOT
+        shutil.copyfile(TOOLS_ROOT / "config" / "activation.json", self.tmp / "activation.json")
+        self.write_receipt(verdict=None, state="started")
+        path = self.rdd_dir / f"{self.tree}.receipt.json"
+        receipt = json.loads(path.read_text(encoding="utf-8"))
+        receipt["risk"]["tier"] = tier
+        path.write_text(json.dumps(receipt), encoding="utf-8")
+
+    def test_owner_hook_mode_off_passes_through(self):
+        self.set_config(enabled=True, mode="warn", hook_modes={"tool_output_filter": "off"})
+        self.assertEqual(self.bash(long_output()), {})
+        self.assertFalse((self.hooks_dir / "s1" / "outputs").exists())
+
+    def test_bare_profile_passes_through(self):
+        self.set_config(enabled=False)
+        self.with_tier("low")
+        self.assertEqual(self.bash(long_output()), {})
+        self.assertFalse((self.hooks_dir / "s1" / "outputs").exists())
+
+    def test_light_profile_still_filters(self):
+        self.with_tier("exempt")
+        updated = self.summary(self.bash(long_output()))
+        self.assertIn(FULL, updated["stdout"])
+
+
 class Registration(ToolOutputFixture):
     def test_claude_settings_run_it_on_post_tool_use_bash(self):
         entries = json.loads(SETTINGS.read_text(encoding="utf-8"))["hooks"]["PostToolUse"]

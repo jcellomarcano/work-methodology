@@ -46,8 +46,10 @@ const TOOL_NAMES: Record<string, string> = {
 	ls: "LS",
 };
 
-/** hooks/hooks.settings.json, PreToolUse and PostToolUse, in its order.
- * A matcher is an anchored regex over the Claude tool name; "" matches all. */
+/** hooks/hooks.settings.json, PreToolUse, PostToolUse, Stop and SubagentStop,
+ * in its order. A matcher is an anchored regex over the Claude tool name (the
+ * agent type on SubagentStop); "" matches all. Stop and SubagentStop run at
+ * agent_end (owner and subagent process). */
 export const HOOK_MATRIX: Record<string, { matcher: string; script: string }[]> = {
 	PreToolUse: [
 		{ matcher: "Edit|Write|MultiEdit", script: "guard_paths.py" },
@@ -60,6 +62,8 @@ export const HOOK_MATRIX: Record<string, { matcher: string; script: string }[]> 
 		{ matcher: "Edit|Write|MultiEdit", script: "touched_paths.py" },
 		{ matcher: "mcp__metodo__output_write", script: "output_author.py" },
 	],
+	Stop: [{ matcher: "", script: "done_gate.py" }],
+	SubagentStop: [{ matcher: "", script: "done_gate.py" }],
 };
 
 function scriptsFor(event: string, toolName: string): string[] {
@@ -202,6 +206,28 @@ function runRecorder(script: string, body: unknown): void {
 	}
 }
 
+/** Runs a Stop-family hook and returns its `systemMessage` (the visible
+ * WARN of a Stop event), or "". Its decision is never read: pi cannot send
+ * the agent back after agent_end, and the body says so (runtime_can_block). */
+function runStopMessage(script: string, body: unknown): string {
+	const path = join(HOOKS, script);
+	if (!existsSync(path)) return "";
+	try {
+		const proc = spawnSync("python3", [path], {
+			input: JSON.stringify(body),
+			encoding: "utf8",
+			timeout: 30000,
+			env: { ...process.env, METODO_TOOLS: TOOLS_ROOT, METODO_REPO: REPO_ROOT },
+		});
+		const out = (proc.stdout || "").trim();
+		if (!out.startsWith("{")) return "";
+		const message = JSON.parse(out).systemMessage;
+		return typeof message === "string" ? message.trim() : "";
+	} catch {
+		return "";
+	}
+}
+
 function lastAssistantText(messages: any[]): string {
 	for (let i = (messages?.length || 0) - 1; i >= 0; i--) {
 		const message = messages[i];
@@ -316,9 +342,32 @@ export default function (pi: ExtensionAPI) {
 				stop_hook_active: false,
 				runtime_can_block: false,
 			});
+			// T14: the done gate on SubagentStop (writer roles, filtered by the
+			// script); record-only here.
+			for (const script of scriptsFor("SubagentStop", agentType())) {
+				runRecorder(script, {
+					...payload(ctx, "SubagentStop", "", {}),
+					last_assistant_message: text,
+					stop_hook_active: false,
+					runtime_can_block: false,
+				});
+			}
 			return;
 		}
 		// The owner's reply is not linted at Stop time (owner decision D3): the
-		// human-reply skill runs the lint on demand.
+		// human-reply skill runs the lint on demand. The done gate (T14) runs as
+		// Stop; its DONE-GATE block reaches the owner's UI now and the model at
+		// the next turn, through the same queue as a warn.
+		for (const script of scriptsFor("Stop", "")) {
+			const message = runStopMessage(script, {
+				...payload(ctx, "Stop", "", {}),
+				last_assistant_message: text,
+				stop_hook_active: false,
+				runtime_can_block: false,
+			});
+			if (!message) continue;
+			queueWarn(message);
+			if (ctx.hasUI) ctx.ui.notify(message, "warning");
+		}
 	});
 }

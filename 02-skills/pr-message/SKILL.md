@@ -7,7 +7,7 @@ triggers:
   - open the pr
   - pr template
   - release pr
-allowed-tools: [Read, Agent, mcp__metodo__change_card_validate, mcp__metodo__benchmark_release, mcp__metodo__job_status, mcp__metodo__receipt_status]
+allowed-tools: [Read, Agent, mcp__metodo__change_card_validate, mcp__metodo__benchmark_release, mcp__metodo__job_status, mcp__metodo__receipt_status, mcp__metodo__done_check]
 ---
 
 **IRON LAW**: every skipped check (`--no-verify` or equivalent) goes in "What was NOT tested", never kept quiet.
@@ -21,7 +21,8 @@ allowed-tools: [Read, Agent, mcp__metodo__change_card_validate, mcp__metodo__ben
 1. `mcp__metodo__change_card_validate` with `card_path`; a FAIL blocks the message.
 2. If it is a release PR: `mcp__metodo__benchmark_release` with `ref_a=<lastTag>` and `ref_b=<candidate>`, and `mcp__metodo__job_status` until `done`.
 3. `mcp__metodo__receipt_status` on the repo: copy as-is into "What was NOT tested" whatever the receipt says was missing (`verdict_reasons`, missing captures, `skipped_no_credential` from `verify_sectors`, any `owner_ack` of delivery without a receipt) and any `--no-verify`; never summarize it.
-4. Draft the body in this order: **What and why** (in customer-facing language if it is a release PR), then a `<!-- -->` block with the card, the receipt's verdict, and the Benchmark section, then **What was NOT tested**.
+4. Write the final reply that hands over the PR to a file and run `mcp__metodo__done_check` on it (`reply_path`, `repo`, `session_dir` when known); paste its `flag_block` verbatim in that reply and copy every FLAG, BLOCK or WAIVED line into "What was NOT tested" (COM-20).
+5. Draft the body in this order: **What and why** (in customer-facing language if it is a release PR), then a `<!-- -->` block with the card, the receipt's verdict, and the Benchmark section, then **What was NOT tested**.
 
 ## Checklist
 

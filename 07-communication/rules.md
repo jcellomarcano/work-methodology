@@ -34,6 +34,7 @@ the methodology itself or from the adversarial round, not from an external sourc
 | COM-11 | **No repeating close.** No paragraph starting with `En resumen`, `Para concluir`, `In summary`, `To summarize`. | active | E24, E34, E43 |
 | COM-19 | **Verifiable citation.** Every `path:line[-line] @ sha` and every URL in the technical layer exists where it says; a `[Medido]` or `[Probado]` unit with no citation warns (`NO_CITATION`): it may be pasted output, but nobody checks it from here. That it exists does not prove it says what is claimed: that belongs to the verifier. | active: `03-tools/lib/cite_check.py --repo <repo>` (URLs only with `--online`, declared) | methodology §0; adversarial round B-02 |
 | COM-18 | **The irreversible rises.** A term from `irreversible_terms` (deletion with no copy, drop table, force push, double booking, data loss...) that appears in the technical layer also appears in the human layer. | active (per-term heuristic) | adversarial round B-01; why-layer §4 |
+| COM-20 | **A done claim carries its proof.** A reply that says done, green, committed or delivered (the done gate's own detector, `done_check.detect_claims`) pastes the `DONE-GATE:` block of `mcp__metodo__done_check` verbatim; no claim, SKIP. Status from `com20_status` (WARN first, D2; FAIL by card). | active | done-gate.md §4; methodology §0 |
 
 ## Analogies
 

@@ -269,6 +269,47 @@ class OutputValidatedOnClose(PiExtensionFixture):
         self.assertEqual([l for l in self.pi_ledger() if l["hook"] == "reply_lint"], [])
 
 
+class DoneGateOnAgentEnd(PiExtensionFixture):
+    """T14: done_gate.py runs at agent_end, as Stop (owner) and SubagentStop
+    (writer roles) do on Claude Code. pi cannot send the agent back after
+    agent_end, so it records only (runtime_can_block false); the owner's
+    DONE-GATE block is handed to the next turn like a warn."""
+
+    START = {"event": "before_agent_start", "payload": {"prompt": "next", "systemPrompt": "no marker"}}
+
+    def setUp(self):
+        super().setUp()
+        (self.repo / "app" / "Foo.kt").write_text("class Foo { val x = 1 }\n", encoding="utf-8")
+
+    def gate_lines(self):
+        return [l for l in self.pi_ledger() if l["hook"] == "done_gate"]
+
+    def test_owner_claim_is_ledgered_and_reaches_the_next_turn(self):
+        out = self.run_ext([self.end("Done."), self.START], has_ui=True)
+        line = self.gate_lines()[-1]
+        self.assertEqual((line["event"], line["kind"], line["decision"]), ("Stop", "done-gate", "warn"))
+        self.assertTrue(out["results"][1]["message"]["content"].startswith("DONE-GATE: "), out["results"][1])
+        self.assertTrue(any(m.startswith("DONE-GATE: ") for _, m in out["notes"]), out["notes"])
+
+    def test_owner_without_claim_is_silent(self):
+        out = self.run_ext([self.end("Which option do you prefer?"), self.START])
+        self.assertEqual(self.gate_lines(), [])
+        self.assertIsNone(out["results"][1])
+
+    def test_writer_block_rule_is_recorded_unenforced(self):
+        config = json.loads((TOOLS_ROOT / "config" / "done-gate.json").read_text(encoding="utf-8"))
+        config["rules"]["DONE-02"]["mode"] = "BLOCK"
+        (self.tmp / "done-gate.json").write_text(json.dumps(config), encoding="utf-8")
+        self.run_ext([self.end("Done.")], child=True, role="generic-mechanic")
+        line = self.gate_lines()[-1]
+        self.assertEqual((line["event"], line["agent_type"], line["kind"], line["decision"]),
+                         ("SubagentStop", "generic-mechanic", "done-unproven", "unenforced"))
+
+    def test_non_writer_subagent_is_not_checked(self):
+        self.run_ext([self.end("Done.")], child=True, role="generic-challenger")
+        self.assertEqual(self.gate_lines(), [])
+
+
 class BashPostToolUse(PiExtensionFixture):
     """Gap (d): PostToolUse Bash runs guard_gates.py, which records the outcome."""
 
@@ -347,7 +388,7 @@ class ParityWithClaudeCode(PiExtensionFixture):
     def test_matrix_matches_hooks_settings(self):
         settings = json.loads(SETTINGS.read_text(encoding="utf-8"))["hooks"]
         expected = {}
-        for event in ("PreToolUse", "PostToolUse"):
+        for event in ("PreToolUse", "PostToolUse", "Stop", "SubagentStop"):
             expected[event] = [{"matcher": entry["matcher"],
                                 "script": re.search(r'"\$H/(\w+\.py)"\s*$', entry["hooks"][0]["command"]).group(1)}
                                for entry in settings[event]]

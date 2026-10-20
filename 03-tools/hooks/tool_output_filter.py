@@ -171,7 +171,11 @@ def main() -> int:
     stdout, stderr = response.get("stdout"), response.get("stderr") or ""
     if not isinstance(stdout, str) or not isinstance(stderr, str):
         return 0
-    cfg = settings(_common.load_config())
+    config = _common.load_config()
+    # bare (RDD off) and an owner/profile OFF pass the output through untouched; LOG and up filter
+    if not _common.rdd_enabled(config) or _common.hook_mode(config, HOOK, inp) == "off":
+        return 0
+    cfg = settings(config)
     cap = cfg["max_tokens"]
     text = stdout + (("" if stdout.endswith("\n") or not stdout else "\n") + "--- stderr ---\n" + stderr if stderr else "")
     if cap <= 0 or tokens(text) <= cap:
