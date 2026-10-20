@@ -36,7 +36,12 @@ Vanilla install: copy this folder to `~/.claude/skills/harness-benchmark/` (or a
    `<dir>/session-report.md`.
 3. Comparison: first state the cost (runs = tasks × arms × k, each a full `claude -p` session) and ask
    the owner before launching. Then `python3 "$B" ab --config ab.json --out <run>` (try `--dry-run`
-   first), `python3 "$B" judge --run <run>`, `python3 "$B" report --run <run>`.
+   first), `python3 "$B" judge --run <run>`, `python3 "$B" report --run <run>`. `--preset
+   kit-vs-vanilla` gives four arms: `vanilla` (no kit file, no skills, no MCP), `kit-neutral` (kit
+   copied in, neutral prompt), `kit-invoked` (prompt runs the kit's review), `native` (Claude Code's
+   `code-review`). Each run uses a fresh worktree outside the repo; `--out` must be outside it too.
+   Judges: deterministic checks first (`verify`, `seeded`); then two model families when you can, both
+   orders. Lead with activation, spend and cost per solved task, and seeded recall.
 4. Relay the report's "signal vs conclusion" line verbatim, with the n beside every comparison.
 
 Optional reading, only when the repo has it: `08-benchmark/protocols/`. The skill works without it.

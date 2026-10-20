@@ -17,6 +17,10 @@ import importlib
 import pathlib
 import sys
 
+# This file runs from a skill folder that the kit installer copies entry by entry with plain cp:
+# a __pycache__ directory left next to it would break the next install, so write no bytecode.
+sys.dont_write_bytecode = True
+
 _HERE = pathlib.Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))

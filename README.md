@@ -257,6 +257,13 @@ hygiene; it does not yet support that lints change replies, that memory gives co
 helps, and it says so in its "bullshit meter" (`08-benchmark/reports/phase1-findings.md`). A kit run counts
 only if `init.sh` reports `ready_for_benchmark` for that repo: a half-installed kit is not a kit arm.
 
+To measure your own sessions or run a comparison, use the `harness-benchmark` skill
+(`02-skills/harness-benchmark/`): it works in a plain Claude Code install too (copy the folder to
+`~/.claude/skills/`). `session` reports activation, tokens, cost, context, delegation and steering
+from your transcripts; `ab` → `judge` → `report` runs k repetitions per arm in clean worktrees and
+reports pass^k, cost per solved task and paired confidence intervals. Why these metrics:
+`odd/research/benchmark-landscape/report.md`.
+
 ## Repository map
 
 | Path | Content |

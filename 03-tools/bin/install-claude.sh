@@ -90,6 +90,7 @@ SKILLS=(
   receipt-review
   post-review-comment
   init-kit
+  harness-benchmark
 )
 SKILLS_EXCLUDED=()
 

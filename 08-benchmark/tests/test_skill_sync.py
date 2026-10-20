@@ -95,3 +95,22 @@ class SyncScriptTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NoBytecodeInSkillFolderTests(unittest.TestCase):
+    """The kit installer copies every entry of a skill folder with plain cp, so a __pycache__
+    directory left by running bench.py in place would break the next install (2026-10-20)."""
+
+    def test_running_bench_in_a_skill_folder_writes_no_bytecode(self):
+        import shutil, subprocess, sys, tempfile
+        lib = pathlib.Path(__file__).resolve().parents[1] / "lib"
+        with tempfile.TemporaryDirectory() as d:
+            skill = pathlib.Path(d) / "harness-benchmark"
+            skill.mkdir()
+            for name in ("transcript_metrics.py", "bench_session.py", "bench_ab.py"):
+                shutil.copy(lib / name, skill / name)
+            shutil.copy(lib / "bench_cli.py", skill / "bench.py")
+            env = {k: v for k, v in __import__("os").environ.items() if k != "PYTHONDONTWRITEBYTECODE"}
+            subprocess.run([sys.executable, str(skill / "bench.py"), "report", "--run", str(pathlib.Path(d) / "nope")],
+                           capture_output=True, env=env)
+            self.assertFalse((skill / "__pycache__").exists(), sorted(p.name for p in skill.iterdir()))

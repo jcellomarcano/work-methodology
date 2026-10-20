@@ -35,4 +35,5 @@ details are in README "Start here". Before any launch, `03-tools/bin/route.sh <t
 - Roles and their contracts `01-roles/agents/`; skills `02-skills/`; templates `04-templates/`.
 - Scripts, hooks, MCP tools, schemas `03-tools/` (`03-tools/README.md`).
 - Instantiation `05-adopt/checklist.md`; language rules `06-languages/`; talking to a person
-  `07-communication/`; kit vs vanilla measurements `08-benchmark/`.
+  `07-communication/`; kit vs vanilla measurements `08-benchmark/`. To measure or compare any
+  setup (kit, vanilla, native review, model or effort), use the `harness-benchmark` skill.
