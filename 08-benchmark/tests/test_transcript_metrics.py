@@ -58,7 +58,21 @@ USAGE3 = {"input_tokens": 5, "cache_creation_input_tokens": 0,
           "cache_read_input_tokens": 2100, "output_tokens": 20}
 
 
-def build_fixture(root: pathlib.Path) -> pathlib.Path:
+# A message typed while the agent works is a queued_command attachment with a human origin
+# (verified 2026-10-17); subagent hand-backs share the type with other origins.
+QUEUED_RECORDS = [
+    {"type": "attachment", "sessionId": SID, "timestamp": "2026-09-20T10:00:20.000Z",
+     "attachment": {"type": "queued_command", "prompt": "also check the logs", "origin": {"kind": "human"}}},
+    {"type": "attachment", "sessionId": SID, "timestamp": "2026-09-20T10:00:21.000Z",
+     "attachment": {"type": "queued_command", "prompt": "<task-notification> done",
+                    "commandMode": "task-notification", "origin": {"kind": "task-notification"}}},
+    {"type": "attachment", "sessionId": SID, "timestamp": "2026-09-20T10:00:22.000Z",
+     "attachment": {"type": "queued_command", "prompt": "subagent result", "origin": {"kind": "peer"}}},
+]
+
+
+def build_fixture(root: pathlib.Path, extra=()) -> pathlib.Path:
+    """The shared synthetic session; `extra` records are appended before the cost-state record."""
     proj = root / "-home-x-proj"
     proj.mkdir(parents=True)
     recs = []
@@ -98,6 +112,7 @@ def build_fixture(root: pathlib.Path) -> pathlib.Path:
     recs.append(_human("2026-09-20T10:05:00.000Z", "thanks"))
     recs += _assistant("2026-09-20T10:05:02.000Z", "msg_4",
                        [{"type": "text", "text": "Welcome."}], USAGE3, model="claude-haiku-5-5")
+    recs += list(extra)
     # real shape (verified 2026-10-13): totals sit at the top level of the record
     recs.append({"type": "cost-state", "sessionId": SID, "totalCostUSD": 0.42, "totalDuration": 310000})
     (proj / f"{SID}.jsonl").write_text("\n".join(json.dumps(r) for r in recs) + "\n")
@@ -201,6 +216,126 @@ class TranscriptMetricsTests(unittest.TestCase):
         self.assertEqual(payload["schema_version"], tm.SCHEMA_VERSION)
         self.assertEqual(len(payload["sessions"]), 1)
         self.assertEqual(payload["sessions"][0]["project"], "proj")
+
+    def test_previous_output_is_unchanged(self):
+        # analyze_session on this fixture, captured before the queued and model x effort keys landed
+        actual = json.loads(json.dumps(self.session))
+        for key in ("queued_count", "queued_chars_total"):
+            actual["human_prompts"].pop(key, None)
+        actual.pop("model_effort", None)
+        self.assertEqual(actual, PREVIOUS_OUTPUT)
+
+    def test_model_effort_mix_per_request(self):
+        self.assertEqual(self.session["model_effort"],
+                         {"claude-haiku-5-5": {"unset": 1}, "claude-opus-5-5": {"high": 1, "unset": 3}})
+
+    def test_benchmark_skill_is_not_a_kit_skill(self):
+        # the benchmark skill runs in vanilla sessions too; using it must not flag the kit
+        self.assertNotIn("harness-benchmark", tm.KIT_SKILLS)
+
+
+class QueuedHumanMessageTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        proj = build_fixture(pathlib.Path(self.tmp.name), extra=QUEUED_RECORDS)
+        self.session = tm.analyze_session(proj / f"{SID}.jsonl")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_human_queued_message_counts_apart(self):
+        hp = self.session["human_prompts"]
+        self.assertEqual(hp["queued_count"], 1)
+        self.assertEqual(hp["queued_chars_total"], len("also check the logs"))
+        # real turns stay anchored on the typed prompts
+        self.assertEqual(hp["count"], 2)
+        self.assertEqual(self.session["latency_s"]["turn_wall_clock"], [300.0])
+
+    def test_no_queued_text_in_output(self):
+        dump = json.dumps(self.session)
+        self.assertNotIn("check the logs", dump)
+        self.assertNotIn("subagent result", dump)
+
+    def test_without_queued_records_the_counts_are_zero(self):
+        with tempfile.TemporaryDirectory() as d:
+            proj = build_fixture(pathlib.Path(d))
+            hp = tm.analyze_session(proj / f"{SID}.jsonl")["human_prompts"]
+        self.assertEqual((hp["queued_count"], hp["queued_chars_total"]), (0, 0))
+
+
+class TranscriptDirTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.base = pathlib.Path(os.path.realpath(self.tmp.name))
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    @staticmethod
+    def _expected(path):
+        return "".join(c if c.isascii() and c.isalnum() else "-" for c in os.path.realpath(path))
+
+    def test_every_non_alphanumeric_becomes_a_dash(self):
+        repo = self.base / "my_repo.v2" / ".claude" / "x"
+        repo.mkdir(parents=True)
+        got = tm.transcript_dir(repo, root=self.base / "projects")
+        self.assertEqual(got, self.base / "projects" / self._expected(repo))
+        self.assertTrue(got.name.endswith("-my-repo-v2--claude-x"))
+
+    def test_symlinked_repo_resolves_to_its_real_path(self):
+        real = self.base / "real_repo"
+        real.mkdir()
+        link = self.base / "link"
+        link.symlink_to(real, target_is_directory=True)
+        self.assertEqual(tm.transcript_dir(link, root=self.base).name, self._expected(real))
+        self.assertTrue(tm.transcript_dir(link, root=self.base).name.endswith("-real-repo"))
+
+    def test_root_defaults_to_env_then_home(self):
+        repo = self.base / "r"
+        repo.mkdir()
+        old = os.environ.get("CLAUDE_PROJECTS_DIR")
+        try:
+            os.environ["CLAUDE_PROJECTS_DIR"] = str(self.base / "env-root")
+            self.assertEqual(tm.transcript_dir(repo).parent, self.base / "env-root")
+            del os.environ["CLAUDE_PROJECTS_DIR"]
+            self.assertEqual(tm.transcript_dir(repo).parent,
+                             pathlib.Path("~/.claude/projects").expanduser())
+        finally:
+            if old is None:
+                os.environ.pop("CLAUDE_PROJECTS_DIR", None)
+            else:
+                os.environ["CLAUDE_PROJECTS_DIR"] = old
+
+
+PREVIOUS_OUTPUT = {
+    "agent_prompt_chars": [7], "agent_tool_calls_by_type": {"generic-judge": 1}, "api_errors": 0,
+    "branches": ["main"], "cache_hit_ratio": 0.895219,
+    "compactions": [{"post": 20000, "pre": 150000, "trigger": "auto"}], "cost_usd": 0.42,
+    "duration_s": 302.0, "effort_levels": {"high": 1},
+    "engram": {"other_calls": 0, "recall_calls": 1, "save_calls": 0},
+    "final_replies": {"chars": [120, 8], "chars_total": 128, "count": 2},
+    "first_ts": "2026-09-20T10:00:00.000Z",
+    "hooks": {"by_event": {"PostToolUse:hook_success": 1, "SessionStart:hook_success": 1}, "metodo_runs": 1},
+    "human_prompts": {"chars": [24, 6], "chars_total": 30, "count": 2},
+    "kit": {"first_marker_ts": "2026-09-20T10:00:00.000Z",
+            "marker_ts": {"hook:metodo": "2026-09-20T10:00:00.000Z",
+                          "subagent:generic-judge": "2026-09-20T10:00:06.000Z"},
+            "markers": ["hook:metodo", "subagent:generic-judge"], "uses_kit": True,
+            "weak_markers": ["skill:respuesta-humana"]},
+    "last_ts": "2026-09-20T10:05:02.000Z",
+    "latency_s": {"first_response": [3.0, 2.0], "turn_wall_clock": [300.0]},
+    "mcp_servers": {"engram": 1}, "model_switches": 1,
+    "models": {"claude-haiku-5-5": 1, "claude-opus-5-5": 4}, "output_style": "Gentleman",
+    "peak_context_tokens": 2105, "permission_modes": {"acceptEdits": 2}, "project": "proj",
+    "project_dir": "-home-x-proj", "requests": 5, "session_id": SID,
+    "skills": {"respuesta-humana": 1}, "slash_commands": 0,
+    "subagents": {"by_model": {"claude-sonnet-5-5": 1}, "by_type": {"generic-judge": 1}, "count": 1,
+                  "peak_context_tokens": 100, "requests": 1},
+    "tokens": {"main": {"cache_read": 8800, "cache_write": 1000, "input": 30, "output": 160},
+               "subagents": {"cache_read": 0, "cache_write": 0, "input": 100, "output": 200}},
+    "tool_calls": {"Agent": 1, "Skill": 1, "mcp__engram__mem_search": 1}, "turn_durations_ms": [],
+    "versions": ["2.1.209"],
+}
 
 
 if __name__ == "__main__":

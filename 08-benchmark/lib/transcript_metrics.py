@@ -17,7 +17,12 @@ Facts about the format this relies on (verified 2026-10-13, Claude Code 2.1.x):
 - subagent transcripts live in <session_id>/subagents/agent-<id>.jsonl with a
   sibling agent-<id>.meta.json {agentType, toolUseId, model};
 - compaction is a system record with subtype compact_boundary;
-- cost-state records (not in every session) carry totalCostUSD.
+- cost-state records (not in every session) carry totalCostUSD;
+- a message typed while the agent works is an attachment of type queued_command
+  with origin.kind "human" (verified 2026-10-17); subagent hand-backs share the
+  type with other origins (peer, task-notification);
+- a repo's transcripts live in a dir named after its resolved path with every
+  character that is not a letter or a digit turned into "-" (transcript_dir).
 """
 from __future__ import annotations
 
@@ -25,6 +30,7 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import os
 import pathlib
 import re
 import sys
@@ -54,6 +60,8 @@ RECALL_TITLE_RES = (re.compile(r"\"title\"\s*:\s*\"((?:[^\"\\]|\\.){8,200})\""),
                                r"(?:[\u2014\u2013:-][ \t]*)?(.{8,200}?)[ \t]*$", re.MULTILINE))
 
 # Skills the kit installs into a target repo (03-tools/bin/install-claude.sh).
+# harness-benchmark is left out on purpose: it runs in vanilla sessions too, so using it
+# is not evidence that the kit was active.
 KIT_SKILLS = {
     "cartography", "adversarial-round", "verify-per-commit", "change-card",
     "repo-metrics", "real-environment-minutes", "pr-message", "clean-pass",
@@ -71,6 +79,17 @@ KIT_SKILLS |= {
 ENGRAM_RECALL = {"mem_search", "mem_context", "mem_get_observation", "mem_review", "mem_current_project"}
 ENGRAM_SAVE = {"mem_save", "mem_save_prompt", "mem_session_summary", "mem_update",
                "mem_capture_passive", "mem_session_start", "mem_session_end"}
+
+
+def transcript_dir(repo_path, root=None) -> pathlib.Path:
+    """The dir where Claude Code keeps a repo's transcripts: `root` (default
+    ${CLAUDE_PROJECTS_DIR:-~/.claude/projects}) / the repo's resolved path with every
+    character that is not [A-Za-z0-9] turned into "-". Claude Code sees the resolved
+    path, so a symlinked checkout maps to its target."""
+    if root is None:
+        root = os.environ.get("CLAUDE_PROJECTS_DIR") or "~/.claude/projects"
+    name = re.sub(r"[^A-Za-z0-9]", "-", os.path.realpath(str(repo_path)))
+    return pathlib.Path(root).expanduser() / name
 
 
 def _ts(value):
@@ -204,6 +223,7 @@ def _analyze_records(records) -> dict:
     tokens = _Tokens()
     models = Counter()
     efforts = Counter()
+    model_effort = Counter()
     tool_calls = Counter()
     seen_tool_ids = set()
     agent_types = Counter()
@@ -219,6 +239,7 @@ def _analyze_records(records) -> dict:
             store[key] = iso
     hooks = Counter()
     hook_metodo = 0
+    queued_chars = []
     compactions = []
     api_errors = 0
     turn_durations = []
@@ -269,6 +290,7 @@ def _analyze_records(records) -> dict:
                     models[model] += 1
                     if r.get("effort"):
                         efforts[r["effort"]] += 1
+                    model_effort[(model, r.get("effort") or "unset")] += 1
                     if last_model and model != last_model:
                         model_switches += 1
                     last_model = model
@@ -344,6 +366,10 @@ def _analyze_records(records) -> dict:
             atype = att.get("type") or ""
             if atype == "output_style":
                 output_style = att.get("style")
+            elif atype == "queued_command" and (att.get("origin") or {}).get("kind") == "human":
+                # typed while the agent was working; subagent hand-backs share the type, not the origin
+                prompt = att.get("prompt")
+                queued_chars.append(len(prompt) if isinstance(prompt, str) else 0)
             elif atype.startswith("hook_"):
                 hooks[f"{att.get('hookEvent') or '?'}:{atype}"] += 1
                 # A kit hook that really ran prints "[metodo] ..." on its output. The command
@@ -393,6 +419,7 @@ def _analyze_records(records) -> dict:
         "tokens": tokens,
         "models": dict(sorted(models.items())),
         "effort_levels": dict(sorted(efforts.items())),
+        "model_effort": _nested(model_effort),
         "tool_calls": dict(sorted(tool_calls.items())),
         "agent_types": dict(sorted(agent_types.items())),
         "agent_prompt_chars": agent_prompt_chars,
@@ -414,13 +441,21 @@ def _analyze_records(records) -> dict:
         "first_ts": first_ts,
         "last_ts": last_ts,
         "model_switches": model_switches,
-        "human_prompts": {"count": len(human_chars), "chars_total": sum(human_chars), "chars": human_chars},
+        "human_prompts": {"count": len(human_chars), "chars_total": sum(human_chars), "chars": human_chars,
+                          "queued_count": len(queued_chars), "queued_chars_total": sum(queued_chars)},
         "slash_commands": sum(1 for e in events if e[0] == "slash"),
         "final_replies": {"count": len(final_chars), "chars_total": sum(final_chars), "chars": final_chars},
         "latency_s": {"first_response": first_response, "turn_wall_clock": turn_wall},
         "_ctx": {"calls": calls, "call_list": call_list, "results": results, "reads": reads,
                  "launches": launches, "material": material, "warns": warns},
     }
+
+
+def _nested(pairs: Counter) -> dict:
+    out = {}
+    for (outer, inner), n in sorted(pairs.items()):
+        out.setdefault(outer, {})[inner] = n
+    return out
 
 
 def _iso(ts):
@@ -708,6 +743,7 @@ def analyze_session(path: pathlib.Path, contracts: dict | None = None, routing: 
         "models": main["models"],
         "model_switches": main["model_switches"],
         "effort_levels": main["effort_levels"],
+        "model_effort": main["model_effort"],
         "tool_calls": main["tool_calls"],
         "mcp_servers": dict(sorted(Counter(
             s for name, n in main["tool_calls"].items() for s in [_mcp_server(name)] if s for _ in range(n)
