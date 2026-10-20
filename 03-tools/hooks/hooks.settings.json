@@ -12,6 +12,8 @@
     "PostToolUse": [
       {"matcher": "Bash", "hooks": [{"type": "command", "timeout": 10,
         "command": ": metodo-hook; H=\"${METODO_TOOLS:-__TOOLS_DEFAULT__}/hooks\"; [ -f \"$H/guard_gates.py\" ] || exit 0; exec python3 \"$H/guard_gates.py\""}]},
+      {"matcher": "Bash", "hooks": [{"type": "command", "timeout": 10,
+        "command": ": metodo-hook; H=\"${METODO_TOOLS:-__TOOLS_DEFAULT__}/hooks\"; [ -f \"$H/tool_output_filter.py\" ] || exit 0; exec python3 \"$H/tool_output_filter.py\""}]},
       {"matcher": "Edit|Write|MultiEdit", "hooks": [{"type": "command", "timeout": 10,
         "command": ": metodo-hook; H=\"${METODO_TOOLS:-__TOOLS_DEFAULT__}/hooks\"; [ -f \"$H/touched_paths.py\" ] || exit 0; exec python3 \"$H/touched_paths.py\""}]},
       {"matcher": "mcp__metodo__output_write", "hooks": [{"type": "command", "timeout": 10,

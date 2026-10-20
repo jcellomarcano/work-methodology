@@ -56,6 +56,7 @@ export const HOOK_MATRIX: Record<string, { matcher: string; script: string }[]> 
 	],
 	PostToolUse: [
 		{ matcher: "Bash", script: "guard_gates.py" },
+		{ matcher: "Bash", script: "tool_output_filter.py" },
 		{ matcher: "Edit|Write|MultiEdit", script: "touched_paths.py" },
 		{ matcher: "mcp__metodo__output_write", script: "output_author.py" },
 	],
@@ -296,6 +297,8 @@ export default function (pi: ExtensionAPI) {
 		const toolName = claudeToolName(event.toolName, raw);
 		const body = payload(ctx, "PostToolUse", toolName, toolInput(toolName, raw));
 		// PostToolUse scripts only record; their decision, if any, is ignored.
+		// tool_output_filter.py gets no tool_response here, so it stays silent:
+		// no in-repo way to rewrite a pi tool_result is documented (T11).
 		for (const script of scriptsFor("PostToolUse", toolName)) runRecorder(script, body);
 		return undefined;
 	});

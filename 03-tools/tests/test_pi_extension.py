@@ -281,6 +281,14 @@ class BashPostToolUse(PiExtensionFixture):
         self.run_ext([self.result("bash", command="ls -la")])
         self.assertEqual(self.pi_ledger(), [])
 
+    def test_tool_output_filter_is_in_the_matrix_and_record_only(self):
+        # T11 (WU12): same matcher as Claude Code; pi's tool_result payload
+        # carries no tool_response here, so nothing is replaced or saved.
+        out = self.run_ext([self.result("bash", command="seq 1 100000")])
+        self.assertIn({"matcher": "Bash", "script": "tool_output_filter.py"}, out["matrix"]["PostToolUse"])
+        self.assertEqual(out["results"], [None])
+        self.assertFalse((self.hooks_dir / "pi-ephemeral" / "outputs").exists())
+
     def test_edit_result_still_logs_touched_paths(self):
         self.run_ext([self.result("edit", path=str(self.repo / "app" / "Foo.kt"))])
         lines = (self.hooks_dir / "pi-ephemeral" / "touched.jsonl").read_text(encoding="utf-8").splitlines()
