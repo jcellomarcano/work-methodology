@@ -4,6 +4,7 @@ description: Rules CONFIRMED/REFUTED/NEEDS_BENCH/UNRESOLVED on every finding and
 tools: Read, Grep, Glob, Write, mcp__metodo__change_card_validate, mcp__metodo__output_write, mcp__metodo__handoff_write
 model: claude-sonnet-5-5
 maxTurns: 75
+omitClaudeMd: true
 hooks:
   Stop:
     - hooks:

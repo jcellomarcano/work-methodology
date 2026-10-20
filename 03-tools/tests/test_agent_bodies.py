@@ -174,5 +174,78 @@ class RenderedAgentsTests(unittest.TestCase):
                 self.assertEqual(pi.count("FAIL writes"), 1)
 
 
+# D10 (odd/tasks/context-optimization.md L6): every role sets `omitClaudeMd: true`, so a
+# Claude Code subagent no longer loads CLAUDE.md -> AGENTS.md. Each rule those files give is
+# classified here: SUBAGENT_RULES must reach the installed agent (body + core), MAIN_ONLY
+# rules bind the orchestrator only. A new AGENTS.md rule fails until it is classified.
+AGENTS_MD = KIT_ROOT / "AGENTS.md"
+CLAUDE_MD = KIT_ROOT / "CLAUDE.md"
+RULES_HEADING = "## Rules when changing this kit"
+SUBAGENT_RULES = {
+    "Evidence or silence": ("Evidence or silence", "statement at `file:line`", "Measured", "Tested", "Inferred",
+                            "Assumed", "Unknown"),
+    "Artifacts (code, docs, commits) are in English": ("in English",),
+    "Push, PR, merge, tags, shared build files": ("Push, PR, merge, tags", "the owner's", "shared build files",
+                                                  "`.claude/**`"),
+    "Never read, copy, install or stage personal files": ("personal files", "`*.personal.*`", "`personal/`"),
+}
+MAIN_ONLY = {
+    "Test-first for behavior": "the orchestrator runs the kit suite; a role builds through its contract tools",
+    "Every document has a line and token cap": "docs_lint runs in the orchestrator's check, not in a role",
+    "An important change re-measures the README status block": "commit-time step; roles never commit",
+}
+
+
+def agents_md_rules() -> list:
+    text = AGENTS_MD.read_text(encoding="utf-8")
+    section = text[text.index(RULES_HEADING) + len(RULES_HEADING):]
+    section = section.split("\n## ", 1)[0]
+    return [line[2:] for line in section.splitlines() if line.startswith("- ")]
+
+
+@unittest.skipUnless(AGENTS.is_dir() and AGENTS_MD.is_file(), "kit only: the instance does not carry 01-roles/")
+class OmitClaudeMdTests(unittest.TestCase):
+    def setUp(self):
+        self.paths = sorted(AGENTS.glob("generic-*.md"))
+        self.claude = {p.stem: render_agents.render(p, "claude", "/opt/tools") for p in self.paths}
+
+    def test_every_role_omits_claude_md_on_claude_code_only(self):
+        for path in self.paths:
+            frontmatter = render_agents.split_frontmatter(path.read_text(encoding="utf-8"))[0]
+            with self.subTest(role=path.stem):
+                self.assertIn("\nomitClaudeMd: true\n", "\n" + frontmatter)
+                self.assertIn("\nomitClaudeMd: true\n", self.claude[path.stem])
+                self.assertNotIn("omitClaudeMd", render_agents.render(path, "pi", "/opt/tools"))
+
+    def test_claude_md_adds_no_rule_of_its_own(self):
+        lines = [l for l in CLAUDE_MD.read_text(encoding="utf-8").splitlines() if l.strip()]
+        self.assertIn("@AGENTS.md", lines)
+        self.assertEqual([l for l in lines if l.startswith("- ")], [])
+
+    def test_every_agents_md_rule_is_classified(self):
+        rules = agents_md_rules()
+        keys = list(SUBAGENT_RULES) + list(MAIN_ONLY)
+        for rule in rules:
+            with self.subTest(rule=rule[:40]):
+                self.assertEqual(sum(rule.startswith(k) for k in keys), 1)
+        for key in keys:
+            with self.subTest(key=key):
+                self.assertEqual(sum(r.startswith(key) for r in rules), 1)
+
+    def test_no_subagent_rule_is_lost_in_the_installed_agent(self):
+        for role, text in self.claude.items():
+            body_and_core = render_agents.split_frontmatter(text)[1]
+            for rule, needles in SUBAGENT_RULES.items():
+                for needle in needles:
+                    with self.subTest(role=role, rule=rule, needle=needle):
+                        self.assertIn(needle, body_and_core)
+
+    def test_negative_control_a_core_without_the_personal_rule_is_caught(self):
+        core = source_core()
+        stripped = "\n".join(l for l in core.splitlines() if "personal" not in l)
+        text = render_agents.render(self.paths[0], "claude", "/opt/tools", core=stripped)
+        self.assertNotIn("`*.personal.*`", render_agents.split_frontmatter(text)[1])
+
+
 if __name__ == "__main__":
     unittest.main()

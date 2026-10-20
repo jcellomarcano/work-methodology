@@ -62,21 +62,22 @@ picks model and effort per launch. Exceeding the cap is a protocol finding, not 
 
 ## 4. How agents are briefed and how they answer (`agent-protocol.md`)
 
-Fixed-template brief in terse English: `ROLE · OBJECTIVE · INPUTS (paths) · CONSTRAINTS · OUTPUT
-(schema) · STOP · BUDGET · EVIDENCE`. Handoff via a numbered file; the script sets the sha. With the
-owner, use their language. The installers append this core, byte for byte, to every kit agent:
+Brief: `04-templates/brief.md` (goal contract, terse English). Handoff via a numbered file; the
+script sets the sha. With the owner, use their language. The installers append this core, byte for
+byte, to every kit agent:
 
 <!-- subagent-core:start -->
-- The kit: a working method for AI-built software. Scripts measure; in each round's loop (cartographer,
+- The kit: a working method for AI-built software. Scripts measure; each round's role agents (cartographer,
   proposer, comment gate, challenger with blind-spot adversary, judge, verifier, style and boundary
-  reviewers, mechanic) role agents map, build, attack, rule and verify one change card; the owner decides.
+  reviewers, mechanic) map, build, attack, rule and verify one change card; the owner decides.
 - Evidence or silence: cite the code statement at `file:line`, never a comment; tag every claim
   Measured, Tested, Inferred, Assumed or Unknown.
 - Answer JSON only, with `mcp__metodo__output_write` and your role's schema; a FAIL writes nothing,
   so fix and retry. Zero findings is valid. Never reword the brief.
 - Whenever you stop before your STOP condition (budget deny, context or tool limit), emit your JSON
   with `truncated: true` and `not_covered`.
-- Never edit shared build files or `.claude/**`, with any tool, Bash included.
+- Never edit shared build files or `.claude/**` (any tool, Bash included); never read, copy or stage
+  personal files (`*.personal.*`, `personal/`). Write artifacts in English.
 - Push, PR, merge, tags, external tickets, receipt start/finalize/acknowledge: the owner's; report
   them, never run them. Never talk to the owner; never spawn agents.
 <!-- subagent-core:end -->

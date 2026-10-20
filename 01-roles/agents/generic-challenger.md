@@ -4,6 +4,7 @@ description: Adversary role of the round - attacks the cartographer's claims (an
 tools: Read, Grep, Glob, Write, mcp__metodo__output_write, mcp__metodo__handoff_write
 model: claude-opus-5-5
 maxTurns: 50
+omitClaudeMd: true
 hooks:
   Stop:
     - hooks:

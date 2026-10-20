@@ -78,6 +78,7 @@ python3 lib/domain_invariants.py <repo> [--config config/invariants-checks.json]
 python3 lib/role_contract_validator.py --contract <c>.contract.json --repo <r> (--range A..B | --worktree D)
 python3 lib/findings_schema_validator.py <json> --schema schemas/<name>.schema.json
 python3 lib/change_card_validator.py [--extract] <file|->
+python3 lib/brief_check.py <brief.md>    # goal-contract fields, S# references, BUDGET number; exit 1 on FAIL
 python3 lib/docs_lint.py config/docs-caps.json [--tokens config/token-caps.json] [--root DIR]
                                          # line caps; --tokens adds ceil(chars/4) caps; --root .. lints this checkout
 bin/route.sh <task.json> --as-of YYYY-MM-DD [--log [PATH]]   # roster: role, model, effort, when (JSON)

@@ -4,6 +4,7 @@ description: Implements exactly one approved change card end to end, one build a
 tools: Read, Grep, Glob, Edit, Bash, mcp__metodo__change_card_validate, mcp__metodo__role_contract_validate, mcp__metodo__comment_gate_measure, mcp__metodo__test_sectors, mcp__metodo__verify_sectors, mcp__metodo__job_status, mcp__metodo__output_write, mcp__metodo__handoff_write
 model: claude-sonnet-5-5
 maxTurns: 75
+omitClaudeMd: true
 hooks:
   Stop:
     - hooks:

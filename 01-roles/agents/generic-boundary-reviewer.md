@@ -4,6 +4,7 @@ description: Judges dep_boundaries.py's candidate violations and adapter-law cyc
 tools: Read, Grep, Glob, Write, mcp__metodo__dep_boundaries, mcp__metodo__output_write
 model: claude-sonnet-5-5
 maxTurns: 38
+omitClaudeMd: true
 hooks:
   Stop:
     - hooks:

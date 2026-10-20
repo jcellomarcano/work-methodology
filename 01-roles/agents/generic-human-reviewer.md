@@ -4,6 +4,7 @@ description: Judges a human-facing reply against the communication rules no scri
 tools: Read, Write, mcp__metodo__output_write
 model: claude-haiku-5-5
 maxTurns: 13
+omitClaudeMd: true
 hooks:
   Stop:
     - hooks:

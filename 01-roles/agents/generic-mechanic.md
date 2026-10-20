@@ -4,6 +4,7 @@ description: Applies one approved, fully specified fix exactly as written - any 
 tools: Read, Edit, Write, mcp__metodo__role_contract_validate, mcp__metodo__comment_gate_verify, mcp__metodo__verify_sectors, mcp__metodo__job_status, mcp__metodo__output_write, mcp__metodo__handoff_write
 model: claude-haiku-5-5
 maxTurns: 15
+omitClaudeMd: true
 hooks:
   Stop:
     - hooks:

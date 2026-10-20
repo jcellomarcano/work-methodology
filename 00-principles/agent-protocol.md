@@ -4,11 +4,12 @@ With the owner, speak their language. Between agents, this applies. Schemas in `
 
 ## 1. Brief shape: fixed template, in terse English
 
-Mandatory fields, in this order: `ROLE` · `OBJECTIVE` (one verifiable sentence) · `INPUTS` (paths, never
-pasted content) · `CONSTRAINTS` (what's untouched, reading scope) · `OUTPUT` (schema reference) ·
-`STOP` (when to stop and return) · `BUDGET` (tokens and tools) · `EVIDENCE` (the evidence rule, §3).
-Measured in the origin project: the fixed template scored 9.0/10 against 5.5 for free prose and 7.0 for
-JSON, with fewer tokens and fewer calls. JSON with a schema is reserved for OUTPUT, not for the brief.
+Goal contract (`04-templates/brief.md`), fields in this order: `ROLE` · `OBJECTIVE` (one verifiable
+sentence) · `SPECS` (`<task-doc>.md#S<n>` references, never paraphrased) · `ACCEPTANCE` (the proving
+check) · `INPUTS` (paths) · `SCOPE` · `ALREADY READ` (paths the parent read) · `CONSTRAINTS` · `OUTPUT` ·
+`STOP` · `BUDGET` (roster `max_context_tokens`, else the contract's; `max_tool_calls`) · `EVIDENCE` (§3).
+`lib/brief_check.py` fails a missing, empty or misplaced field, a paraphrased S# or a numberless BUDGET.
+Measured: fixed template 9.0/10 vs 5.5 prose, 7.0 JSON, fewer tokens and calls; JSON is for OUTPUT only.
 
 ## 2. Output shape: JSON against a schema, with a tag per claim
 

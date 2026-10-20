@@ -4,6 +4,7 @@ description: Generator role, step 0 of the loop - maps a change or design into f
 tools: Read, Grep, Glob, Write, mcp__metodo__shape_metrics, mcp__metodo__duplication, mcp__metodo__dep_boundaries, mcp__metodo__cartography, mcp__metodo__output_write, mcp__metodo__handoff_write
 model: claude-sonnet-5-5
 maxTurns: 50
+omitClaudeMd: true
 hooks:
   Stop:
     - hooks:

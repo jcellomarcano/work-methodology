@@ -133,6 +133,12 @@ class RenderAgentsTests(unittest.TestCase):
         out = self.render("pi")
         self.assertIn("Body line two.", out)
 
+    def test_omit_claude_md_stays_claude_only(self):
+        # D10: a Claude Code subagent frontmatter key; pi documents no such key, so its render never carries it
+        self.agent.write_text(AGENT.replace("maxTurns: 50\n", "maxTurns: 50\nomitClaudeMd: true\n"), encoding="utf-8")
+        self.assertIn("\nomitClaudeMd: true\n", self.render("claude"))
+        self.assertNotIn("omitClaudeMd", self.render("pi"))
+
     def test_a_file_without_frontmatter_is_an_error(self):
         self.agent.write_text("no frontmatter here\n", encoding="utf-8")
         with self.assertRaises(ValueError):

@@ -4,6 +4,7 @@ description: Judges every comment a diff adds against DOC-001 and the six ISO 24
 tools: Read, Grep, Write, mcp__metodo__output_write, mcp__metodo__handoff_write
 model: claude-haiku-5-5
 maxTurns: 25
+omitClaudeMd: true
 hooks:
   Stop:
     - hooks:

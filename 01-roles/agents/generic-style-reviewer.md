@@ -4,6 +4,7 @@ description: Lightweight gate on a bounded diff against KS-001/002/003, CHG-001 
 tools: Read, Grep, Write, mcp__metodo__output_write
 model: claude-haiku-5-5
 maxTurns: 19
+omitClaudeMd: true
 hooks:
   Stop:
     - hooks:

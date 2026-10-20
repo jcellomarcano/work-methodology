@@ -4,6 +4,7 @@ description: Independent, clean-context executor - runs the battery a change car
 tools: Read, Grep, Glob, Bash, mcp__metodo__test_sectors, mcp__metodo__verify_sectors, mcp__metodo__verify_commit, mcp__metodo__job_status, mcp__metodo__receipt_status, mcp__metodo__receipt_capture, mcp__metodo__output_write, mcp__metodo__handoff_write
 model: claude-sonnet-5-5
 maxTurns: 50
+omitClaudeMd: true
 hooks:
   Stop:
     - hooks:
