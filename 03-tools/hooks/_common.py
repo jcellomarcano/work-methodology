@@ -61,12 +61,18 @@ DEFAULT_SHARED_BUILD_FILES = build_files.DEFAULT_SHARED_BUILD_FILES
 CLAUDE_GLOBS = (".claude/**", "**/.claude/**")
 
 
+_INPUT: dict = {}  # this process's hook input (one hook per process), for hook_mode's profile
+
+
 def read_input() -> dict:
+    global _INPUT
     try:
         raw = sys.stdin.read()
-        return json.loads(raw) if raw.strip() else {}
+        data = json.loads(raw) if raw.strip() else {}
     except (json.JSONDecodeError, OSError):
-        return {}
+        data = {}
+    _INPUT = data if isinstance(data, dict) else {}
+    return data
 
 
 def load_config() -> dict:
@@ -81,9 +87,66 @@ def rdd_enabled(config: dict) -> bool:
     return bool((config.get("rdd") or {}).get("enabled"))
 
 
-def hook_mode(config: dict, hook: str) -> str:
+# T8 (WU14): the activation element each non-absolute hook's mode stands for.
+HOOK_ELEMENT = {"guard_gates": "push_gate", "guard_paths": "subagent_scope",
+                "validate_subagent_output": "subagent_output", "reply_lint": "reply_lint"}
+# The warn kinds each hook emits, so a profile OFF/LOG keeps that hook's warn silent.
+WARN_KIND_HOOK = (("scope-outside", "guard_paths"), ("gate-", "guard_gates"))
+_SILENT_HOOKS: set = set()
+
+
+def activation_config_path() -> Path:
+    """activation.json beside the project config (METODO_ACTIVATION_CONFIG overrides)."""
+    explicit = os.environ.get("METODO_ACTIVATION_CONFIG")
+    if explicit:
+        return Path(explicit)
+    project = os.environ.get("METODO_PROJECT_CONFIG")
+    return (Path(project).parent if project else TOOLS_ROOT / "config") / "activation.json"
+
+
+def _profile_mode(config: dict, hook: str, inp: dict) -> str | None:
+    """The hook's mode from the activation profile, or None (no activation.json,
+    invalid config, no receipt tier and no session floor): then today's rules."""
+    element = HOOK_ELEMENT.get(hook)
+    path = activation_config_path()
+    if element is None or not path.is_file():
+        return None
+    try:
+        from lib import activation
+        settings = activation.load_config(path)
+    except (ImportError, ValueError):
+        return None
+    receipt = receipt_for(current_tree(repo_root(inp)))
+    tier = ((receipt or {}).get("risk") or {}).get("tier")
+    sdir = session_dir(inp) if inp.get("session_id") else None
+    floor = activation.session_floor(sdir) if sdir else None
+    if tier not in activation.TIERS and floor is None:
+        return None
+    inputs = {"rdd_on": rdd_enabled(config), "tier": tier if tier in activation.TIERS else None}
+    result = activation.session_profile(inputs, sdir) if sdir else activation.profile(inputs)
+    # M2 (pi) stays in validate_subagent_output, which already records invalid-unenforced.
+    modifiers = {"caller": "subagent" if is_subagent(inp) else "main"}
+    return activation.element_mode(result["profile"], element, modifiers, settings).lower()
+
+
+def hook_mode(config: dict, hook: str, inp: dict | None = None) -> str:
+    """rdd.hook_modes[hook] (owner override) -> the activation profile's mode
+    (off | log | warn | block) -> rdd.mode -> warn. Without activation.json
+    this is exactly the pre-T8 rule. A profile OFF or LOG keeps this hook's
+    visible warn silent (the ledger line still records the run)."""
     rdd = config.get("rdd") or {}
-    return (rdd.get("hook_modes") or {}).get(hook) or rdd.get("mode") or "warn"
+    explicit = (rdd.get("hook_modes") or {}).get(hook)
+    if explicit:
+        return explicit
+    try:
+        profiled = _profile_mode(config, hook, _INPUT if inp is None else inp)
+    except Exception:  # noqa: BLE001 - a broken profile falls back to today's rule, never to OFF
+        profiled = None
+    if profiled is not None:
+        if profiled in ("off", "log"):
+            _SILENT_HOOKS.add(hook)
+        return profiled
+    return rdd.get("mode") or "warn"
 
 
 def is_subagent(inp: dict) -> bool:
@@ -215,7 +278,10 @@ def emit_warn(event: str | None, kind: str, fix: str) -> None:
     """The visible WARN channel: one `METODO-WARN <kind>: <fix>` line the agent
     reads as additionalContext. Never a permissionDecision: an `allow` would
     skip the owner's own permission prompts. Over the cap it is cut to 80
-    tokens ending in an ellipsis, the same way every time."""
+    tokens ending in an ellipsis, the same way every time. Silent when the
+    activation profile set the emitting hook to OFF or LOG (hook_mode)."""
+    if any(kind.startswith(prefix) and hook in _SILENT_HOOKS for prefix, hook in WARN_KIND_HOOK):
+        return
     text = f"METODO-WARN {kind}: {fix}"
     limit = WARN_MAX_TOKENS * 4
     if len(text) > limit:

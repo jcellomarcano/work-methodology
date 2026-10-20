@@ -89,8 +89,22 @@ bin/cartography.sh <repo>                # + hotspots (90d) + merge-tree vs the 
 bin/clean-pass.sh <repo>                 # union of flagged rows, proposes nothing
 bin/verify-commit.sh <repo> <range> [--full]     # tools/verify/verify.sh per commit, in a worktree
 bin/benchmark-release.sh <repo> <refA> <refB> [--force-recompute]
+python3 lib/activation.py --tier T [--task-kind K] [--runtime claude|pi] [--caller main|subagent] [--offline]
+                          [--session S]   # profile bare|light|scripts|standard|full + element modes (JSON)
 python3 -m unittest discover tests
 ```
+
+## Activation profiles
+
+`lib/activation.py` picks a profile from facts (first match: P0 RDD off → bare; P1 tier high, critical or
+release → full; P2 medium → standard; P3 low → scripts; P4 exempt or exploring → light; P5 unknown →
+standard) and reads each element's mode (OFF, LOG, WARN, BLOCK) from `config/activation.json`. The
+absolute set (subagent build-file and `.claude/` edits, force push, subagent delivery, the budget deny,
+the main-session build-file ask) is BLOCK in every profile; the loader refuses a config that lowers it.
+With `activation.json` beside `project.json`, `hooks/_common.hook_mode` takes the profile from the
+current receipt's tier; `rdd.hook_modes` still wins, and without a receipt tier `rdd.mode` decides. The
+profile never falls within a session (`out/hooks/<session>/profile.json`). Without `activation.json`
+the hook modes are exactly the old rule. Method: `odd/research/context/activation.md` §3.
 
 ## Determinism
 

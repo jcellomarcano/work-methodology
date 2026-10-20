@@ -89,10 +89,10 @@ Pick the path that fits you:
 <!-- kit-status:start -->
 | Kit status (`03-tools/bin/kit-status.sh --write`, never by hand) | Value | Tag |
 |---|---|---|
-| measured_at | `e3738bb`, dirty: yes | [Measured] |
-| code_fingerprint | `sha256:007eadd41021b135` over 270 files (roles, skills, tools, tests) | [Measured] |
-| structure | 12 agents, 16 skills (16 installed), 31 MCP tools, 7 Claude hooks, 1154 test cases | [Measured] |
-| kit suite | OK: ran 1154, failures 0, errors 0, skipped 5, expected failures 2 | [Tested] |
+| measured_at | `533f74b`, dirty: yes | [Measured] |
+| code_fingerprint | `sha256:7114dfa61513f71e` over 273 files (roles, skills, tools, tests) | [Measured] |
+| structure | 12 agents, 16 skills (16 installed), 31 MCP tools, 7 Claude hooks, 1205 test cases | [Measured] |
+| kit suite | OK: ran 1205, failures 0, errors 0, skipped 5, expected failures 2 | [Tested] |
 | docs caps | 0 offenders, 0 missing (`config/docs-caps.json` over this checkout) | [Measured] |
 | init on a Gradle/Kotlin fixture | doctor PASS, kit_installed true, smoke PASS, loop_ran true, ready_for_benchmark true; 25 pending human steps | [Tested] |
 | init suggestions | 0 missing, 1 unknown of 6 suggested helpers (temp HOME) | [Measured, this machine] |

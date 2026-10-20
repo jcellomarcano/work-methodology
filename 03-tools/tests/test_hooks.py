@@ -472,6 +472,129 @@ class SessionStartTouchedReplyTests(HookFixture):
             self.assertEqual(proc.stdout, "", name)
 
 
+class ActivationHookModeTests(HookFixture):
+    """T8 (WU14): hook_mode consults the activation profile from the current
+    receipt's tier when an activation.json sits beside project.json; explicit
+    rdd.hook_modes still wins; without activation.json nothing changes."""
+
+    def setUp(self):
+        super().setUp()
+        self.activation = self.tmp / "activation.json"
+
+    def enable_activation(self):
+        shutil.copyfile(TOOLS_ROOT / "config" / "activation.json", self.activation)
+
+    def receipt_with_tier(self, tier, verdict=None, state="started"):
+        self.write_receipt(verdict=verdict, state=state)
+        path = self.rdd_dir / f"{self.tree}.receipt.json"
+        receipt = json.loads(path.read_text(encoding="utf-8"))
+        receipt["risk"]["tier"] = tier
+        path.write_text(json.dumps(receipt), encoding="utf-8")
+
+    def push(self, session="s1"):
+        return self.run_hook("guard_gates.py", {"tool_name": "Bash", "tool_input": {"command": "git push origin main"}},
+                             session=session)
+
+    def scope_edit(self):
+        return self.run_hook("guard_paths.py", {"tool_name": "Edit", "tool_input": {"file_path": str(self.repo / "domain" / "Bar.kt")},
+                                               "agent_type": "generic-proposer", "agent_id": "a1"})
+
+    # regression: no activation.json, behavior as before T8
+    def test_without_activation_json_rdd_mode_decides_as_today(self):
+        self.receipt_with_tier("high")
+        out, proc = self.push()
+        self.assert_visible_warn(out, "gate-push")
+        self.assertEqual((self.ledger()[-1]["decision"], self.ledger()[-1]["mode"]), ("warn", "warn"))
+        warn_stdout = proc.stdout
+        self.set_config(enabled=True, mode="block")
+        out, _ = self.push()
+        self.assertEqual(self.decision(out), "ask")
+        self.receipt_with_tier("low")
+        out, _ = self.scope_edit()
+        self.assertEqual(self.decision(out), "deny")
+        self.assertFalse((self.hooks_dir / "s1" / "profile.json").exists())
+        # byte-identical: the tier no longer matters, the same warn bytes for an exempt receipt
+        self.set_config(enabled=True, mode="warn")
+        self.receipt_with_tier("exempt")
+        _, proc = self.push()
+        self.assertEqual(proc.stdout, warn_stdout)
+
+    def test_full_profile_asks_on_push_even_in_warn_mode(self):
+        self.enable_activation()
+        self.receipt_with_tier("high")
+        out, _ = self.push()
+        self.assertEqual(self.decision(out), "ask")
+        self.assertEqual(self.ledger()[-1]["mode"], "block")
+
+    def test_scripts_profile_warns_on_push_even_in_block_mode(self):
+        self.enable_activation()
+        self.set_config(enabled=True, mode="block")
+        self.receipt_with_tier("low")
+        out, _ = self.push()
+        self.assert_visible_warn(out, "gate-push")
+        self.assertEqual(self.ledger()[-1]["mode"], "warn")
+
+    def test_light_profile_turns_the_push_gate_off(self):
+        self.enable_activation()
+        self.receipt_with_tier("exempt")
+        out, proc = self.push()
+        self.assertEqual(proc.stdout, "")
+        self.assertEqual(self.ledger()[-1]["mode"], "off")
+
+    def test_scripts_profile_logs_scope_silently_and_full_denies(self):
+        self.enable_activation()
+        self.receipt_with_tier("low")
+        out, proc = self.scope_edit()
+        self.assertEqual(proc.stdout, "")
+        self.assertEqual((self.ledger()[-1]["kind"], self.ledger()[-1]["mode"]), ("scope-outside", "log"))
+        self.receipt_with_tier("high")
+        out, _ = self.scope_edit()
+        self.assertEqual(self.decision(out), "deny")
+
+    def test_explicit_hook_modes_still_win(self):
+        self.enable_activation()
+        self.set_config(enabled=True, mode="warn", hook_modes={"guard_gates": "warn"})
+        self.receipt_with_tier("high")
+        out, _ = self.push()
+        self.assert_visible_warn(out, "gate-push")
+        self.assertEqual(self.ledger()[-1]["mode"], "warn")
+
+    def test_no_receipt_falls_back_to_rdd_mode(self):
+        self.enable_activation()
+        self.set_config(enabled=True, mode="block")
+        out, _ = self.push()
+        self.assertEqual(self.decision(out), "ask")
+
+    def test_profile_never_falls_within_a_session(self):
+        self.enable_activation()
+        self.receipt_with_tier("high")
+        out, _ = self.push(session="s1")
+        self.assertEqual(self.decision(out), "ask")
+        self.receipt_with_tier("low")
+        out, _ = self.push(session="s1")
+        self.assertEqual(self.decision(out), "ask")
+        out, _ = self.push(session="s2")
+        self.assert_visible_warn(out, "gate-push")
+
+    def test_invalid_activation_json_fails_back_to_today(self):
+        data = json.loads((TOOLS_ROOT / "config" / "activation.json").read_text(encoding="utf-8"))
+        data["matrix"]["force_push"]["bare"] = "OFF"
+        self.activation.write_text(json.dumps(data), encoding="utf-8")
+        self.receipt_with_tier("high")
+        out, _ = self.push()
+        self.assert_visible_warn(out, "gate-push")
+        self.assertEqual(self.ledger()[-1]["mode"], "warn")
+
+    def test_absolute_set_is_untouched_by_a_light_profile(self):
+        self.enable_activation()
+        self.receipt_with_tier("exempt")
+        out, _ = self.run_hook("guard_gates.py", {"tool_name": "Bash", "tool_input": {"command": "git push --force origin x"}})
+        self.assertEqual(self.decision(out), "deny")
+        out, _ = self.run_hook("guard_paths.py", {"tool_name": "Edit", "tool_input": {"file_path": str(self.repo / "app" / "build.gradle")},
+                                                  "agent_type": "generic-proposer", "agent_id": "a1"})
+        self.assertEqual(self.decision(out), "deny")
+
+
 class LatencyTests(HookFixture):
     def test_each_hook_under_a_second(self):
         import time
