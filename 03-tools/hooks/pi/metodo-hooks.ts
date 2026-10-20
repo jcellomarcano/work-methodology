@@ -291,6 +291,7 @@ export default function (pi: ExtensionAPI) {
 			});
 			return;
 		}
-		runRecorder("reply_lint.py", { ...payload(ctx, "Stop", "", {}), last_assistant_message: text, stop_hook_active: false });
+		// The owner's reply is not linted at Stop time (owner decision D3): the
+		// human-reply skill runs the lint on demand.
 	});
 }

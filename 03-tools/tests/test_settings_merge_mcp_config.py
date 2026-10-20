@@ -47,6 +47,21 @@ class SettingsMergeTests(unittest.TestCase):
         self.assertEqual(removed["hooks"]["PreToolUse"], [OWNER_HOOK, LOOKALIKE])
         self.assertEqual(counts["removed"], 1)
 
+    def test_merge_drops_kit_entries_of_events_the_kit_no_longer_ships(self):
+        # T1 (D3): an install made when the kit still shipped a Stop hook must lose it on re-install
+        old_stop = {"matcher": "", "hooks": [{"type": "command",
+                    "command": ": metodo-hook; H=\"x/hooks\"; exec python3 \"$H/reply_lint.py\""}]}
+        owner_stop = {"matcher": "", "hooks": [{"type": "command", "command": "./my-stop.sh"}]}
+        settings = {"hooks": {"Stop": [owner_stop, old_stop], "PreToolUse": [OWNER_HOOK]}}
+        merged, counts = settings_merge.merge_hooks(settings, KIT)
+        self.assertEqual(merged["hooks"]["Stop"], [owner_stop])
+        self.assertEqual(counts["removed"], 1)
+
+    def test_merge_removes_an_event_left_empty(self):
+        old_stop = {"matcher": "", "hooks": [{"type": "command", "command": ": metodo-hook; exec python3 reply_lint.py"}]}
+        merged, _ = settings_merge.merge_hooks({"hooks": {"Stop": [old_stop]}}, KIT)
+        self.assertNotIn("Stop", merged["hooks"])
+
     def test_apply_writes_only_when_changed_and_creates_missing_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             settings_path = Path(tmp) / ".claude" / "settings.local.json"

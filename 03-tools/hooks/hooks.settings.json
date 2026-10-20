@@ -18,10 +18,6 @@
     "SessionStart": [
       {"matcher": "startup|resume|compact|clear", "hooks": [{"type": "command", "timeout": 10,
         "command": ": metodo-hook; H=\"${METODO_TOOLS:-__TOOLS_DEFAULT__}/hooks\"; [ -f \"$H/session_start_status.py\" ] || exit 0; exec python3 \"$H/session_start_status.py\""}]}
-    ],
-    "Stop": [
-      {"matcher": "", "hooks": [{"type": "command", "timeout": 10,
-        "command": ": metodo-hook; H=\"${METODO_TOOLS:-__TOOLS_DEFAULT__}/hooks\"; [ -f \"$H/reply_lint.py\" ] || exit 0; exec python3 \"$H/reply_lint.py\""}]}
     ]
   }
 }

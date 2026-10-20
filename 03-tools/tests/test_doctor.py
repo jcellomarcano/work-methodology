@@ -175,10 +175,10 @@ class DoctorTests(unittest.TestCase):
         repo = self.copy_fixture("no-hook")
         settings_path = repo / ".claude" / "settings.local.json"
         settings = json.loads(settings_path.read_text(encoding="utf-8"))
-        del settings["hooks"]["Stop"]
+        del settings["hooks"]["SessionStart"]
         settings_path.write_text(json.dumps(settings), encoding="utf-8")
         report = self.assert_breaks(repo, "claude.hooks")
-        self.assertIn("Stop", self.check(report, "claude.hooks")["detail"])
+        self.assertIn("SessionStart", self.check(report, "claude.hooks")["detail"])
 
     def test_missing_pi_extension_fails(self):
         repo = self.copy_fixture("no-ext")

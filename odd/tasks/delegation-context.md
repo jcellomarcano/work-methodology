@@ -18,7 +18,7 @@ Quoted fragments are the user's exact words (Spanish, 2026-10-18); the requireme
 
 | ID | Specs | Work | Status | Evidence |
 |---|---|---|---|---|
-| T1 | S4 | WU6: reply_lint Stop hook OFF (D3), skill `human-reply` stays; Claude settings + pi HOOK_MATRIX | todo | |
+| T1 | S4 | WU6: reply_lint Stop hook OFF (D3), skill `human-reply` stays; Claude settings + pi HOOK_MATRIX | done | RED 3F/1E → GREEN 95 OK (settings_merge, hooks, pi extension, doctor); re-install sweeps kit entries under events the kit no longer ships |
 | T2 | S4 | WU5: visible WARN channel (warn reaches the agent: `additionalContext` / `systemMessage`), one emit helper in `_common.py` | todo | |
 | T3 | S4 | WU7: compaction restore on SessionStart(compact) — task doc, open S#, last receipt — and orchestrator window 300k (D1) | todo | |
 | T4 | S4 | WU10: subagent report cap 2,000 tokens (D9), verdict per S# in reports, `max_context_tokens` checked on close | todo | |

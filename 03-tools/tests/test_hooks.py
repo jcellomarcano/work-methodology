@@ -302,6 +302,14 @@ class SessionStartTouchedReplyTests(HookFixture):
         lines = (self.hooks_dir / "s1" / "touched.jsonl").read_text(encoding="utf-8").splitlines()
         self.assertEqual(json.loads(lines[0]), {"path": "app/Foo.kt", "agent_type": "generic-proposer"})
 
+    def test_the_kit_ships_no_stop_hook(self):
+        # T1 (D3): reply_lint warned hundreds of times and changed nothing; the Stop hook is off,
+        # the human-reply skill keeps the lint on demand
+        import json as _json
+        settings = _json.loads((HOOKS / "hooks.settings.json").read_text(encoding="utf-8"))
+        self.assertNotIn("Stop", settings["hooks"])
+        self.assertNotIn("reply_lint", _json.dumps(settings))
+
     def test_reply_lint_never_blocks(self):
         text = ("Vale, entonces te cuento: " + "esto es una frase larga que no dice nada concreto y sigue y sigue " * 12)
         out, _ = self.run_hook("reply_lint.py", {"hook_event_name": "Stop", "last_assistant_message": text})

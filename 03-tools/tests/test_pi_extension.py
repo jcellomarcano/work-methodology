@@ -257,9 +257,15 @@ class OutputValidatedOnClose(PiExtensionFixture):
         self.assertEqual(self.pi_ledger(), [])
 
     def test_owner_reply_is_not_validated(self):
-        # negative control: the owner's reply goes to reply_lint, not to the schema check
+        # negative control: the owner's reply is not schema-checked
         self.run_ext([self.end("prose")], role="generic-challenger")
         self.assertEqual([l for l in self.pi_ledger() if l["hook"] == "validate_subagent_output"], [])
+
+    def test_owner_reply_runs_no_reply_lint(self):
+        # T1 (D3): the Stop-time reply lint is off on pi too
+        text = "Vale, entonces te cuento: " + "una frase larga que no dice nada concreto y sigue " * 12
+        self.run_ext([self.end(text)])
+        self.assertEqual([l for l in self.pi_ledger() if l["hook"] == "reply_lint"], [])
 
 
 class BashPostToolUse(PiExtensionFixture):

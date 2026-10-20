@@ -42,17 +42,24 @@ def merge_hooks(settings: dict, kit_hooks: dict, marker: str = DEFAULT_MARKER, t
     merged = dict(settings)
     hooks = {event: list(entries) for event, entries in (settings.get("hooks") or {}).items()}
     added = removed = 0
-    for event, kit_entries in (kit_hooks.get("hooks") or {}).items():
+    kit_events = kit_hooks.get("hooks") or {}
+    # Every event is swept, not only the ones the kit ships today: a kit entry left
+    # under an event the kit dropped (the old Stop reply_lint) goes on re-install.
+    for event in sorted(set(hooks) | set(kit_events)):
         kept = []
         for entry in hooks.get(event, []):
             if _is_kit_entry(entry, marker):
                 removed += 1
             else:
                 kept.append(entry)
+        kit_entries = kit_events.get(event, [])
         kept.extend(kit_entries)
         added += len(kit_entries)
-        hooks[event] = kept
-    merged["hooks"] = hooks
+        if kept:
+            hooks[event] = kept
+        else:
+            hooks.pop(event, None)
+    merged["hooks"] = {event: hooks[event] for event in [*(settings.get("hooks") or {}), *kit_events] if event in hooks}
     return merged, {"added": added, "removed": removed}
 
 
