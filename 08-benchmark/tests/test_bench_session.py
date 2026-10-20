@@ -151,6 +151,11 @@ class SessionReportTests(unittest.TestCase):
         self.assertEqual(ctx["window_tokens"]["label"], "Assumed")
         self.assertEqual(ctx["occupancy"]["value"], round(2105 / 1_000_000, 6))
         self.assertEqual(ctx["occupancy"]["status"], "ok")
+        # occupancy divides by an Assumed window, so it can be no stronger than Inferred
+        self.assertEqual(ctx["occupancy"]["label"], "Inferred")
+        median = self.report["groups"]["all"]["metrics"]["occupancy_median"]
+        self.assertEqual((median["label"], median["status"]), ("Inferred", "ok"))
+        self.assertIn("occupancy is Inferred", self.md)
         unknown = self.van["context"]["occupancy"]
         self.assertEqual((unknown["value"], unknown["label"], unknown["status"]), (None, "Unknown", "not-run"))
 

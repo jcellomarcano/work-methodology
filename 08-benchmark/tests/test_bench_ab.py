@@ -256,6 +256,18 @@ class AbTests(Sandbox):
         self.assertEqual(res.returncode, 0, res.stderr)
         self.assertIn("planned runs: 8", res.stdout)
 
+    def test_dry_run_from_inside_the_repo_without_out_is_allowed(self):
+        cwd = os.getcwd()
+        os.chdir(self.repo)
+        try:
+            rc, text = self.call(bench_ab.main_ab, ["--config", str(self.config()), "--preset", "kit-vs-vanilla",
+                                                    "--dry-run"])
+        finally:
+            os.chdir(cwd)
+        self.assertEqual(rc, 0)
+        self.assertIn("planned runs: 8", text)
+        self.assertEqual(git(self.repo, "status", "--porcelain"), self.status_before)
+
     def test_out_inside_the_repo_is_refused(self):
         rc, _ = self.call(bench_ab.main_ab, ["--config", str(self.config()), "--preset", "kit-vs-vanilla",
                                              "--out", str(self.repo / "bench")])
@@ -333,9 +345,9 @@ def make_run_dir(path, tasks, arms, runs, k, seed=0, resamples=2000):
     return path
 
 
-def run(task, arm, rep, passed=None, status="ok", cost=1.0, verdict=None, kind="change"):
+def run(task, arm, rep, passed=None, status="ok", cost=1.0, verdict=None, kind="change", reason=None):
     return {"task": task, "arm": arm, "rep": rep, "kind": kind, "status": status,
-            "reason": None if status == "ok" else "timeout", "cost_usd": cost, "verify_passed": passed,
+            "reason": None if status == "ok" else reason or "api-error", "cost_usd": cost, "verify_passed": passed,
             "verdict": verdict, "findings_count": None}
 
 
@@ -369,14 +381,38 @@ class ReportTests(Sandbox):
         self.assertEqual(t2["cost_per_solved_usd"]["value"], 5.5)
         self.assertEqual(t2["spend_usd"]["value"], 11.0)
         self.assertEqual(t2["cost_per_run_usd"]["value"], 1.0)  # mean over ok runs, unchanged
-        self.assertEqual(rep["arms"]["vanilla"]["tasks"]["t2"]["cost_per_solved_usd"]["label"], "Unknown")
+        none_solved = rep["arms"]["vanilla"]["tasks"]["t2"]["cost_per_solved_usd"]
+        self.assertEqual((none_solved["value"], none_solved["label"], none_solved["status"]),
+                         (None, "Unknown", "not-run"))
+        self.assertEqual((t2["n_excluded"], t2["n_scored"]), (1, 2))
+        self.assertEqual(cell["n_excluded"], 0)
         self.assertEqual(rep["arms"]["kit"]["flip_rate"]["value"], 0.5)
         self.assertEqual(rep["excluded_runs"], [{"arm": "kit", "rep": 2, "status": "failed", "task": "t2",
-                                                 "reason": "timeout"}])
+                                                 "reason": "api-error"}])
         self.assertEqual(rep["signal"], "signal, not a conclusion")  # fewer than 5 tasks
         md = (self.root / "run" / "report.md").read_text()
         self.assertIn("signal, not a conclusion", md)
         self.assertIn("n tasks", md)
+        self.assertIn("excluded", md)
+
+    def test_a_timeout_is_an_outcome_not_an_exclusion(self):
+        tasks = [{"id": "t1", "kind": "change", "verify": "x"}]
+        runs = [run("t1", "kit", 0, True), run("t1", "kit", 1, True),
+                run("t1", "kit", 2, None, "failed", None, reason="timeout")]
+        rep = self.report(make_run_dir(self.root / "run", tasks, ["kit"], runs, k=3))
+        cell = rep["arms"]["kit"]["tasks"]["t1"]
+        self.assertEqual((cell["pass_at_1"]["value"], cell["pass_at_1"]["n"]), (0.666667, 3))
+        self.assertEqual((cell["pass_hat_k"]["value"], cell["pass_hat_k"]["status"]), (0, "ok"))
+        self.assertEqual(cell["flip"]["value"], 1)
+        self.assertEqual((cell["n_scored"], cell["n_excluded"]), (3, 0))
+        self.assertEqual(rep["excluded_runs"], [])
+
+    def test_a_comparison_over_one_task_is_never_shown(self):
+        tasks = [{"id": "t1", "kind": "change", "verify": "x"}]
+        runs = [run("t1", "vanilla", r, False) for r in range(3)] + [run("t1", "kit", r, True) for r in range(3)]
+        rep = self.report(make_run_dir(self.root / "run", tasks, ["vanilla", "kit"], runs, k=3))
+        [p] = [c for c in rep["comparisons"] if c["metric"] == "pass_at_1"]
+        self.assertEqual((p["ci95"], p["reading"]), ([1.0, 1.0], "not shown (n tasks < 2)"))
 
     def test_bootstrap_is_deterministic_and_not_shown_when_it_crosses_zero(self):
         diffs = [0.137, -0.291, 0.553, 0.071, -0.019, 0.402, 0.333, -0.118]
@@ -426,6 +462,21 @@ class ReportTests(Sandbox):
         self.assertIn("schema_version", rep)
         self.assertEqual(rep["arms"]["kit-neutral"]["activation"]["value"], 0.0)
         self.assertEqual(rep["arms"]["kit-invoked"]["activation"]["value"], 1.0)
+        self.assertEqual(rep["arms"]["vanilla"]["activation"],
+                         {"value": None, "label": "Unknown", "status": "not-run", "n": 2,
+                          "note": "no evidence pattern"})
+        orders = {a["judge"]: a for a in rep["judges"]["agreement"]["between_orders"]}
+        self.assertEqual(orders["j2"]["kappa"], {"value": None, "label": "Unknown", "status": "not-run",
+                                                 "n": orders["j2"]["n"]["value"]})
+        self.assertEqual(orders["j1"]["percent"]["label"], "Measured")
+        self.assertEqual(orders["j1"]["n"]["status"], "ok")
+        self.assertEqual(orders["j1"]["preference_consistency"]["status"], "ok")
+        [between] = rep["judges"]["agreement"]["between_judges"]
+        for key in ("n", "percent", "kappa"):
+            self.assertEqual(set(between[key]), {"value", "label", "status", "n"}, key)
+        md = (first / "report.md").read_text()
+        self.assertIn("| between | metric | value | label | status | n |", md)
+        self.assertNotIn("| None |", md)
         self.assertEqual(rep["arms"]["vanilla"]["tasks"]["chg"]["pass_at_1"]["value"], 1.0)
         validity = rep["arms"]["vanilla"]["tasks"]["rev"]["judge_validity"]
         self.assertEqual(validity["label"], "Inferred")  # between-judge kappa below 0.6

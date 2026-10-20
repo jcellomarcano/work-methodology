@@ -42,6 +42,10 @@ Vanilla install: copy this folder to `~/.claude/skills/harness-benchmark/` (or a
    `code-review`). Each run uses a fresh worktree outside the repo; `--out` must be outside it too.
    Judges: deterministic checks first (`verify`, `seeded`); then two model families when you can, both
    orders. Lead with activation, spend and cost per solved task, and seeded recall.
+   Arms share the user-level `~/.claude` setup and anything committed under the repo's `.claude/`;
+   only the untracked overlay paths differ between arms.
+   Each run leaves its transcript under `~/.claude/projects/`; delete those dirs after the report if
+   they hold sensitive prompts.
 4. Relay the report's "signal vs conclusion" line verbatim, with the n beside every comparison.
 
 Optional reading, only when the repo has it: `08-benchmark/protocols/`. The skill works without it.

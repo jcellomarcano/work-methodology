@@ -18,7 +18,10 @@
     "  `--preset kit-vs-vanilla` replaces arms with vanilla, kit-neutral, kit-invoked and native.",
     "judges[]: command is an argv that reads the judge prompt on stdin and prints the reply. Use two",
     "  model families when you can; one family is allowed and reported as a limitation.",
-    "comparisons (optional): judge pairs [[arm, arm], ...]; default: each arm vs vanilla, and kit-invoked vs native."
+    "comparisons (optional): judge pairs [[arm, arm], ...]; default: each arm vs vanilla, and kit-invoked vs native.",
+    "Every arm shares the user-level ~/.claude setup and anything committed under the repo's .claude/;",
+    "  only the untracked overlay paths differ between arms.",
+    "Each run leaves its transcript under ~/.claude/projects/; delete those dirs after the report if they hold sensitive prompts."
   ],
   "repo": "..",
   "head": "HEAD",

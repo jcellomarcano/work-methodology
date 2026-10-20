@@ -17,7 +17,8 @@ findings block) or `invalid-arm` (its transcript does not match the arm's eviden
 each finding of two arms (kit fingerprints stripped) in both orders, and reports agreement.
 
 `report` writes report.json and report.md: every number carries a label (Measured, Tested,
-Inferred, Unknown) and a status; failed and invalid-arm runs are listed, never averaged in.
+Inferred, Unknown) and a status. A timed-out run counts as not solved; infrastructure failures
+and invalid-arm runs are listed and never averaged in.
 Deterministic: sorted keys, no run timestamps, fixed bootstrap seed. No prompt or reply text
 and no absolute path reaches the report.
 
@@ -425,11 +426,8 @@ def main_ab(argv=None) -> int:
     except subprocess.CalledProcessError as exc:
         print(f"bench ab: git could not resolve the repo or a ref: {exc.stderr.strip()}", file=sys.stderr)
         return 2
-    out = pathlib.Path(args.out or f"bench-ab-{cfg['sha'][:12]}").resolve()
-    if _inside(out, pathlib.Path(cfg["repo"])):
-        print("bench ab: --out must be outside the repository (its working tree is never written)", file=sys.stderr)
-        return 2
     plan = plan_runs(cfg)
+    # A dry run writes nothing, so it may run from inside the repo and without --out.
     if args.dry_run:
         print(f"planned runs: {len(plan)} ({len(cfg['tasks'])} tasks x {len(cfg['arms'])} arms x k {cfg['k']})")
         print(f"commit: {cfg['sha'][:12]}  model: {cfg['model']}  effort: {cfg['effort']}")
@@ -439,6 +437,10 @@ def main_ab(argv=None) -> int:
             print(f"  #{p['order'] + 1} {p['task']} {p['arm']} {p['rep']}")
         print("estimated cost: unknown until the first run")
         return 0
+    out = pathlib.Path(args.out or f"bench-ab-{cfg['sha'][:12]}").resolve()
+    if _inside(out, pathlib.Path(cfg["repo"])):
+        print("bench ab: --out must be outside the repository (its working tree is never written)", file=sys.stderr)
+        return 2
     if (out / "runs.jsonl").exists():
         print(f"bench ab: {out.name}/runs.jsonl already exists; pick another --out", file=sys.stderr)
         return 2
@@ -671,6 +673,7 @@ def main_judge(argv=None) -> int:
         pboth = [v for v in prefs.values() if len(v) == 2]
         agree["preference_consistency"] = _r(sum(1 for v in pboth if v["AB"] == v["BA"]) / len(pboth)) \
             if pboth else None
+        agree["preference_n"] = len(pboth)
         between_orders.append({"judge": judge["name"], **agree})
     between_judges = []
     names = [j["name"] for j in cfg["judges"]]
@@ -711,10 +714,30 @@ def bootstrap_ci(diffs: list[float], seed, resamples: int = 10000) -> tuple[floa
     return _r(lo), _r(hi)
 
 
-def num(value, label: str, status: str, n: int) -> dict:
+def num(value, label: str, status: str, n: int, note: str | None = None) -> dict:
     if value is None:
         label = "Unknown"
-    return {"value": _r(value), "label": label, "status": status, "n": n}
+    row = {"value": _r(value), "label": label, "status": status, "n": n}
+    if note:
+        row["note"] = note
+    return row
+
+
+def _timed_out(run: dict) -> bool:
+    """A run that ran out of time is an outcome (not solved); other failures are infrastructure."""
+    return run["status"] == "failed" and run.get("reason") == "timeout"
+
+
+def _agreement_rows(a: dict) -> dict:
+    """Judge agreement as labelled rows; an undefined kappa is Unknown / not-run, never a bare null."""
+    out = {k: a[k] for k in ("judge", "judges") if k in a}
+    n = a["n"]
+    out["n"] = num(n, "Measured", "ok", n)
+    for key in ("percent", "kappa", "preference_consistency"):
+        if key in a:
+            kn = a.get("preference_n", n) if key == "preference_consistency" else n
+            out[key] = num(a[key], "Measured", "ok" if a[key] is not None else "not-run", kn)
+    return out
 
 
 def _cell_status(runs: list[dict]) -> str:
@@ -737,6 +760,7 @@ def build_report(run_dir: pathlib.Path) -> dict:
     k = cfg["k"]
     tasks = {t["id"]: t for t in cfg["tasks"]}
     arm_names = [a["name"] for a in cfg["arms"]]
+    evidence = {a["name"]: a.get("evidence") for a in cfg["arms"]}
     validity_label = "Inferred"
     if judged:
         kappas = [a["kappa"] for a in judged["agreement"]["between_judges"] if a["n"]]
@@ -760,20 +784,25 @@ def build_report(run_dir: pathlib.Path) -> dict:
         for tid, task in sorted(tasks.items()):
             cr = [r for r in a_runs if r["task"] == tid]
             ok = [r for r in cr if r["status"] == "ok"]
-            st, n_ok = _cell_status(cr), len(ok)
+            # Scored: ok runs plus timeouts (not solved). Infrastructure failures and invalid-arm
+            # runs are excluded from every average and listed.
+            scored = [r for r in cr if r["status"] == "ok" or _timed_out(r)]
+            st, n_ok, n_scored = _cell_status(cr), len(ok), len(scored)
             verified = task["kind"] == "change" and bool(task.get("verify"))
-            passed = [bool(r.get("verify_passed")) for r in ok] if verified else []
-            cell = {"n_runs": len(cr), "n_ok": n_ok, "status": st}
-            if verified and ok:
-                cell["pass_at_1"] = num(_mean([1.0 if p else 0.0 for p in passed]), "Tested", "ok", n_ok)
+            passed = [r["status"] == "ok" and bool(r.get("verify_passed")) for r in scored] if verified else []
+            cell = {"n_runs": len(cr), "n_ok": n_ok, "n_scored": n_scored, "n_excluded": len(cr) - n_scored,
+                    "status": st}
+            if verified and scored:
+                cell["pass_at_1"] = num(_mean([1.0 if p else 0.0 for p in passed]), "Tested", "ok", n_scored)
             else:
-                cell["pass_at_1"] = num(None, "Unknown", st if not ok else "not-run", n_ok)
-            if verified and n_ok == k:
-                cell["pass_hat_k"] = num(1 if all(passed) else 0, "Tested", "ok", n_ok)
+                cell["pass_at_1"] = num(None, "Unknown", st if not scored else "not-run", n_scored)
+            if verified and n_scored == k:
+                cell["pass_hat_k"] = num(1 if all(passed) else 0, "Tested", "ok", n_scored)
             else:
                 cell["pass_hat_k"] = num(None, "Unknown", "not-run" if not verified or not cr else
-                                         _cell_status([r for r in cr if r["status"] != "ok"]), n_ok)
-            outcomes = passed if verified else [r.get("verdict") for r in ok if r.get("verdict")]
+                                         _cell_status([r for r in cr if r not in scored]), n_scored)
+            outcomes = passed if verified else [r.get("verdict") if r["status"] == "ok" else "timeout"
+                                                for r in scored if r["status"] != "ok" or r.get("verdict")]
             if len(outcomes) >= 2:
                 cell["flip"] = num(1 if len(set(outcomes)) > 1 else 0, "Measured", "ok", len(outcomes))
                 flips.append(cell["flip"]["value"])
@@ -790,9 +819,8 @@ def build_report(run_dir: pathlib.Path) -> dict:
             solved = sum(passed)
             if verified and ok and solved:
                 cell["cost_per_solved_usd"] = num(sum(paid) / solved, "Measured", "ok", len(paid))
-            else:
-                cell["cost_per_solved_usd"] = num(None, "Unknown", "ok" if verified and ok else st if not ok
-                                                  else "not-run", n_ok)
+            else:  # nothing solved (or no verifier): no cost per solved task to report
+                cell["cost_per_solved_usd"] = num(None, "Unknown", "not-run", n_scored)
             counts = [r["findings_count"] for r in ok if isinstance(r.get("findings_count"), int)]
             cell["mean_findings"] = num(_mean(counts), "Measured", st if counts else "not-run", len(counts))
             vs = verdicts.get((tid, arm), [])
@@ -803,9 +831,13 @@ def build_report(run_dir: pathlib.Path) -> dict:
             cells[tid] = cell
         valid = [r for r in a_runs if r["status"] in ("ok", "invalid-arm")]
         n_ok_arm = sum(1 for r in valid if r["status"] == "ok")
+        if not evidence.get(arm):  # nothing was checked, so activation is not a number
+            activation = num(None, "Unknown", "not-run", len(valid), note="no evidence pattern")
+        else:
+            activation = num(n_ok_arm / len(valid) if valid else None, "Measured",
+                             "ok" if valid else _cell_status(a_runs), len(valid))
         arms_out[arm] = {
-            "activation": num(n_ok_arm / len(valid) if valid else None, "Measured",
-                              "ok" if valid else _cell_status(a_runs), len(valid)),
+            "activation": activation,
             "flip_rate": num(_mean(flips), "Measured", "ok" if flips else "not-run", len(flips)),
             "tasks": cells,
         }
@@ -823,12 +855,14 @@ def build_report(run_dir: pathlib.Path) -> dict:
                     a, b = arms_out[arm]["tasks"][tid], arms_out[baseline]["tasks"][tid]
                     if a[metric]["value"] is not None and b[metric]["value"] is not None:
                         diffs.append(a[metric]["value"] - b[metric]["value"])
-                        n_runs += a["n_ok"] + b["n_ok"]
+                        key = "n_scored" if metric == "pass_at_1" else "n_ok"
+                        n_runs += a[key] + b[key]
                 comp = {"metric": metric, "arm": arm, "baseline": baseline, "n_tasks": len(diffs), "n_runs": n_runs}
                 if diffs:
                     lo, hi = bootstrap_ci(diffs, f"{cfg.get('seed', 0)}|{metric}|{arm}|{baseline}", resamples)
                     comp.update({"diff": num(_mean(diffs), "Measured", "ok", len(diffs)), "ci95": [lo, hi],
-                                 "reading": "not shown" if lo <= 0.0 <= hi else "shown",
+                                 "reading": "not shown (n tasks < 2)" if len(diffs) < 2 else
+                                 "not shown" if lo <= 0.0 <= hi else "shown",
                                  "attribution": "Inferred"})
                 else:
                     comp.update({"diff": num(None, "Unknown", "not-run", 0), "ci95": None, "reading": "not shown",
@@ -845,9 +879,12 @@ def build_report(run_dir: pathlib.Path) -> dict:
         "signal": SIGNAL_LINE if k == 1 or len(tasks) < 5 else None,
         "arms": arms_out, "comparisons": comparisons,
         "excluded_runs": [{"task": r["task"], "arm": r["arm"], "rep": r["rep"], "status": r["status"],
-                           "reason": r.get("reason")} for r in runs if r["status"] != "ok"],
+                           "reason": r.get("reason")} for r in runs if r["status"] != "ok" and not _timed_out(r)],
+        "timed_out_runs": [{"task": r["task"], "arm": r["arm"], "rep": r["rep"]} for r in runs if _timed_out(r)],
         "judges": None if not judged else {"families": judged["families"], "limitations": judged["limitations"],
-                                           "agreement": judged["agreement"], "validity_label": validity_label},
+                                           "agreement": {kind: [_agreement_rows(a) for a in rows] for kind, rows
+                                                         in sorted(judged["agreement"].items())},
+                                           "validity_label": validity_label},
     }
     return report
 
@@ -867,11 +904,12 @@ def render_md(rep: dict) -> str:
     if rep["signal"]:
         lines += ["", f"**{rep['signal']}** (k == 1 or fewer than 5 tasks)"]
     lines += ["", "## Per arm and task", "",
-              "| arm | task | ok/runs | pass@1 | pass^k | flip | cost/run USD | spend USD | cost/solved USD | findings | "
+              "| arm | task | scored/runs (excluded) | pass@1 | pass^k | flip | cost/run USD | spend USD | cost/solved USD | findings | "
               "judge validity | status |", "|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for arm, a in sorted(rep["arms"].items()):
         for tid, c in sorted(a["tasks"].items()):
-            lines.append(f"| {arm} | {tid} | {c['n_ok']}/{c['n_runs']} | {_fmt(c['pass_at_1'])} | "
+            lines.append(f"| {arm} | {tid} | {c['n_scored']}/{c['n_runs']} ({c['n_excluded']} excluded) | "
+                         f"{_fmt(c['pass_at_1'])} | "
                          f"{_fmt(c['pass_hat_k'])} | {_fmt(c['flip'])} | {_fmt(c['cost_per_run_usd'])} | "
                          f"{_fmt(c['spend_usd'])} | {_fmt(c['cost_per_solved_usd'])} | {_fmt(c['mean_findings'])} | "
                          f"{_fmt(c['judge_validity'])} | {c['status']} |")
@@ -896,12 +934,19 @@ def render_md(rep: dict) -> str:
         j = rep["judges"]
         lines += ["", "## Judges", "", f"Families: {', '.join(j['families']) or 'none'} · validity label: "
                   f"{j['validity_label']} · limitations: {', '.join(j['limitations']) or 'none'}", "",
-                  "| between | n | percent | kappa | preference consistency |", "|---|---|---|---|---|"]
-        for a in j["agreement"]["between_orders"]:
-            lines.append(f"| orders of {a['judge']} | {a['n']} | {a['percent']} | {a['kappa']} | "
-                         f"{a['preference_consistency']} |")
-        for a in j["agreement"]["between_judges"]:
-            lines.append(f"| {' and '.join(a['judges'])} | {a['n']} | {a['percent']} | {a['kappa']} | |")
+                  "| between | metric | value | label | status | n |", "|---|---|---|---|---|---|"]
+        named = [(f"orders of {a['judge']}", a) for a in j["agreement"]["between_orders"]]
+        named += [(" and ".join(a["judges"]), a) for a in j["agreement"]["between_judges"]]
+        for who, a in named:
+            for key in ("n", "percent", "kappa", "preference_consistency"):
+                if key in a:
+                    row = a[key]
+                    value = "Unknown" if row["value"] is None else row["value"]
+                    lines.append(f"| {who} | {key.replace('_', ' ')} | {value} | {row['label']} | "
+                                 f"{row['status']} | {row['n']} |")
+    if rep["timed_out_runs"]:
+        lines += ["", "## Timed-out runs (scored as not solved)", "", "| task | arm | rep |", "|---|---|---|"]
+        lines += [f"| {r['task']} | {r['arm']} | {r['rep']} |" for r in rep["timed_out_runs"]]
     lines += ["", "## Runs not scored", ""]
     if rep["excluded_runs"]:
         lines += ["| task | arm | rep | status | reason |", "|---|---|---|---|---|"]

@@ -127,7 +127,8 @@ def session_row(s: dict, windows: dict) -> dict:
         "context": {
             "peak_tokens": _row(peak, model=model),
             "window_tokens": _row(window, "Assumed", model=model) if window else _unknown(model=model),
-            "occupancy": (_row(_round(peak / window), model=model) if window
+            # Divides by an Assumed window, so the ratio is Inferred, never Measured.
+            "occupancy": (_row(_round(peak / window), "Inferred", model=model) if window
                           else _unknown(model=model)),
         },
         "compactions": {
@@ -167,6 +168,10 @@ def _median(values) -> dict:
     return _row(_round(float(statistics.median(xs))), n=len(xs))
 
 
+def _inferred(row: dict) -> dict:
+    return dict(row, label="Inferred") if row["value"] is not None else row
+
+
 def _sessions_using(rows, getter) -> dict:
     c = Counter()
     for r in rows:
@@ -202,7 +207,7 @@ def group_summary(rows: list) -> dict:
         "cost_usd_median": dict(_median([x["cost_usd"]["value"] for x in m]),
                                 source="transcript cost-state; sessions without one are left out of n"),
         "peak_context_median": _median([x["context"]["peak_tokens"]["value"] for x in m]),
-        "occupancy_median": _median([x["context"]["occupancy"]["value"] for x in m]),
+        "occupancy_median": _inferred(_median([x["context"]["occupancy"]["value"] for x in m])),
         "compactions_median": _median([x["compactions"]["count"]["value"] for x in m]),
         "tokens_dropped_median": _median([x["compactions"]["tokens_dropped"]["value"] for x in m]),
         "subagent_token_share_median": _median([x["delegation"]["subagent_token_share"]["value"] for x in m]),
@@ -342,7 +347,8 @@ def render_md(rep: dict) -> str:
             _fmt(x["steering"]["turns"]["value"]), _fmt(x["steering"]["queued_messages"]["value"]),
             _fmt(x["wall_clock_s"]["value"]),
         ]) + " |")
-    lines += ["", "Labels per column: every count is Measured; window sizes are Assumed; a missing input is "
+    lines += ["", "Labels per column: every count is Measured; window sizes are Assumed; occupancy is Inferred "
+              "(it divides by an Assumed window); a missing input is "
               "Unknown (`not-run`). Full rows with labels and statuses are in `session-report.json`.", ""]
     if rep["failures"]:
         lines += ["## Unreadable transcripts", ""]
