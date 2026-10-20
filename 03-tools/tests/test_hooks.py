@@ -227,7 +227,13 @@ class BudgetTests(HookFixture):
     def test_main_session_creates_nothing(self):
         out, _ = self.run_hook("budget.py", {"tool_name": "Read", "tool_input": {}})
         self.assertEqual(out, {})
-        self.assertFalse(self.hooks_dir.exists())
+        # a silent main-session run creates nothing: no session dir, no ledger line, no counter
+        self.assertFalse((self.hooks_dir / "s1").exists())
+
+    def test_main_session_run_is_counted_once_the_session_exists(self):
+        (self.hooks_dir / "s1").mkdir(parents=True)
+        self.run_hook("budget.py", {"tool_name": "Read", "tool_input": {}})
+        self.assertEqual(sorted(p.name for p in (self.hooks_dir / "s1").iterdir()), ["hook-runs.jsonl"])
 
     def test_denies_past_the_contract_cap(self):
         self.assertIsNone(self.decision(self._call(3)))
@@ -604,3 +610,105 @@ class LatencyTests(HookFixture):
             t0 = time.time()
             self.run_hook(name, payload)
             self.assertLess(time.time() - t0, 1.0, name)
+
+
+class RunLineTests(HookFixture):
+    """T9 (WU9): every hook invocation records one `run` line (hook, element,
+    mode, elapsed_ms, outcome) beside the session ledger, in
+    out/hooks/<session>/hook-runs.jsonl, without changing any decision or
+    output; the ledger lines stay as they were."""
+
+    def runs(self, session="s1"):
+        path = self.hooks_dir / session / "hook-runs.jsonl"
+        return [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines()] if path.is_file() else []
+
+    def _edit(self, path, **extra):
+        return {"tool_name": "Edit", "tool_input": {"file_path": str(self.repo / path)}, **extra}
+
+    def _push(self, command="git push origin main"):
+        return {"tool_name": "Bash", "tool_input": {"command": command}}
+
+    def assert_run(self, line, hook, element, mode, outcome):
+        self.assertEqual((line["kind"], line["hook"], line["element"], line["mode"], line["outcome"]),
+                         ("run", hook, element, mode, outcome), line)
+        self.assertIsInstance(line["elapsed_ms"], (int, float))
+        self.assertGreaterEqual(line["elapsed_ms"], 0)
+
+    def setUp(self):
+        super().setUp()
+        # a live session always exists before tool hooks fire (SessionStart writes run-meta)
+        (self.hooks_dir / "s1").mkdir(parents=True, exist_ok=True)
+
+    def test_silent_run_writes_one_run_line(self):
+        out, proc = self.run_hook("guard_paths.py", self._edit("app/Foo.kt"))
+        self.assertEqual(proc.stdout, "")
+        runs = self.runs()
+        self.assertEqual(len(runs), 1, runs)
+        self.assert_run(runs[0], "guard_paths", "subagent_scope", None, "silent")
+        self.assertEqual(self.ledger(), [])  # a silent run still writes no ledger line
+
+    def test_deny_run_names_the_absolute_element(self):
+        out, _ = self.run_hook("guard_paths.py", self._edit("app/build.gradle", agent_type="generic-proposer", agent_id="a1"))
+        self.assertEqual(self.decision(out), "deny")
+        self.assert_run(self.runs()[-1], "guard_paths", "subagent_build_files", "block", "deny")
+        self.assertEqual(self.runs()[-1]["agent_type"], "generic-proposer")
+
+    def test_warn_ask_and_log_outcomes(self):
+        self.run_hook("guard_gates.py", self._push())
+        self.assert_run(self.runs()[-1], "guard_gates", "push_gate", "warn", "warn")
+        self.set_config(enabled=True, mode="block")
+        self.run_hook("guard_gates.py", self._push())
+        self.assert_run(self.runs()[-1], "guard_gates", "push_gate", "block", "ask")
+        self.run_hook("guard_gates.py", self._push("git commit --amend -m x"))
+        self.assert_run(self.runs()[-1], "guard_gates", "history_rewrite", "log", "log")
+        self.run_hook("guard_gates.py", self._push("git push --force origin x"))
+        self.assert_run(self.runs()[-1], "guard_gates", "force_push", "block", "deny")
+        self.assertEqual(len(self.runs()), 4)
+
+    def test_main_session_budget_exit_is_counted(self):
+        self.run_hook("budget.py", {"tool_name": "Read", "tool_input": {}})
+        self.assert_run(self.runs()[-1], "budget", "budget_deny", None, "silent")
+
+    def test_hook_without_a_hook_constant_is_named_by_its_file(self):
+        self.run_hook("touched_paths.py", self._edit("app/Foo.kt", hook_event_name="PostToolUse"))
+        self.assert_run(self.runs()[-1], "touched_paths", "touched_paths", None, "silent")
+
+    def test_decision_output_and_ledger_are_byte_identical_without_the_run_line(self):
+        cases = [("guard_paths.py", self._edit("app/Foo.kt")),
+                 ("guard_paths.py", self._edit("app/build.gradle", agent_type="generic-proposer", agent_id="a1")),
+                 ("guard_paths.py", self._edit("settings.gradle")),
+                 ("guard_gates.py", self._push())]
+        for session in ("with", "without"):
+            (self.hooks_dir / session).mkdir(parents=True, exist_ok=True)  # live sessions
+        for name, payload in cases:
+            _, with_run = self.run_hook(name, payload, session="with")
+            _, without = self.run_hook(name, payload, session="without", env_extra={"METODO_HOOK_RUNS": "off"})
+            self.assertEqual((with_run.stdout, with_run.stderr), (without.stdout, without.stderr), name)
+        self.assertEqual(self.ledger("with"), self.ledger("without"))  # same lines, same seq
+        self.assertEqual(len(self.runs("with")), len(cases))
+        self.assertEqual(self.runs("without"), [])  # kill switch: no run line at all
+
+    def test_a_run_line_write_failure_never_breaks_the_hook(self):
+        _, baseline = self.run_hook("guard_paths.py", self._edit("app/build.gradle", agent_type="generic-proposer", agent_id="a1"),
+                                    session="ok")
+        (self.hooks_dir / "s1" / "hook-runs.jsonl").mkdir(parents=True)  # a directory: the append fails
+        out, proc = self.run_hook("guard_paths.py", self._edit("app/build.gradle", agent_type="generic-proposer", agent_id="a1"))
+        self.assertEqual(self.decision(out), "deny")
+        self.assertEqual((proc.stdout, proc.stderr), (baseline.stdout, baseline.stderr))
+        self.assertEqual(self.ledger()[-1]["kind"], "forbidden-path")
+
+    def test_element_mapping_covers_every_ledger_kind_family(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("metodo_hooks_common_t9", HOOKS / "_common.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        e = module.element_for
+        self.assertEqual(e("guard_gates", "gate-push", "warn", False), "push_gate")
+        self.assertEqual(e("guard_gates", "gate-push-outcome", "ran", False), "push_gate")
+        self.assertEqual(e("guard_gates", "gate-merge", "deny", True), "subagent_delivery")
+        self.assertEqual(e("guard_paths", "forbidden-path", "ask", False), "main_build_file_ask")
+        self.assertEqual(e("guard_paths", "forbidden-path", "deny", True), "subagent_build_files")
+        self.assertEqual(e("guard_paths", "scope-outside", "warn", True), "subagent_scope")
+        self.assertEqual(e(None, "delegate-writer"), e("guard_paths", "main-edit-delegated-role"))
+        self.assertEqual(e("budget", "budget-warn", "warn", True), "budget_deny")
+        self.assertEqual(e("validate_subagent_output", "report-over-cap", "block", True), "subagent_output")

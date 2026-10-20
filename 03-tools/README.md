@@ -69,6 +69,9 @@ python3 lib/rdd_risk.py --repo <repo> --base origin/develop [--change-card F]
 python3 lib/test_sectors.py <repo> [--base B] [--check-verify <repo>/tools/verify/verify.sh]
 bin/verify-sectors.sh <repo> [--base B] [--tasks a,b]  # sector battery under the Gradle lock
 python3 lib/hooks_report.py              # ledger figures and the warn -> block criterion
+python3 lib/hooks_report.py --verdicts --as-of YYYY-MM-DD [--transcript-metrics F] [--format md]
+                                         # per-element PROMOTE|DEMOTE|KEEP|EXPIRE; never writes config
+bin/mark-fp.sh <session> <seq> --reason "..."   # owner false-positive mark; the ledger is never edited
 bin/fetch-tools.sh                       # detekt, PMD, ktlint -> vendor/
 python3 lib/shape_metrics.py <repo> [--modules a,b]
 python3 lib/duplication_cpd.py <repo> --calibrate     # fixes config/cpd.json (deliberate change)
@@ -89,6 +92,10 @@ bin/cartography.sh <repo>                # + hotspots (90d) + merge-tree vs the 
 bin/clean-pass.sh <repo>                 # union of flagged rows, proposes nothing
 bin/verify-commit.sh <repo> <range> [--full]     # tools/verify/verify.sh per commit, in a worktree
 bin/benchmark-release.sh <repo> <refA> <refB> [--force-recompute]
+bin/run-check.sh <name> [--runs-dir DIR] [--cwd DIR] -- <command...>   # runs a check, exit code passes through;
+                                         # one line in out/runs/runs.jsonl: the only "green" proof the done gate accepts
+python3 lib/done_check.py --repo <repo> --reply <file|-> [--task F] [--card F] [--tier T] [--waivers F] [--format block]
+                                         # DONE-01..17 + a DONE-GATE: block to paste verbatim; exit 1 on BLOCK (MCP done_check)
 python3 lib/activation.py --tier T [--task-kind K] [--runtime claude|pi] [--caller main|subagent] [--offline]
                           [--session S]   # profile bare|light|scripts|standard|full + element modes (JSON)
 python3 -m unittest discover tests

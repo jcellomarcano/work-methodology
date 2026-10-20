@@ -15,6 +15,7 @@ import os
 import platform
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 TOOLS_ROOT = Path(os.environ.get("METODO_TOOLS") or Path(__file__).resolve().parent.parent).resolve()
@@ -137,7 +138,7 @@ def hook_mode(config: dict, hook: str, inp: dict | None = None) -> str:
     rdd = config.get("rdd") or {}
     explicit = (rdd.get("hook_modes") or {}).get(hook)
     if explicit:
-        return explicit
+        return _seen_mode(hook, explicit)
     try:
         profiled = _profile_mode(config, hook, _INPUT if inp is None else inp)
     except Exception:  # noqa: BLE001 - a broken profile falls back to today's rule, never to OFF
@@ -145,8 +146,8 @@ def hook_mode(config: dict, hook: str, inp: dict | None = None) -> str:
     if profiled is not None:
         if profiled in ("off", "log"):
             _SILENT_HOOKS.add(hook)
-        return profiled
-    return rdd.get("mode") or "warn"
+        return _seen_mode(hook, profiled)
+    return _seen_mode(hook, rdd.get("mode") or "warn")
 
 
 def is_subagent(inp: dict) -> bool:
@@ -252,6 +253,8 @@ def ledger(inp: dict, hook: str, kind: str, decision: str, mode: str, reason: st
             fh.write(json.dumps(line, ensure_ascii=False) + "\n")
     except OSError:
         pass
+    finally:
+        _RUN["lines"].append((kind, decision, mode))
 
 
 def write_run_meta(inp: dict) -> None:
@@ -267,6 +270,8 @@ def write_run_meta(inp: dict) -> None:
 
 
 def emit_pretool(decision: str, reason: str) -> None:
+    if decision in ("deny", "ask"):
+        _RUN["shown"].append(decision)
     print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": decision,
                                              "permissionDecisionReason": reason}}, ensure_ascii=False))
 
@@ -282,6 +287,7 @@ def emit_warn(event: str | None, kind: str, fix: str) -> None:
     activation profile set the emitting hook to OFF or LOG (hook_mode)."""
     if any(kind.startswith(prefix) and hook in _SILENT_HOOKS for prefix, hook in WARN_KIND_HOOK):
         return
+    _RUN["shown"].append("warn")
     text = f"METODO-WARN {kind}: {fix}"
     limit = WARN_MAX_TOKENS * 4
     if len(text) > limit:
@@ -291,12 +297,90 @@ def emit_warn(event: str | None, kind: str, fix: str) -> None:
 
 
 def emit_stop_block(reason: str) -> None:
+    _RUN["shown"].append("block")
     print(json.dumps({"decision": "block", "reason": reason}, ensure_ascii=False))
+
+
+# T9 (WU9): run counters and latency. One `run` line per hook invocation in
+# out/hooks/<session>/hook-runs.jsonl, beside the ledger (whose lines and seq
+# stay exactly as before). hooks_report reads it for the fire rate (fires over
+# runs). METODO_HOOK_RUNS=off is the kill switch.
+RUNS_FILE = "hook-runs.jsonl"
+OUTCOMES = ("silent", "log", "warn", "ask", "block", "deny")  # weakest to strongest
+_DECISION_RANK = {"deny": 4, "block": 3, "ask": 2, "warn": 1}
+_RUN: dict = {"hook": None, "mode": None, "lines": [], "shown": []}
+
+# The activation element (lib/activation.py ELEMENTS + ABSOLUTE) each ledger
+# kind stands for; hooks_report reuses this table for fires and marks.
+# main_session_guard (T7) and output_author are outside the activation matrix.
+KIND_ELEMENT = {"force-push": "force_push", "budget-deny": "budget_deny", "budget-warn": "budget_deny",
+                "no-verify": "history_rewrite", "amend": "history_rewrite", "rebase": "history_rewrite",
+                "scope-outside": "subagent_scope", "main-edit-delegated-role": "main_session_guard",
+                "delegate-writer": "main_session_guard", "output-invalid": "subagent_output",
+                "output-truncated": "subagent_output", "output-fenced": "subagent_output",
+                "report-over-cap": "subagent_output", "context-over-cap": "subagent_output",
+                "reply-lint": "reply_lint", "session-start": "session_start_status", "output-authored": "output_author"}
+HOOK_DEFAULT_ELEMENT = {"budget": "budget_deny", "guard_gates": "push_gate", "guard_paths": "subagent_scope",
+                        "validate_subagent_output": "subagent_output", "reply_lint": "reply_lint",
+                        "touched_paths": "touched_paths", "session_start_status": "session_start_status",
+                        "output_author": "output_author"}
+
+
+def element_for(hook: str | None, kind: str | None = None, decision: str | None = None, subagent: bool = False) -> str:
+    """The activation element a ledger line (or a run with no line) stands for."""
+    if kind:
+        base = kind[:-len("-outcome")] if kind.endswith("-outcome") else kind
+        if base in KIND_ELEMENT:
+            return KIND_ELEMENT[base]
+        if base == "forbidden-path":
+            return "subagent_build_files" if subagent else "main_build_file_ask"
+        if base.startswith("gate-"):
+            return "subagent_delivery" if subagent and decision == "deny" else "push_gate"
+    return HOOK_DEFAULT_ELEMENT.get(hook or "", hook or "unknown")
+
+
+def _seen_mode(hook: str, mode: str) -> str:
+    if hook == _RUN["hook"]:
+        _RUN["mode"] = mode
+    return mode
+
+
+def _run_line(hook: str, elapsed_ms: float) -> dict:
+    lines = _RUN["lines"]
+    decisive = max(lines, key=lambda l: _DECISION_RANK.get(l[1], 0)) if lines else None
+    shown = [o for o in _RUN["shown"] if o in OUTCOMES]
+    outcome = max(shown, key=OUTCOMES.index) if shown else ("log" if lines else "silent")
+    kind, decision, mode = decisive if decisive else (None, None, _RUN["mode"])
+    return {"kind": "run", "hook": hook, "element": element_for(hook, kind, decision, is_subagent(_INPUT)),
+            "mode": mode, "outcome": outcome, "elapsed_ms": round(elapsed_ms, 3), "event": _INPUT.get("hook_event_name"),
+            "agent_type": _INPUT.get("agent_type"), "agent_id": _INPUT.get("agent_id"), "tool": _INPUT.get("tool_name")}
+
+
+def _record_run(hook: str, started: float) -> None:
+    """Never raises: a failed write leaves the hook's decision and output as they were."""
+    try:
+        if os.environ.get("METODO_HOOK_RUNS", "").lower() in ("off", "0", "false"):
+            return
+        sdir = session_dir(_INPUT)
+        # A run line never creates the session dir: it is counted only once the
+        # session exists (SessionStart's run-meta, or a ledger line). A hook that
+        # did nothing therefore leaves no trace, inside the repo or anywhere else.
+        if not sdir.is_dir():
+            return
+        line = _run_line(hook, (time.monotonic() - started) * 1000)
+        with (sdir / RUNS_FILE).open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(line, ensure_ascii=False) + "\n")
+    except Exception:  # noqa: BLE001 - counting must never break a hook
+        pass
 
 
 def run_guarded(fn) -> int:
     """Runs the hook; any unexpected failure exits 0 with no stdout (fails
-    open), with the trace on stderr for the human ledger."""
+    open), with the trace on stderr for the human ledger. Every run, whatever
+    its exit, records one run line (T9)."""
+    hook = getattr(fn, "__globals__", {}).get("HOOK") or Path(fn.__code__.co_filename).stem
+    _RUN.update(hook=hook, mode=None, lines=[], shown=[])
+    started = time.monotonic()
     try:
         return int(fn() or 0)
     except SystemExit:
@@ -304,3 +388,5 @@ def run_guarded(fn) -> int:
     except Exception as exc:  # noqa: BLE001
         print(f"metodo hook error (fail-open): {exc}", file=sys.stderr)
         return 0
+    finally:
+        _record_run(hook, started)
