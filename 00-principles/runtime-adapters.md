@@ -111,8 +111,8 @@ that thing and never its history. That is the point: `out/` is the audit trail a
 into it. When you need what the second capture said before the third one landed, read the round
 directory, not the note.
 
-Two calls stay manual, because they are judgment and not bookkeeping:
-
-- `mem_context` at session start, to find out what past sessions concluded about this repo.
-- `mem_save` for a decision, once it is made. The bridge saves what a script produced; a decision
-  someone reached in conversation has no script to hang off, so it has to be saved by hand.
+Reads and manual saves follow `lib/engram_rule.py --phase start|resume|compact|task`, first row wins:
+kill switch or no binary, off; subagent, never (the parent forwards); sensitive or unresolved project,
+1 search with an explicit project, no saves; compacted, `mem_context` compact ≤ 4096 bytes once; resume,
+task doc first, then that plus ≤ 2 `mem_search` × 5; new multi-session task, 1 search; trivial, no reads;
+else 1 search only if the prompt names earlier work. Off after 20 sessions with recall-used < 0.2.
