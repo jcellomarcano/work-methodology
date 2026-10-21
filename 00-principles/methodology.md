@@ -177,7 +177,7 @@ work; the highest-judgment one designs, decides, and talks to the owner. Inter-a
 ## 10. Deliverables
 
 **Real-environment minutes**: arm, metric, criterion, result with pasted evidence, arms discarded and
-why. **PR messages** (skill `pr-message`): what it fixes, evidence, card, "what was NOT tested".
+why. **PR messages** (skill `pr-message`): what it fixes, before and after, evidence, card, "what was NOT tested".
 **Bug reports**: the symptom as the customer sees it, the cause with measurements, "what this bug is
 NOT". **Collateral findings**: noted with a ticket, not fixed in passing. **Every change leaves future
 context**: code, test, invariant, decision, evidence, metric, explicit limit.
