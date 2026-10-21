@@ -269,7 +269,7 @@ only if `init.sh` reports `ready_for_benchmark` for that repo: a half-installed 
 | `03-tools/` | `bin/` (init, doctor, smoke, install, adopt, metrics, kit-status…), `lib/` checkers, `hooks/`, `mcp/` server, `config/`, `schemas/`, `tests/` |
 | `04-templates/` | Change card, PR, findings, release benchmark, project profile, agent brief, round minutes |
 | `05-adopt/` | The adoption checklist, each item marked init or human |
-| `06-languages/` | Official rule verbatim + labeled house rules + detectors, per language and build tool |
+| `06-languages/` | Official rule verbatim + labeled house rules + detectors, per language and build tool, plus data practice (OSINT, data engineering, data analysis, statistical ML) |
 | `07-communication/` | How an agent talks to a person: identity block, COM rules with a linter, templates, provider adapters, its own benchmark |
 | `08-benchmark/` | Kit vs vanilla: metrics, protocols, runners, reports |
 | `odd/` | Task documents (specs, tasks, log) for the kit's own changes |
