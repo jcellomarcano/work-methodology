@@ -352,7 +352,9 @@ class Smoke:
         contract = self.tools.parent / "01-roles" / "agents" / "generic-proposer.contract.json"
         if not contract.exists():
             contract = self.clone / ".claude" / "agents" / "generic-proposer.contract.json"
-        caps_src = self.tools / "config" / "docs-caps.json"
+        caps_src = self.config_path.parent / "docs-caps.json"
+        if not caps_src.exists():
+            caps_src = self.tools / "config" / "docs-caps.json"
         caps = (baseline.load_json(caps_src).get("caps") or {}) if caps_src.exists() else {}
         caps_file = round_dir.parent / f"{round_dir.name}-docs-caps.json"
         baseline.write_json(caps_file, {"docs_root": str(self.clone), "caps": caps})

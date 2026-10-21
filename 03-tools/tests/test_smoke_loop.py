@@ -45,8 +45,8 @@ def snapshot(repo: Path) -> dict:
     }
 
 
-def run_smoke(repo: Path, out: Path, *extra: str) -> subprocess.CompletedProcess:
-    env = dict(os.environ, METODO_MEMORY="off", METODO_PROJECT_CONFIG=str(FIXTURE_CONFIG))
+def run_smoke(repo: Path, out: Path, *extra: str, config: Path = FIXTURE_CONFIG) -> subprocess.CompletedProcess:
+    env = dict(os.environ, METODO_MEMORY="off", METODO_PROJECT_CONFIG=str(config))
     return subprocess.run(["python3", str(SMOKE), str(repo), "--out", str(out), *extra],
                           capture_output=True, text=True, env=env, cwd=str(TOOLS_ROOT))
 
@@ -145,6 +145,56 @@ class SmokeLoopTest(unittest.TestCase):
         leftovers = list(Path(tempfile.gettempdir()).glob("metodo-smoke-*"))
         kept = [p for p in leftovers if (p / "clone").exists() and _git(p / "clone", "config", "--get", "remote.origin.url").strip() == str(self.repo)]
         self.assertEqual(kept, [])
+
+
+class SmokeLoopDocsCapsTest(unittest.TestCase):
+    """docs_lint caps come from the instance (docs-caps.json next to the
+    project config) and fall back to the kit's copy only when it has none."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = Path(tempfile.mkdtemp(prefix="smoke-loop-caps-test-"))
+        cls.repo = make_user_repo(cls.tmp)
+        # 30 lines: over the kit's own CLAUDE.md cap, under the instance's.
+        (cls.repo / "CLAUDE.md").write_text("".join(f"rule {i}\n" for i in range(30)), encoding="utf-8")
+        _git(cls.repo, "add", "CLAUDE.md")
+        _git(cls.repo, "commit", "-q", "-m", "long CLAUDE.md")
+        cls.with_caps = cls.instance_config("with-caps", {"CLAUDE.md": 100, "README.md": 80})
+        cls.without_caps = cls.instance_config("without-caps", None)
+        cls.proc_with = run_smoke(cls.repo, cls.tmp / "with.json", config=cls.with_caps)
+        cls.proc_without = run_smoke(cls.repo, cls.tmp / "without.json", config=cls.without_caps)
+
+    @classmethod
+    def instance_config(cls, name: str, caps: dict | None) -> Path:
+        config_dir = cls.tmp / name / "config"
+        config_dir.mkdir(parents=True)
+        shutil.copy(FIXTURE_CONFIG, config_dir / "project.json")
+        if caps is not None:
+            (config_dir / "docs-caps.json").write_text(json.dumps({"caps": caps}), encoding="utf-8")
+        return config_dir / "project.json"
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def low(self, name: str) -> dict:
+        report = json.loads((self.tmp / name).read_text(encoding="utf-8"))
+        return next(s for s in report["scenarios"] if s["name"] == "low")
+
+    def docs_lint_exit(self, scenario: dict) -> list[int]:
+        return [s["exit_code"] for s in scenario["steps"] if s["step"] == "script:docs_lint"]
+
+    def test_instance_caps_apply_when_present(self):
+        self.assertEqual(self.proc_with.returncode, 0, self.proc_with.stdout + self.proc_with.stderr)
+        low = self.low("with.json")
+        self.assertEqual(self.docs_lint_exit(low), [0])
+        self.assertEqual(low["verdict"], "approved")
+
+    def test_kit_caps_apply_when_instance_has_none(self):
+        self.assertEqual(self.proc_without.returncode, 1, self.proc_without.stdout + self.proc_without.stderr)
+        low = self.low("without.json")
+        self.assertEqual(self.docs_lint_exit(low), [1])
+        self.assertEqual(low["verdict"], "rejected")
 
 
 class SmokeLoopUsageTest(unittest.TestCase):
