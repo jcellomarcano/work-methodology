@@ -40,7 +40,8 @@ class DoneGateFixture(HookFixture):
     def add_run(self, name="app", exit_code=0):
         self.runs.parent.mkdir(parents=True, exist_ok=True)
         lines = self.runs.read_text(encoding="utf-8").splitlines() if self.runs.exists() else []
-        record = dict(run_check.worktree_fingerprint(self.repo), argv=["./gradlew", "test"], cwd=".", elapsed_ms=1,
+        record = dict(run_check.worktree_fingerprint(self.repo), repo=str(run_check.repo_root(self.repo)),
+                      argv=["./gradlew", "test"], cwd=".", elapsed_ms=1,
                       exit=exit_code, log=f"{len(lines) + 1}.log", name=name, output_sha256="0" * 64, schema_version=1,
                       seq=len(lines) + 1)
         with self.runs.open("a", encoding="utf-8") as handle:
@@ -197,6 +198,31 @@ class WriterSubagentStopTests(DoneGateFixture):
         line = self.gate_lines()[-1]
         self.assertEqual((line["event"], line["agent_type"], line["decision"]), ("SubagentStop", "generic-proposer", "warn"))
 
+    def test_schema_valid_json_writer_returns_are_claims(self):
+        # B-002: the writer roles return schema JSON, so every prose value sits in double quotes
+        from lib import findings_schema_validator
+        returns = {
+            ("generic-proposer", "proposer"): {
+                "change_card_id": "C-1", "files_changed": ["app/Foo.kt"], "handoff_to": ["generic-challenger"],
+                "build": {"variant": "debug", "task": "test", "result": "PASS"},
+                "role_contract_validation": {"verdict": "PASS"},
+                "status": "completed", "summary": "Foo wired; all tests pass, committed abc1234"},
+            ("generic-mechanic", "mechanic"): {
+                "fix_id": "F-1", "applied": True, "files_changed": ["app/Foo.kt"],
+                "status": "completed", "summary": "all tests pass"},
+        }
+        for (role, schema_name), ret in returns.items():
+            with self.subTest(role=role):
+                schema = json.loads((TOOLS_ROOT / "schemas" / f"{schema_name}-output.schema.json").read_text(encoding="utf-8"))
+                self.assertEqual(findings_schema_validator.validate(ret, schema)["verdict"], "PASS")
+                self.edit(f"class Foo {{ val role = \"{role}\" }}\n")
+                out, _ = self.stop(json.dumps(ret, indent=2), event="SubagentStop", agent_type=role, agent_id=role)
+                self.assertIn("- DONE-02 FLAG ", out["systemMessage"])
+                line = self.gate_lines()[-1]
+                self.assertEqual((line["event"], line["agent_type"]), ("SubagentStop", role))
+                self.assertIn("claims committed,done,green" if "committed" in ret["summary"] else "claims done,green",
+                              line["reason"])
+
     def test_non_writer_roles_are_not_checked(self):
         self.edit()
         out, proc = self.stop("Done.", event="SubagentStop", agent_type="generic-challenger", agent_id="c1")
@@ -221,8 +247,26 @@ class WriterSubagentStopTests(DoneGateFixture):
         self.assertEqual(list((self.hooks_dir / "s1").glob("done-gate-blocked-*")), [])
 
 
-if __name__ == "__main__":
-    unittest.main()
+class TimeBudgetTests(DoneGateFixture):
+    """A-008: the hook gives done_check one budget below its own 30 s timeout;
+    a check that runs out of it is a visible FLAG "timed out", never silence."""
+
+    def test_a_slow_check_is_a_timed_out_flag_inside_the_budget(self):
+        import time
+        (self.repo / "01-roles").mkdir()
+        (self.repo / "01-roles" / "r.md").write_text("role\n", encoding="utf-8")
+        (self.repo / "03-tools" / "lib").mkdir(parents=True)
+        (self.repo / "03-tools" / "lib" / "kit_status.py").write_text("import time\ntime.sleep(20)\n", encoding="utf-8")
+        config = json.loads(json.dumps(CONFIG))
+        config["hook_time_budget_s"] = 2
+        self.gate_config.write_text(json.dumps(config), encoding="utf-8")
+        self.edit()
+        start = time.monotonic()
+        out, _ = self.stop("Done, the change is finished.")
+        self.assertLess(time.monotonic() - start, 10)
+        lines = out["systemMessage"].splitlines()
+        self.assertTrue(any(l.startswith("- DONE-06 FLAG ") and "timed out" in l for l in lines), lines)
+        self.assertIn("DONE-06:FLAG", self.gate_lines()[-1]["reason"])
 
 
 class ActivationProfileTests(DoneGateFixture):
@@ -258,3 +302,7 @@ class ActivationProfileTests(DoneGateFixture):
         out, _ = self.stop("Done, the change is finished.")
         self.assertNotIn("decision", out)
         self.assertIn("systemMessage", out)
+
+
+if __name__ == "__main__":
+    unittest.main()

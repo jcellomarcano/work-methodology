@@ -16,8 +16,8 @@ from lib import run_check
 TOOLS_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = TOOLS_ROOT / "lib" / "run_check.py"
 WRAPPER = TOOLS_ROOT / "bin" / "run-check.sh"
-RECORD_KEYS = ["argv", "cwd", "dirty", "elapsed_ms", "exit", "head_sha", "log", "name", "output_sha256", "schema_version",
-               "seq", "tree_sha", "worktree_sha"]
+RECORD_KEYS = ["argv", "cwd", "dirty", "elapsed_ms", "exit", "head_sha", "log", "name", "output_sha256", "repo",
+               "schema_version", "seq", "tree_sha", "worktree_sha"]
 
 
 def _git(cwd: Path, *args: str) -> str:
@@ -61,6 +61,7 @@ class RunCheckTests(unittest.TestCase):
         self.assertEqual((record["exit"], record["cwd"], record["seq"], record["dirty"]), (0, ".", 1, False))
         self.assertEqual(record["head_sha"], _git(self.repo, "rev-parse", "HEAD"))
         self.assertEqual(record["tree_sha"], _git(self.repo, "rev-parse", "HEAD^{tree}"))
+        self.assertEqual(record["repo"], str(self.repo.resolve()))  # A-005: a run is bound to its repo
         log = self.runs / record["log"]
         self.assertEqual(record["log"], "1.log")
         data = log.read_bytes()
@@ -110,6 +111,40 @@ class RunCheckTests(unittest.TestCase):
         record = self._records()[-1]
         self.assertTrue(record["dirty"])
         self.assertEqual(record["worktree_sha"], after_new["worktree_sha"])
+
+    def test_worktree_sha_is_the_tested_content_and_survives_a_commit_of_the_same_bytes(self):
+        # B-003: "run tests, then commit" keeps the green proof; HEAD's tree stays tree_sha
+        (self.repo / "a.py").write_text("x = 2\n", encoding="utf-8")
+        (self.repo / "u.py").write_text("u = 1\n", encoding="utf-8")
+        staged = _git(self.repo, "ls-files", "--stage")
+        dirty = run_check.worktree_fingerprint(self.repo)
+        # the real index never gains the overlay (git status may still refresh its stat cache)
+        self.assertEqual(_git(self.repo, "ls-files", "--stage"), staged)
+        (self.repo / "u.py").unlink()
+        dirty = run_check.worktree_fingerprint(self.repo)
+        _git(self.repo, "commit", "-q", "-am", "same bytes")
+        committed = run_check.worktree_fingerprint(self.repo)
+        self.assertEqual(dirty["worktree_sha"], committed["worktree_sha"])
+        self.assertFalse(committed["dirty"])
+        self.assertEqual(committed["tree_sha"], _git(self.repo, "rev-parse", "HEAD^{tree}"))
+        self.assertNotEqual(dirty["tree_sha"], committed["tree_sha"])
+        (self.repo / "a.py").write_text("x = 3\n", encoding="utf-8")
+        edited = run_check.worktree_fingerprint(self.repo)
+        self.assertNotEqual(edited["worktree_sha"], committed["worktree_sha"])  # an edit changes it
+        (self.repo / "new.py").write_text("y = 1\n", encoding="utf-8")
+        untracked = run_check.worktree_fingerprint(self.repo)
+        self.assertNotEqual(untracked["worktree_sha"], edited["worktree_sha"])  # untracked files count
+        _git(self.repo, "add", "-A")
+        _git(self.repo, "commit", "-q", "-m", "with the new file")
+        self.assertEqual(run_check.worktree_fingerprint(self.repo)["worktree_sha"], untracked["worktree_sha"])
+
+    def test_worktree_sha_follows_the_worktree_not_the_staged_copy(self):
+        (self.repo / "a.py").write_text("x = 2\n", encoding="utf-8")
+        _git(self.repo, "add", "a.py")
+        staged = run_check.worktree_fingerprint(self.repo)
+        (self.repo / "a.py").write_text("x = 3\n", encoding="utf-8")
+        self.assertNotEqual(staged["worktree_sha"], run_check.worktree_fingerprint(self.repo)["worktree_sha"])
+        self.assertEqual(_git(self.repo, "diff", "--cached", "--name-only"), "a.py")  # staging untouched
 
     def test_runs_dir_inside_a_tracked_path_is_refused_and_nothing_runs(self):
         marker = self.tmp / "ran"

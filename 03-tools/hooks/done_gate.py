@@ -20,6 +20,11 @@ and ledgered `done-unproven`. A runtime that cannot send the agent back
 (pi's agent_end passes `runtime_can_block: false`) records `done-unproven`
 `unenforced` instead.
 
+Time budget (A-008): done_check gets `hook_time_budget_s` from done-gate.json
+(25 s), counted from this hook's start and below its 30 s timeout in
+hooks.settings.json; every subprocess timeout is cut to what is left, and a
+rule that runs out is a FLAG "timed out" in the block, never a silent kill.
+
 Hook mode (_common.hook_mode): off, silent; log, ledger only; warn or block,
 shown (block does not raise a FLAG rule). RDD off: silent.
 """
@@ -27,6 +32,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -50,11 +56,12 @@ def gate_config_path() -> Path:
     return beside if beside and beside.is_file() else done_check.DEFAULT_CONFIG
 
 
-def check(inp: dict, repo: Path, message: str, config_path: Path) -> dict:
-    """done_check over the message itself (run's `reply`, so --reply is never read)."""
+def check(inp: dict, repo: Path, message: str, config_path: Path, deadline: float | None = None) -> dict:
+    """done_check over the message itself (run's `reply`, so --reply is never read),
+    every check bounded by `deadline` (time.monotonic())."""
     args = done_check._parser().parse_args(["--repo", str(repo), "--reply", "-", "--config", str(config_path),
                                             "--receipts", str(c.receipts_dir()), "--session-dir", str(c.session_dir(inp))])
-    payload, _ = done_check.run(args, reply=message)
+    payload, _ = done_check.run(args, reply=message, deadline=deadline)
     return payload
 
 
@@ -64,6 +71,7 @@ def _marker(inp: dict, worktree_sha: str) -> Path:
 
 
 def main() -> int:
+    started = time.monotonic()
     inp = c.read_input()
     event = inp.get("hook_event_name") or "Stop"
     if c.is_subagent(inp):
@@ -91,7 +99,7 @@ def main() -> int:
     if repo is None:
         return 0
     try:
-        payload = check(inp, repo, message, config_path)
+        payload = check(inp, repo, message, config_path, started + gate["hook_time_budget_s"])
     except done_check.UsageError:
         return 0
     rules = payload["rules"]

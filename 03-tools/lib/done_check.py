@@ -6,7 +6,10 @@
 
 DONE-01 reads the final reply (outside code, quotes and blockquotes) for a
 claim class: done, green, committed, delivered (English and Spanish words,
-plus `status: completed`, in config/done-gate.json). No claim: nothing else
+plus `status: completed`, in config/done-gate.json). A reply that parses as
+a JSON object (a writer's schema return, bare or in one fence) is read
+through its string values instead (keys in `json_claim_skip_keys` left out),
+and its top-level `status` in `json_status_done` is a done claim. No claim: nothing else
 runs (not even git) and the verdict is `no-claim`. Otherwise every rule is
 reported, in order, as PASS, FLAG, BLOCK or SKIP (a SKIP always says why).
 A failing rule reports its `mode` from the config; the shipped config has
@@ -15,7 +18,8 @@ every rule in FLAG (D2, warn first) and records the done-gate.md mode as
 
 Inputs, all explicit (the gate reads files; the only subprocesses are git,
 docs_lint, the repo's kit_status --check and cite_check, each with a
-timeout):
+timeout; --time-budget S bounds them all, and a rule that runs out of it
+is a FLAG "timed out", never silence or a BLOCK):
   --runs FILE          runs.jsonl from bin/run-check.sh (default <tools>/out/runs/runs.jsonl or $METODO_RUNS_DIR)
   --receipts DIR       receipts (default $METODO_RDD_DIR or <tools>/out/rdd)
   --base REF           touched paths and diffs against REF (default: uncommitted changes vs HEAD)
@@ -31,9 +35,16 @@ timeout):
   --waivers FILE       owner waivers to read (repeatable; see below)
   --docs-caps FILE     docs caps (default <repo>/03-tools/config/docs-caps.json)
   --format json|block  json (default) or only the DONE-GATE block
+  --time-budget S      total seconds for every check (the Stop hook passes hook_time_budget_s)
 
 "After the last edit" is the worktree fingerprint of lib/run_check.py: a run
-proves the current tree only if its worktree_sha equals the current one.
+proves the current tree only if its worktree_sha (the tested content, kept
+by a commit of the same bytes) equals the current one. A run counts only in
+the repo it ran in (its `repo` equals this repo's root; a run without one is
+ignored). DONE-02 trusts the run name: a run named after the sector proves
+it; its argv is recorded for the reader, never compared with a sector
+command. DONE-03's red run must share the green run's HEAD (head_sha; the
+current HEAD when there is no green run) and come before it.
 
 Owner waivers are read here, never written by this CLI (`--waive` is
 refused): bin/done-waive.sh (waive_main) is the owner's step, and
@@ -56,6 +67,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 TOOLS_ROOT = Path(__file__).resolve().parent.parent
@@ -70,6 +82,8 @@ MODES = ("PASS", "FLAG", "BLOCK")
 TIERS = ("exempt", "low", "medium", "high")
 DEFAULT_CONFIG = TOOLS_ROOT / "config" / "done-gate.json"
 SHA_TOKEN = re.compile(r"(?<![\w/.-])([0-9a-f]{7,40})(?![\w-])")
+TIMEOUT_FIX = ("rerun lib/done_check.py outside the hook (no budget), or raise hook_time_budget_s in "
+               "done-gate.json (with a change card) below the hook timeout")
 
 
 class UsageError(Exception):
@@ -98,9 +112,41 @@ def _claim_text(text: str) -> str:
     return re.sub(r"\"[^\"\n]*\"|“[^”\n]*”|«[^»\n]*»", " ", text)
 
 
+def _json_return(text: str) -> dict | None:
+    """The reply as a JSON object (bare or in one fence), else None."""
+    body = text.strip()
+    fenced = re.fullmatch(r"```[\w-]*[ \t]*\n(.*?)\n[ \t]*```", body, re.S)
+    body = fenced.group(1).strip() if fenced else body
+    if not body.startswith("{"):
+        return None
+    try:
+        data = json.loads(body)
+    except ValueError:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _json_strings(value, skip: set[str]):
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for key, item in sorted(value.items()):
+            if key not in skip:
+                yield from _json_strings(item, skip)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _json_strings(item, skip)
+
+
 def detect_claims(text: str, config: dict) -> list[str]:
     found: set[str] = set()
-    if re.search(config["status_completed"], text or ""):
+    data = _json_return(text or "")
+    if data is not None:
+        status = data.get("status")
+        if isinstance(status, str) and status.strip().lower() in config["json_status_done"]:
+            found.add("done")
+        text = "\n".join(_json_strings(data, set(config["json_claim_skip_keys"])))
+    elif re.search(config["status_completed"], text or ""):
         found.add("done")
     clean = _claim_text(text or "")
     for pattern in config.get("claim_exclusions", []):
@@ -169,23 +215,42 @@ def _short(text: str, limit: int) -> str:
 class Gate:
     """Lazily computed facts shared by the rules."""
 
-    def __init__(self, args, config: dict, reply: str, claims: list[str]):
+    def __init__(self, args, config: dict, reply: str, claims: list[str], deadline: float | None = None):
         self.args, self.config, self.reply, self.claims = args, config, reply, claims
+        self.deadline, self.expired = deadline, None
         self.repo = Path(args.repo).resolve()
-        self.fp = run_check.worktree_fingerprint(self.repo)
-        self.status = run_check.status_entries(self.repo)
-        self.runs = sorted(_read_jsonl(Path(args.runs)), key=lambda r: (r.get("seq") or 0))
-        self.current_runs = [r for r in self.runs if r.get("worktree_sha") == self.fp["worktree_sha"]]
         self.session = Path(args.session_dir) if args.session_dir else None
         self.ledger = _read_jsonl(self.session / "ledger.jsonl") if self.session else []
+        # A-005: a run proves only the repo it ran in; a run without `repo` proves nothing
+        self.runs = sorted((r for r in _read_jsonl(Path(args.runs)) if r.get("repo") == str(self.repo)),
+                           key=lambda r: (r.get("seq") or 0))
+        try:
+            self.fp = run_check.worktree_fingerprint(self.repo, self.timeout_for(run_check.GIT_TIMEOUT_S))
+            self.status = run_check.status_entries(self.repo, self.timeout_for(run_check.GIT_TIMEOUT_S))
+            self.touched = self._touched()
+        except subprocess.TimeoutExpired as exc:
+            self.expired = f"git timed out after {exc.timeout:g}s reading the worktree"
+            self.fp = {"dirty": None, "head_sha": None, "tree_sha": None, "worktree_sha": None}
+            self.status, self.touched = [], []
+        self.current_runs = [r for r in self.runs if self.fp["worktree_sha"]
+                             and r.get("worktree_sha") == self.fp["worktree_sha"]]
         self.receipt = self._receipt()
-        self.touched = self._touched()
         self.results: dict[str, dict] = {}
         self.skip_keywords: dict[str, list[str]] = {}
         self._diff = None
 
-    def git(self, *args: str, timeout: int = 30) -> subprocess.CompletedProcess:
-        return subprocess.run(["git", "-C", str(self.repo), *args], capture_output=True, text=True, timeout=timeout)
+    def timeout_for(self, cap: float) -> float:
+        """A subprocess timeout: `cap`, cut to what is left of the budget."""
+        if self.deadline is None:
+            return cap
+        return max(0.001, min(cap, self.deadline - time.monotonic()))
+
+    def budget_spent(self) -> bool:
+        return self.deadline is not None and time.monotonic() >= self.deadline
+
+    def git(self, *args: str, timeout: float = run_check.GIT_TIMEOUT_S) -> subprocess.CompletedProcess:
+        return subprocess.run(["git", "-C", str(self.repo), *args], capture_output=True, text=True,
+                              timeout=self.timeout_for(timeout))
 
     def _receipt(self) -> dict | None:
         tree = self.fp["tree_sha"]
@@ -319,10 +384,12 @@ def rule_03(g: Gate) -> Outcome:
     for sector in sorted({sector_of(p, g.config) for p in behavior}):
         green = next((r for r in reversed(g.current_runs) if r.get("name") == sector and r.get("exit") == 0), None)
         limit = green.get("seq") if green else float("inf")
+        head = green.get("head_sha") if green else g.fp["head_sha"]  # A-005: the red run is this change's
         red = next((r for r in g.runs if r.get("name") == sector and r.get("exit") not in (0, None)
-                    and (r.get("seq") or 0) < limit), None)
+                    and (r.get("seq") or 0) < limit and r.get("head_sha") == head), None)
         if red is None:
-            findings.append(f"no failing run of sector {sector} recorded" + (" before its green run" if green else ""))
+            findings.append(f"no failing run of sector {sector} on HEAD {(head or 'none')[:7]} recorded"
+                            + (" before its green run" if green else ""))
             missing.append(sector)
         else:
             ok.append(f"sector {sector}: red seq {red.get('seq')} before green")
@@ -367,11 +434,9 @@ def rule_05(g: Gate) -> Outcome:
     if tokens.is_file():
         argv += ["--tokens", str(tokens)]
     fix = "trim the doc, or add its cap to docs-caps.json with a change card"
+    proc = subprocess.run(argv, capture_output=True, text=True, timeout=g.timeout_for(g.config["timeouts_s"]["docs_lint"]))
     try:
-        proc = subprocess.run(argv, capture_output=True, text=True, timeout=g.config["timeouts_s"]["docs_lint"])
         report = json.loads(proc.stdout)
-    except subprocess.TimeoutExpired:
-        return Outcome([f"docs_lint timed out after {g.config['timeouts_s']['docs_lint']}s"], fix=fix)
     except ValueError:
         return Outcome([f"docs_lint printed no JSON (exit {proc.returncode})"], fix=fix)
     findings = [f"{o['path']}: {o['actual']} > {o['limit']} {o.get('unit', 'lines')}" for o in report.get("offenders", [])]
@@ -391,10 +456,7 @@ def rule_06(g: Gate) -> Outcome:
         raise Skip("not a kit checkout (" + ", ".join(g.config["kit_markers"]) + " missing)")
     fix = "03-tools/bin/kit-status.sh --write, then commit README.md"
     argv = ["python3", str(g.repo / "03-tools" / "lib" / "kit_status.py"), "--check", "--root", str(g.repo)]
-    try:
-        proc = subprocess.run(argv, capture_output=True, text=True, timeout=g.config["timeouts_s"]["kit_status"])
-    except subprocess.TimeoutExpired:
-        return Outcome([f"kit-status --check timed out after {g.config['timeouts_s']['kit_status']}s"], fix=fix)
+    proc = subprocess.run(argv, capture_output=True, text=True, timeout=g.timeout_for(g.config["timeouts_s"]["kit_status"]))
     if proc.returncode == 0:
         return Outcome(ok=["kit-status --check exit 0"])
     first = next((l for l in (proc.stdout + "\n" + proc.stderr).splitlines() if l.strip()), "")
@@ -559,12 +621,10 @@ def rule_13(g: Gate) -> Outcome:
 def rule_14(g: Gate) -> Outcome:
     fix = "fix the cited path, line or sha"
     argv = ["python3", str(TOOLS_ROOT / "lib" / "cite_check.py"), "-", "--repo", str(g.repo)]
+    proc = subprocess.run(argv, input=g.reply, capture_output=True, text=True,
+                          timeout=g.timeout_for(g.config["timeouts_s"]["cite_check"]))
     try:
-        proc = subprocess.run(argv, input=g.reply, capture_output=True, text=True,
-                              timeout=g.config["timeouts_s"]["cite_check"])
         report = json.loads(proc.stdout)
-    except subprocess.TimeoutExpired:
-        return Outcome([f"cite_check timed out after {g.config['timeouts_s']['cite_check']}s"], fix=fix)
     except ValueError:
         return Outcome([f"cite_check printed no JSON (exit {proc.returncode})"], fix=fix)
     refs = report.get("refs", [])
@@ -678,6 +738,25 @@ def _status_for(mode: str, outcome: Outcome) -> str:
     return "PASS"
 
 
+def _tool_name(cmd) -> str:
+    argv = [str(a) for a in cmd] if isinstance(cmd, (list, tuple)) else [str(cmd)]
+    if argv[0] == "git":
+        return "git " + next((a for a in argv[3:] if not a.startswith("-")), "")
+    return Path(argv[1]).name if argv[0].startswith("python") and len(argv) > 1 else Path(argv[0]).name
+
+
+def _run_rule(g: Gate, rule_id: str) -> Outcome:
+    """A rule inside the time budget (A-008): out of budget is a FLAG "timed out" (never above FLAG)."""
+    if g.expired:
+        return Outcome(flag_only=[f"timed out: {g.expired}"], fix=TIMEOUT_FIX)
+    if g.budget_spent():
+        return Outcome(flag_only=["timed out: the time budget was spent before this rule ran"], fix=TIMEOUT_FIX)
+    try:
+        return RULES[rule_id](g)
+    except subprocess.TimeoutExpired as exc:
+        return Outcome(flag_only=[f"timed out: {_tool_name(exc.cmd)} after {exc.timeout:.3g}s"], fix=TIMEOUT_FIX)
+
+
 def evaluate(g: Gate) -> list[dict]:
     waivers = _waivers(g.args, g)
     rules = []
@@ -692,7 +771,7 @@ def evaluate(g: Gate) -> list[dict]:
                 raise Skip(f"the claim ({', '.join(g.claims)}) does not select this rule")
             if rule_id in g.config["exempt_tier_skips"] and g.tier == "exempt":
                 raise Skip("exempt tier (docs only)")
-            outcome = RULES[rule_id](g)
+            outcome = _run_rule(g, rule_id)
         except Skip as exc:
             entry.update(status="SKIP", evidence=[str(exc)])
             g.results[rule_id] = entry
@@ -758,6 +837,7 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument("--reason", help=argparse.SUPPRESS)
     p.add_argument("--docs-caps")
     p.add_argument("--format", choices=("json", "block"), default="json")
+    p.add_argument("--time-budget", type=float)
     return p
 
 
@@ -772,11 +852,17 @@ def load_config(path: Path) -> dict:
                 raise UsageError(f"{path}: {rule_id}.{key} must be one of {', '.join(MODES)}")
         if not set(spec.get("claims") or []) <= set(CLAIMS):
             raise UsageError(f"{path}: {rule_id}.claims has an unknown class")
+    budget = config.get("hook_time_budget_s")
+    if not isinstance(budget, (int, float)) or isinstance(budget, bool) or budget <= 0:
+        raise UsageError(f"{path}: hook_time_budget_s must be a positive number of seconds")
     return config
 
 
-def run(args, reply: str | None = None) -> tuple[dict, int]:
-    """`reply` given: the text itself (the Stop hook's last message), not --reply."""
+def run(args, reply: str | None = None, deadline: float | None = None) -> tuple[dict, int]:
+    """`reply` given: the text itself (the Stop hook's last message), not --reply.
+    `deadline` (time.monotonic()) bounds every check; else --time-budget from now."""
+    if deadline is None and args.time_budget is not None:
+        deadline = time.monotonic() + args.time_budget
     config_path = Path(args.config)
     try:
         config = load_config(config_path)
@@ -810,7 +896,7 @@ def run(args, reply: str | None = None) -> tuple[dict, int]:
     args.runs = args.runs or str(run_check.default_runs_dir() / "runs.jsonl")
     args.receipts = args.receipts or os.environ.get("METODO_RDD_DIR") or str(TOOLS_ROOT / "out" / "rdd")
     args.repo = str(root)
-    g = Gate(args, config, reply, claims)
+    g = Gate(args, config, reply, claims, deadline)
     rules = evaluate(g)
     block, counts = flag_block(rules, g.fp["tree_sha"], tool_sha, config)
     verdict = "BLOCK" if counts["BLOCK"] else ("FLAG" if counts["FLAG"] else "PASS")
@@ -895,6 +981,8 @@ def main(argv: list[str] | None = None) -> int:
                              "not this tool's; pass the owner's file with --waivers")
         if args.open_jobs < 0:
             raise UsageError("--open-jobs must be >= 0")
+        if args.time_budget is not None and args.time_budget <= 0:
+            raise UsageError("--time-budget must be > 0")
         if not args.reply and not args.claim:
             raise UsageError("pass --reply FILE (or -) or --claim CLASS")
         payload, code = run(args)

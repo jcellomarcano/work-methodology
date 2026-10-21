@@ -16,12 +16,15 @@ One line per run is appended to <runs>/runs.jsonl (default
 <tools>/out/runs, or $METODO_RUNS_DIR), sorted compact JSON:
     argv, cwd (relative to the repo), dirty, elapsed_ms, exit, head_sha,
     log (<seq>.log, the combined output, next to runs.jsonl), name,
-    output_sha256 (of that log), schema_version, seq, tree_sha, worktree_sha.
+    output_sha256 (of that log), repo (the repo root the run is bound to),
+    schema_version, seq, tree_sha, worktree_sha.
 No wall-clock time is recorded. "After the last edit" is decided by
-`worktree_sha`, a fingerprint of HEAD^{tree} plus the content of every
-changed, deleted or untracked (not ignored) path at the moment the command
-started: any later edit changes it, a commit of the same bytes does not
-change the tested content, and the same tree always gives the same value.
+`worktree_sha`, the git tree id of the tested content: HEAD's tree with
+every changed, deleted or untracked (not ignored, outside .claude/) path
+overlaid as it stood when the command started. It depends on the bytes
+only, so any later edit changes it, a commit of the same bytes keeps it
+(it then equals the new HEAD^{tree}), and the same content always gives
+the same value. `tree_sha` stays HEAD's tree.
 """
 from __future__ import annotations
 
@@ -30,8 +33,10 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -45,8 +50,11 @@ class UsageError(Exception):
     pass
 
 
-def _git(repo: Path, *args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, timeout=30)
+GIT_TIMEOUT_S = 30
+
+
+def _git(repo: Path, *args: str, timeout: float = GIT_TIMEOUT_S, env: dict | None = None) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, timeout=timeout, env=env)
 
 
 def repo_root(path: Path) -> Path | None:
@@ -54,16 +62,17 @@ def repo_root(path: Path) -> Path | None:
     return Path(probe.stdout.decode().strip()).resolve() if probe.returncode == 0 else None
 
 
-def _rev(repo: Path, ref: str) -> str | None:
-    probe = _git(repo, "rev-parse", "--verify", "-q", ref)
+def _rev(repo: Path, ref: str, timeout: float = GIT_TIMEOUT_S) -> str | None:
+    probe = _git(repo, "rev-parse", "--verify", "-q", ref, timeout=timeout)
     return probe.stdout.decode().strip() if probe.returncode == 0 else None
 
 
-def status_entries(repo: Path) -> list[tuple[str, str]]:
+def status_entries(repo: Path, timeout: float = GIT_TIMEOUT_S) -> list[tuple[str, str]]:
     """(XY, path) per path `git status` reports (tracked changes, deletions,
     untracked not ignored; a rename gives its source as "D "), sorted by path,
     excluding .claude/ (agent worktrees, like baseline.is_repo_dirty)."""
-    out = _git(repo, "status", "--porcelain=v1", "-z", "--untracked-files=all").stdout.decode("utf-8", "surrogateescape")
+    out = _git(repo, "status", "--porcelain=v1", "-z", "--untracked-files=all",
+               timeout=timeout).stdout.decode("utf-8", "surrogateescape")
     fields = out.split("\0")
     entries: dict[str, str] = {}
     i = 0
@@ -81,8 +90,8 @@ def status_entries(repo: Path) -> list[tuple[str, str]]:
     return sorted(((s, p) for p, s in entries.items() if not p.startswith(".claude/")), key=lambda e: e[1])
 
 
-def changed_paths(repo: Path) -> list[str]:
-    return [path for _, path in status_entries(repo)]
+def changed_paths(repo: Path, timeout: float = GIT_TIMEOUT_S) -> list[str]:
+    return [path for _, path in status_entries(repo, timeout)]
 
 
 def _content_sha(path: Path) -> str:
@@ -99,16 +108,49 @@ def _content_sha(path: Path) -> str:
     return digest.hexdigest()
 
 
-def worktree_fingerprint(repo: Path) -> dict:
-    """{head_sha, tree_sha, dirty, worktree_sha}; read-only (no index, no object written)."""
-    repo = Path(repo)
-    head = _rev(repo, "HEAD")
-    tree = _rev(repo, "HEAD^{tree}") if head else None
-    paths = changed_paths(repo)
+def _content_digest(repo: Path, tree: str | None, paths: list[str]) -> str:
+    """Fallback when git cannot build the effective tree (an embedded repo
+    without a commit, say): HEAD tree + content hash of each changed path.
+    Stable for the same content, but a commit of the same bytes changes it."""
     digest = hashlib.sha256(f"tree {tree or '-'}\n".encode())
     for rel in paths:
         digest.update(f"{rel}\0{_content_sha(repo / rel)}\n".encode("utf-8", "surrogateescape"))
-    return {"dirty": bool(paths), "head_sha": head, "tree_sha": tree, "worktree_sha": digest.hexdigest()}
+    return "content:" + digest.hexdigest()
+
+
+def effective_tree(repo: Path, timeout: float = GIT_TIMEOUT_S) -> str | None:
+    """The git tree id of the worktree as git would commit it with `add -A`
+    (outside .claude/), built on a temporary copy of the index through
+    GIT_INDEX_FILE: the real index and every ref stay untouched; only loose
+    objects (blobs of changed files, trees) reach the object store, the way
+    `git stash create` does. None when git refuses."""
+    index = _git(repo, "rev-parse", "--git-path", "index", timeout=timeout)
+    if index.returncode != 0:
+        return None
+    real = Path(index.stdout.decode().strip())
+    real = real if real.is_absolute() else repo / real
+    with tempfile.TemporaryDirectory(prefix="metodo-worktree-") as tmp:
+        temp_index = Path(tmp) / "index"
+        if real.is_file():
+            shutil.copyfile(real, temp_index)  # its stat cache keeps `add -A` from rehashing every file
+        env = dict(os.environ, GIT_INDEX_FILE=str(temp_index))
+        added = _git(repo, "add", "-A", "--", ".", ":(exclude).claude", timeout=timeout, env=env)
+        if added.returncode != 0:
+            return None
+        written = _git(repo, "write-tree", timeout=timeout, env=env)
+        return written.stdout.decode().strip() if written.returncode == 0 else None
+
+
+def worktree_fingerprint(repo: Path, timeout: float = GIT_TIMEOUT_S) -> dict:
+    """{head_sha, tree_sha, dirty, worktree_sha}: worktree_sha is
+    effective_tree() (a function of the tested bytes only); the index and
+    refs are never written. `timeout` bounds each git call."""
+    repo = Path(repo)
+    head = _rev(repo, "HEAD", timeout)
+    tree = _rev(repo, "HEAD^{tree}", timeout) if head else None
+    paths = changed_paths(repo, timeout)
+    worktree = (tree if not paths else None) or effective_tree(repo, timeout) or _content_digest(repo, tree, paths)
+    return {"dirty": bool(paths), "head_sha": head, "tree_sha": tree, "worktree_sha": worktree}
 
 
 def default_runs_dir() -> Path:
@@ -204,7 +246,8 @@ def main(argv: list[str] | None = None) -> int:
     seq, log = _next_log(runs_dir)
     code, output_sha, elapsed = _execute(args["command"], cwd, log)
     record = {"argv": args["command"], "cwd": cwd.relative_to(repo).as_posix() or ".", "elapsed_ms": elapsed, "exit": code,
-              "log": log.name, "name": args["name"], "output_sha256": output_sha, "schema_version": SCHEMA_VERSION,
+              "log": log.name, "name": args["name"], "output_sha256": output_sha, "repo": str(repo),
+              "schema_version": SCHEMA_VERSION,
               "seq": seq, **fingerprint}
     line = json.dumps(record, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     with (runs_dir / "runs.jsonl").open("a", encoding="utf-8") as handle:

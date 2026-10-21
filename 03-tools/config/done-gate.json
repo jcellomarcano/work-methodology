@@ -8,6 +8,8 @@
     "delivered": ["\\bpushed\\b", "\\bdelivered\\b", "\\bpublished\\b", "\\bpublicad[oa]s?\\b", "\\bentregad[oa]s?\\b", "\\bpushead[oa]s?\\b", "\\bready to (?:push|merge)\\b", "\\bPR (?:is )?ready\\b", "\\bPR (?:está )?lista\\b"]
   },
   "status_completed": "(?im)^\\s*status:\\s*completed\\b",
+  "json_status_done": ["completed", "done"],
+  "json_claim_skip_keys": ["status", "files_changed", "handoff_to", "change_card_id", "fix_id", "variant", "spec", "forbidden_hits", "outside_allowlist"],
   "negation_before": "(?i)(?:^|\\W)(?:not|no|never|nothing|isn't|aren't|wasn't|weren't|nor|sin|nada|ni|todavía no|aún no|yet to be)\\s+(?:\\S+\\s+){0,2}$",
   "claim_exclusions": ["(?i)\\b(?:de|el|un|del) hecho\\b", "(?i)\\bhecho de que\\b", "(?i)\\bDONE-GATE\\b", "(?i)\\bDONE-\\d+\\b", "(?i)\\bdone[_-]check\\b", "(?i)\\bdone[_-]gate\\b"],
   "feature_claim": ["(?i)\\bfeature (?:is )?(?:done|complete|completed|finished)\\b", "(?i)\\ball tasks (?:are )?(?:done|complete|completed)\\b", "(?i)\\b(?:la )?feature (?:está )?(?:lista|terminada|completada|hecha)\\b", "(?i)\\btodas las tareas (?:están )?(?:listas|hechas|terminadas)\\b"],
@@ -39,6 +41,7 @@
     {"name": "08-benchmark", "globs": ["08-benchmark/**"]}
   ],
   "sector_fallback": "top-level directory, '.' for root files",
+  "run_binding": "A run proves only the repo it ran in: its `repo` (bin/run-check.sh records the repo root) must equal the checked repo; a run without `repo` is ignored. DONE-02 trusts the run name: a run named after the sector proves it; argv is recorded for the reader and never compared with a sector command (known limit, no command matcher). DONE-03's red run must share the green run's head_sha and come before it.",
   "weakened_test": {
     "test_function": "^\\s*(?:async\\s+)?def\\s+test\\w*\\s*\\(|@Test\\b|^\\s*fun\\s+`|^\\s*(?:it|test)\\s*\\(|^\\s*func\\s+Test\\w*\\(",
     "assertion": "\\bassert\\w*\\b|\\bexpect\\s*\\(|\\bverify\\s*\\(|\\bshould\\w*\\b",
@@ -59,6 +62,8 @@
   "docs_caps": "03-tools/config/docs-caps.json",
   "token_caps": "03-tools/config/token-caps.json",
   "timeouts_s": {"docs_lint": 60, "kit_status": 120, "cite_check": 60},
+  "hook_time_budget_s": 25,
+  "_hook_time_budget_s": "Total seconds hooks/done_gate.py gives done_check, counted from the hook's start; it must stay below the done_gate timeout in hooks/hooks.settings.json (30 s). Every subprocess timeout is cut to what is left; a rule that runs out is a FLAG 'timed out', never silence.",
   "evidence_max_chars": 160,
   "flag_block_max_lines": 40
 }

@@ -72,10 +72,12 @@ class Fixture(unittest.TestCase):
         _git(self.repo, "commit", "-q", "-m", message)
         return _git(self.repo, "rev-parse", "HEAD")
 
-    def add_run(self, name="03-tools", exit_code=0, argv=None, fingerprint=None):
+    def add_run(self, name="03-tools", exit_code=0, argv=None, fingerprint=None, repo="self", **fields):
         self.runs.parent.mkdir(parents=True, exist_ok=True)
         lines = self.runs.read_text(encoding="utf-8").splitlines() if self.runs.exists() else []
-        fp = fingerprint or run_check.worktree_fingerprint(self.repo)
+        fp = dict(fingerprint or run_check.worktree_fingerprint(self.repo), **fields)
+        if repo is not None:
+            fp["repo"] = str(run_check.repo_root(self.repo)) if repo == "self" else repo
         record = dict(fp, argv=argv or ["python3", "-m", "unittest", "discover", "tests"], cwd="03-tools", elapsed_ms=5,
                       exit=exit_code, log=f"{len(lines) + 1}.log", name=name, output_sha256="0" * 64, schema_version=1,
                       seq=len(lines) + 1)
@@ -140,6 +142,16 @@ class ClaimDetectorTests(unittest.TestCase):
 
     def test_status_completed_counts_as_a_done_claim_even_in_a_fence(self):
         self.assertEqual(self.claims("```text\nstatus: completed\nsummary: x\n```\n"), ["done"])
+
+    def test_a_json_writer_return_is_read_through_its_string_values(self):
+        # B-002: proposer and mechanic return schema JSON; every prose value is a double-quoted string
+        ret = json.dumps({"status": "completed", "summary": "wired the parser; all tests pass, committed abc1234"})
+        self.assertEqual(self.claims(ret), ["committed", "done", "green"])
+        self.assertEqual(self.claims('{"status": "done"}'), ["done"])
+        self.assertEqual(self.claims("```json\n" + json.dumps({"applied": True, "summary": "Fixed."}) + "\n```"), ["done"])
+        self.assertEqual(self.claims(json.dumps({"status": "partial", "summary": "the suite is not green yet",
+                                                 "files_changed": ["lib/done_check.py", "lib/fixed.py"]})), [])
+        self.assertEqual(self.claims('You wrote {"status": "completed"} earlier; what next?'), [])  # prose keeps quotes out
 
 
 class ShortCircuitAndContractTests(Fixture):
@@ -312,6 +324,48 @@ class GreenRunTests(Fixture):
         self.add_run(exit_code=0)
         self.assertEqual(self.status(rule_id="DONE-03"), "PASS")
 
+    def test_02_03_a_commit_of_the_tested_bytes_keeps_the_green_proof(self):
+        # B-003: run red, run green, then commit the same bytes
+        base = _git(self.repo, "rev-parse", "HEAD")
+        self.edit_source()
+        self.add_run(exit_code=1)
+        self.add_run(exit_code=0)
+        sha = self.commit_all()
+        _, payload = self.check(f"Done, all green, committed {sha[:7]}.", "--base", base)
+        self.assertEqual(self.rule(payload, "DONE-02")["status"], "PASS", self.rule(payload, "DONE-02"))
+        self.assertEqual(self.rule(payload, "DONE-03")["status"], "PASS", self.rule(payload, "DONE-03"))
+        self.assertEqual(self.rule(payload, "DONE-13")["status"], "PASS")
+
+    def test_02_runs_from_another_repo_or_without_a_repo_are_not_proof(self):
+        # A-005: a run proves only the repo it ran in
+        self.edit_source()
+        self.add_run(repo=str(self.tmp / "other-repo"))
+        self.add_run(repo=None)
+        entry = self.rule(self.check()[1], "DONE-02")
+        self.assertEqual(entry["status"], "FLAG")
+        self.assertIn("no run of sector 03-tools", " ".join(entry["evidence"]))
+        self.add_run()
+        self.assertEqual(self.status(rule_id="DONE-02"), "PASS")
+
+    def test_03_red_run_must_share_the_green_runs_head(self):
+        # A-005: an old failure on an earlier HEAD is not this change's red run
+        self.add_run(exit_code=1)  # red on the first HEAD
+        self.write("03-tools/lib/b.py", "y = 1\n")
+        self.commit_all()
+        self.edit_source()
+        self.add_run(exit_code=0)
+        entry = self.rule(self.check()[1], "DONE-03")
+        self.assertEqual(entry["status"], "FLAG", entry)
+        self.add_run(exit_code=1, repo=str(self.tmp / "other-repo"))  # same HEAD, other repo: still no
+        self.add_run(exit_code=0)
+        self.assertEqual(self.status(rule_id="DONE-03"), "FLAG")
+
+    def test_02_trusts_the_run_name_and_says_so(self):
+        # A-005 limit: argv is recorded for the reader, never compared with a sector command
+        self.assertIn("argv", CONFIG["run_binding"])
+        self.assertIn("name", CONFIG["run_binding"])
+        self.assertIn("DONE-02 trusts the run name", done_check.__doc__)
+
     def test_03_refactor_only_is_a_skip(self):
         self.edit_source()
         self.assertEqual(self.status("Done.", "--refactor-only", rule_id="DONE-03"), "SKIP")
@@ -431,6 +485,38 @@ class KitPassTests(Fixture):
     def test_06_pass_when_kit_status_check_exits_0(self):
         self.edit_source()
         self.assertEqual(self.status(rule_id="DONE-06"), "PASS")
+
+
+class KitSlowTests(Fixture):
+    kit = True
+    kit_exit = 0
+
+    def setUp(self):
+        super().setUp()
+        self.write("03-tools/lib/kit_status.py", "import time\ntime.sleep(8)\n")
+        self.commit_all("slow kit-status")
+
+    def test_a_check_that_runs_out_of_the_time_budget_is_a_timed_out_flag(self):
+        # A-008: one budget below the hook timeout; an overrun is a FLAG on its rule, never silence
+        import time
+        self.edit_source()
+        start = time.monotonic()
+        _, payload = self.check("Done, all green.", "--time-budget", "2", config=_block_config("DONE-06", "DONE-14"))
+        self.assertLess(time.monotonic() - start, 6)
+        entry = self.rule(payload, "DONE-06")
+        self.assertEqual(entry["status"], "FLAG", entry)  # a timeout is not proof of failure: FLAG even in BLOCK mode
+        self.assertIn("timed out", " ".join(entry["evidence"]))
+        later = self.rule(payload, "DONE-14")
+        self.assertEqual(later["status"], "FLAG", later)
+        self.assertIn("timed out", " ".join(later["evidence"]))
+        self.assertIn("DONE-06 FLAG", payload["flag_block"])
+
+    def test_the_hook_budget_sits_below_the_hook_timeout(self):
+        settings = json.loads((TOOLS_ROOT / "hooks" / "hooks.settings.json").read_text(encoding="utf-8"))
+        timeouts = [h["timeout"] for event in ("Stop", "SubagentStop") for entry in settings["hooks"][event]
+                    for h in entry["hooks"] if "done_gate.py" in h["command"]]
+        self.assertTrue(timeouts)
+        self.assertLess(CONFIG["hook_time_budget_s"], min(timeouts))
 
 
 class KitStaleTests(Fixture):
