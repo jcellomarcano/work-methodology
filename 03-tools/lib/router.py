@@ -1053,7 +1053,9 @@ def _result(task, catalog, as_of, rule, roster, status, reasons, base_rule=None)
 
 # ---------------------------------------------------------------- the CLI
 
-def log_line(result: dict) -> str:
+def log_line(result: dict, repo=None) -> str:
+    """`repo` is the task's resolved repo root when the caller knows it, else
+    null; the main-session guard matches a line to its repo and never a null one."""
     # Per-entry delegate/background so readers (the main-session guard) never infer them from counts.
     summary = [{**{k: e[k] for k in ("role", "tier", "model", "effort", "launch", "step")},
                 "delegate": e.get("delegate"), "background": e.get("background")} for e in result["roster"]]
@@ -1062,6 +1064,7 @@ def log_line(result: dict) -> str:
     line["roster"] = summary
     # L6: an owner approval (e.g. escalate-fable) is recorded in the log itself.
     line["approvals"] = list(result.get("approvals") or [])
+    line["repo"] = str(repo) if repo else None
     # S1/S3: who the router asked to run what, over the entries that launch.
     running = [e for e in result["roster"] if e["launch"] == "run"]
     line["delegation"] = {
@@ -1107,7 +1110,7 @@ def main(argv: list[str] | None = None) -> int:
         print("route: pass --as-of YYYY-MM-DD (the router never reads the clock)", file=sys.stderr)
         return 2
 
-    log_path = None
+    log_path, root = None, None
     if args.log:
         log_path = Path(args.log).resolve()
         if task.get("repo"):
@@ -1126,7 +1129,7 @@ def main(argv: list[str] | None = None) -> int:
     if log_path is not None:
         log_path.parent.mkdir(parents=True, exist_ok=True)
         with log_path.open("a", encoding="utf-8") as handle:
-            handle.write(log_line(result) + "\n")
+            handle.write(log_line(result, root) + "\n")
     return 0 if result["status"] == "ok" else 1
 
 

@@ -222,6 +222,16 @@ class ActivationMode(ToolOutputFixture):
         self.assertEqual(self.bash(long_output()), {})
         self.assertFalse((self.hooks_dir / "s1" / "outputs").exists())
 
+    def test_a_short_output_never_computes_the_profile(self):
+        # T16 (B-008): the cheap size cap runs before hook_mode; resolving the
+        # profile records the session floor (profile.json), a short output must not
+        self.with_tier("low")
+        (self.hooks_dir / "s1").mkdir(parents=True)
+        self.assertEqual(self.bash("ok\n"), {})
+        self.assertFalse((self.hooks_dir / "s1" / "profile.json").exists())
+        self.assertIn(FULL, self.summary(self.bash(long_output()))["stdout"])
+        self.assertTrue((self.hooks_dir / "s1" / "profile.json").exists())
+
     def test_light_profile_still_filters(self):
         self.with_tier("exempt")
         updated = self.summary(self.bash(long_output()))

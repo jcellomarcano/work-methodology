@@ -306,6 +306,16 @@ class RouteToolTests(unittest.TestCase):
                 self.assertIn("guard:catalog", result["structuredContent"]["error"])
         self.assertFalse(self.log.exists())
 
+    def test_log_line_carries_the_resolved_repo(self):
+        # T16 (B-006/A-004): the task's repo when given, else the server's repo
+        self._call({"task": REVIEW_TASK, "as_of": "2026-10-16"})
+        other = self.tmp / "other"
+        other.mkdir()
+        _git(other, "init", "-q")
+        self._call({"task": dict(REVIEW_TASK, repo=str(other)), "as_of": "2026-10-16"})
+        repos = [json.loads(l)["repo"] for l in self.log.read_text(encoding="utf-8").splitlines()]
+        self.assertEqual(repos, [str(self.repo.resolve()), str(other.resolve())])
+
     def test_log_inside_the_target_repo_is_refused(self):
         inside = self.repo / "tools"
         shutil.copytree(self.tools, inside)

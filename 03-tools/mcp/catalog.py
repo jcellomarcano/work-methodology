@@ -180,7 +180,8 @@ def _route(args: dict, ctx: Ctx) -> dict:
         raise registry.ToolError(f"cannot read <tools>/config/model-tiers.json: {exc}")
     task = router.resolve_offline(task, router.load_project_config(ctx.tools_root, os.environ), os.environ)
     log_path = (ctx.out_dir / "runs" / "routing.jsonl").resolve()
-    for root in (ctx.repo, router._worktree_root(str(task["repo"])) if task.get("repo") else None):
+    task_root = router._worktree_root(str(task["repo"])) if task.get("repo") else None
+    for root in (ctx.repo, task_root):
         if root is not None and _inside(log_path, Path(root).resolve()):
             raise registry.ToolError(f"refusing to log inside the target repo ({root}); use a tools instance outside it")
     try:
@@ -192,7 +193,9 @@ def _route(args: dict, ctx: Ctx) -> dict:
         raise registry.ToolError(f"{result['rule']}: " + "; ".join(result["reasons"]))
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("a", encoding="utf-8") as handle:
-        handle.write(router.log_line(result) + "\n")
+        # The line names its repo (the task's, else this server's) so the main-session guard matches it.
+        repo = task_root or (router._worktree_root(str(ctx.repo)) if ctx.repo is not None else None)
+        handle.write(router.log_line(result, repo) + "\n")
     return dict(result, log_path=str(log_path))
 
 

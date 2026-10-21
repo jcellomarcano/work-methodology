@@ -172,13 +172,16 @@ def main() -> int:
     if not isinstance(stdout, str) or not isinstance(stderr, str):
         return 0
     config = _common.load_config()
-    # bare (RDD off) and an owner/profile OFF pass the output through untouched; LOG and up filter
-    if not _common.rdd_enabled(config) or _common.hook_mode(config, HOOK, inp) == "off":
+    if not _common.rdd_enabled(config):
         return 0
     cfg = settings(config)
     cap = cfg["max_tokens"]
     text = stdout + (("" if stdout.endswith("\n") or not stdout else "\n") + "--- stderr ---\n" + stderr if stderr else "")
+    # The cheap size cap first (B-008): most outputs are short and never pay for the profile.
     if cap <= 0 or tokens(text) <= cap:
+        return 0
+    # bare (RDD off) and an owner/profile OFF pass the output through untouched; LOG and up filter
+    if _common.hook_mode(config, HOOK, inp) == "off":
         return 0
     path = save(text, inp)
     if path is None:

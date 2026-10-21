@@ -36,7 +36,7 @@ from pathlib import Path
 TOOLS_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(TOOLS_ROOT))
 
-from lib import baseline, engram_bridge, findings_schema_validator, handoff, rdd_risk, round_files, toolenv  # noqa: E402
+from lib import baseline, engram_bridge, findings_schema_validator, handoff, rdd_risk, round_files, router, toolenv  # noqa: E402
 
 KIT_ROOT = TOOLS_ROOT.parent
 DEFAULT_AGENTS_DIR = KIT_ROOT / "01-roles" / "agents"
@@ -50,10 +50,12 @@ REQUIRED_ROLES = {
              "generic-verifier", "generic-blind-spot-adversary", "generic-judge"],
 }
 # T7 (S2): the author never reviews itself. A capture of one of these roles
-# whose `author` is the main session makes the receipt inconclusive.
-REVIEW_ROLES = ("generic-challenger", "generic-blind-spot-adversary", "generic-judge", "generic-verifier",
-                "generic-deep-reasoner")
+# whose `author` is the main session makes the receipt inconclusive; one with
+# no recorded author keeps its verdict and is listed under `author_unknown`
+# (T18, B-005/A-006). The router's list, so the two never drift.
+REVIEW_ROLES = router.REVIEW_ROLES
 MAIN_AUTHOR = "main"
+ANY_ROLE = "any"
 AUTHORED_KIND = "output-authored"
 AUTHORED_RE = re.compile(r"(\w+)=(\S+)")
 DECISIONS = ("consent", "push-without-receipt", "accept-escalation", "unreviewed")
@@ -151,6 +153,9 @@ def status(repo: Path, base: str | None = None, card_path: Path | None = None, c
         result["receipt"] = {k: receipt[k] for k in ("state", "verdict", "correction_index", "round_dir")}
         result["receipt"]["tier"] = receipt["risk"]["tier"]
         result["receipt"]["consent"] = receipt["risk"]["consent"]
+        unknown = receipt.get("author_unknown") or _author_unknown(receipt)
+        if unknown:
+            result["receipt"]["author_unknown"] = unknown
         if not dirty:
             result["next"] = _next_step(receipt)
     elif base and not dirty:
@@ -320,8 +325,10 @@ def hooks_dir() -> Path:
 def author_of(sha256: str, role: str) -> str | None:
     """Who wrote the artifact, from the `output-authored` lines that
     hooks/output_author.py ledgers (PostToolUse output_write), matched by the
-    artifact's sha256 and role across every session ledger. The main session
-    wins over any other match; no line -> None (authorship unknown)."""
+    artifact's sha256 and role across every session ledger; a line from a
+    file tool whose name carried no role says `role=any` and matches every
+    role. The main session wins over any other match; no line -> None
+    (authorship unknown)."""
     authors = set()
     for ledger in sorted(hooks_dir().glob("*/ledger.jsonl")):
         try:
@@ -338,7 +345,7 @@ def author_of(sha256: str, role: str) -> str | None:
             if not isinstance(line, dict) or line.get("kind") != AUTHORED_KIND:
                 continue
             fields = dict(AUTHORED_RE.findall(str(line.get("reason") or "")))
-            if fields.get("sha256") == sha256 and fields.get("role") == role and fields.get("author"):
+            if fields.get("sha256") == sha256 and fields.get("role") in (role, ANY_ROLE) and fields.get("author"):
                 authors.add(fields["author"])
     if not authors:
         return None
@@ -469,6 +476,12 @@ def _script_rejections(receipt: dict, last: dict) -> list[str]:
     return reasons
 
 
+def _author_unknown(receipt: dict) -> list[str]:
+    """Review roles whose last capture carries no recorded author (e.g. a file
+    written by Bash): flagged on the receipt, never a verdict by itself."""
+    return sorted(r for r, e in _last_by_role(receipt).items() if r in REVIEW_ROLES and not e.get("author"))
+
+
 def finalize(tree: str) -> dict:
     receipt = load_receipt(tree)
     if receipt is None:
@@ -547,6 +560,11 @@ def finalize(tree: str) -> dict:
     receipt["state"] = "finalized"
     receipt["verdict"] = verdict
     receipt["verdict_reasons"] = reasons
+    unknown = _author_unknown(receipt)
+    if unknown:
+        receipt["author_unknown"] = unknown
+    else:
+        receipt.pop("author_unknown", None)
     save_receipt(receipt)
     _remember(receipt)
     return receipt
@@ -655,8 +673,11 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "finalize":
             receipt = finalize(args.tree)
-            _print({"tree_sha": receipt["tree_sha"], "verdict": receipt["verdict"], "verdict_reasons": receipt["verdict_reasons"],
-                    "next": _next_step(receipt)})
+            out = {"tree_sha": receipt["tree_sha"], "verdict": receipt["verdict"], "verdict_reasons": receipt["verdict_reasons"],
+                   "next": _next_step(receipt)}
+            if receipt.get("author_unknown"):
+                out["author_unknown"] = receipt["author_unknown"]
+            _print(out)
             return 0 if receipt["verdict"] == "approved" else 1
         if args.command == "acknowledge":
             receipt = acknowledge(args.tree, args.decision, args.reason, Path(args.repo).resolve() if args.repo else None,

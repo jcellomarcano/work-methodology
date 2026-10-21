@@ -20,6 +20,12 @@ config/activation.json) prints per-element verdicts over the window ending
 on --as-of: PROMOTE (to BLOCK), DEMOTE (to OFF), KEEP, EXPIRE (to OFF) or
 INSUFFICIENT_DATA. A verdict is a recommendation: it writes nothing and
 never changes config; applying one needs a card (methodology.md section 12).
+Unmeasured is never perfect (T18, B-007/A-009): precision needs at least one
+owner FP mark on the element, override_rate needs outcome lines when the
+element asked, act_rate needs M107 judged warns for a WARN element, and an
+element whose ledger lines are all mode off is never observed live; any of
+these leaves the metric null, named in not_measured, and the verdict KEEP or
+INSUFFICIENT_DATA (EXPIRE once past its windows), never PROMOTE.
 """
 from __future__ import annotations
 
@@ -250,7 +256,7 @@ def verdicts(hooks_dir: Path, as_of: str, thresholds: dict, transcript_metrics: 
     def slot(element):
         return stats.setdefault(element, {"first_seen": None, "mode": None, "run_mode": None, "runs": 0, "fires": 0,
                                           "blocks": 0, "asks": 0, "overrides": 0, "outcome_lines": 0, "fps": 0,
-                                          "main_deny_fps": 0})
+                                          "main_deny_fps": 0, "lines": 0, "off_lines": 0})
 
     for day, name, sdir in sessions:
         in_window = day >= start
@@ -271,6 +277,8 @@ def verdicts(hooks_dir: Path, as_of: str, thresholds: dict, transcript_metrics: 
             s["first_seen"] = s["first_seen"] or day
             if not in_window:
                 continue
+            s["lines"] += 1
+            s["off_lines"] += str(line.get("mode") or "").lower() == "off"
             decision, kind = line.get("decision"), line.get("kind") or ""
             if kind.endswith("-outcome"):
                 s["outcome_lines"] += 1
@@ -307,16 +315,26 @@ def verdicts(hooks_dir: Path, as_of: str, thresholds: dict, transcript_metrics: 
 def _verdict(element, s, act, t, end, width, full_window) -> dict:
     mode = (s["mode"] or s["run_mode"] or "").upper() or None
     fires, not_measured, reasons = s["fires"], [], []
-    precision = round(1 - s["fps"] / fires, 4) if fires else None
+    # Unmeasured is null, never perfect: no FP mark means nobody sampled the fires.
+    precision = round(1 - s["fps"] / fires, 4) if fires and s["fps"] else None
+    if precision is None:
+        not_measured.append({"metric": "precision", "why": "no fires in the window" if not fires
+                             else "no owner FP marks on this element in the window (mark-fp)"})
     if s["asks"] and s["outcome_lines"]:
         override = _rate(s["overrides"], s["asks"])
     else:
-        override = 0.0
+        override = None
         not_measured.append({"metric": "override_rate", "why": "no asks in the window" if not s["asks"]
                              else "no <kind>-outcome ledger lines in the window"})
     act_rate = _rate(act[1], act[0]) if act else None
     if act_rate is None:
         not_measured.append({"metric": "act_rate", "why": "no judged warns from --transcript-metrics (M107) in the window"})
+    # PROMOTE criteria that must be measured: precision always, override_rate
+    # when the element asked, act_rate for a WARN element (a LOG one has none).
+    missing = [m for m, absent in (("precision", precision is None),
+                                   ("override_rate", bool(s["asks"]) and override is None),
+                                   ("act_rate", mode == "WARN" and act_rate is None)) if absent]
+    all_off = bool(s["lines"]) and s["off_lines"] == s["lines"]
     if not s["runs"]:
         not_measured.append({"metric": "fire_rate", "why": "no run lines (hook-runs.jsonl) in the window"})
     age = (end - s["first_seen"]).days if s["first_seen"] else 0
@@ -334,9 +352,9 @@ def _verdict(element, s, act, t, end, width, full_window) -> dict:
             reasons.append(f"{mode} for {age} days >= {t['max_windows']} windows: expired")
     else:
         demote = []
-        if precision < t["precision_min"]:
+        if precision is not None and precision < t["precision_min"]:
             demote.append(f"precision {precision} < {t['precision_min']}")
-        if override > t["override_max"]:
+        if override is not None and override > t["override_max"]:
             demote.append(f"override_rate {override} > {t['override_max']}")
         if mode == "WARN" and act_rate is not None and act_rate < t["act_rate_min"]:
             demote.append(f"act_rate {act_rate} < {t['act_rate_min']}")
@@ -347,6 +365,13 @@ def _verdict(element, s, act, t, end, width, full_window) -> dict:
             blockers.append(f"{s['main_deny_fps']} confirmed FPs on a main-session deny")
         if demote:
             verdict, reasons = "DEMOTE", demote
+        elif not blockers and mode != "BLOCK" and (missing or all_off):
+            verdict = "EXPIRE" if expired else "INSUFFICIENT_DATA"
+            reasons += [f"{m} not measured: never counts toward PROMOTE" for m in missing]
+            if all_off:
+                reasons.append("every ledger line in the window is mode off: never observed live")
+            if expired:
+                reasons.append(f"{mode} for {age} days >= {t['max_windows']} windows: not promotable")
         elif not blockers and mode != "BLOCK":
             verdict = "PROMOTE"
             reasons.append(f"precision {precision} >= {t['precision_min']}, {s['fps']} confirmed FPs")

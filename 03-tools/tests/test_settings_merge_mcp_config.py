@@ -1,6 +1,7 @@
 """settings_merge.py keeps other permissions and hooks intact; mcp_config.py
 keeps other servers intact. Both idempotent."""
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -14,8 +15,25 @@ OWNER_HOOK = {"matcher": "Edit", "hooks": [{"type": "command", "command": "./my-
 LOOKALIKE = {"matcher": "Bash", "hooks": [{"type": "command", "command": "echo hooks are fun"}]}
 
 
-class SettingsMergeTests(unittest.TestCase):
+class _NoUserScope(unittest.TestCase):
+    """Every apply() here sees an empty user scope, never the machine's ~/.claude."""
+
     def setUp(self):
+        self._user_tmp = tempfile.TemporaryDirectory()
+        self._env = os.environ.get("METODO_CLAUDE_HOME")
+        os.environ["METODO_CLAUDE_HOME"] = self._user_tmp.name
+
+    def tearDown(self):
+        if self._env is None:
+            os.environ.pop("METODO_CLAUDE_HOME", None)
+        else:
+            os.environ["METODO_CLAUDE_HOME"] = self._env
+        self._user_tmp.cleanup()
+
+
+class SettingsMergeTests(_NoUserScope):
+    def setUp(self):
+        super().setUp()
         self.settings = {"permissions": {"allow": ["Bash(git status)", "Read(//x/**)"], "deny": []},
                          "skillOverrides": {"a": 1},
                          "hooks": {"PreToolUse": [OWNER_HOOK, LOOKALIKE]}}
@@ -90,7 +108,7 @@ class SettingsMergeTests(unittest.TestCase):
             self.assertTrue(settings_path.exists())
 
 
-class AutoCompactWindowTests(unittest.TestCase):
+class AutoCompactWindowTests(_NoUserScope):
     """T3 (D1): the orchestrator's auto-compact window is 300k, a documented settings key
     (settings-reference#autocompactwindow), set only when the owner has not set it."""
 
@@ -139,13 +157,76 @@ class AutoCompactWindowTests(unittest.TestCase):
             self.assertFalse(path.exists())
 
     def test_remove_keeps_other_keys_and_an_edited_window(self):
-        merged = settings_merge.merge_keys({"permissions": {"allow": ["x"]}})[0]
-        removed, keys = settings_merge.remove_keys(merged)
+        merged, added, _, record = settings_merge.merge_keys({"permissions": {"allow": ["x"]}})
+        self.assertEqual((added, record), (["autoCompactWindow"], {"autoCompactWindow": 300000}))
+        removed, keys = settings_merge.remove_keys(merged, record)
         self.assertEqual(removed, {"permissions": {"allow": ["x"]}})
         self.assertEqual(keys, ["autoCompactWindow"])
         # negative control: the owner changed the kit's value after install, so it is the owner's now
         edited = dict(merged, autoCompactWindow=250000)
-        self.assertEqual(settings_merge.remove_keys(edited), (edited, []))
+        self.assertEqual(settings_merge.remove_keys(edited, record), (edited, []))
+
+    # T18 (A-003/B-009): every scope the installer sees, and ownership by record, not by value.
+    def _scoped(self, tmp):
+        claude = Path(tmp) / "repo" / ".claude"
+        claude.mkdir(parents=True)
+        return claude / "settings.local.json", claude / "settings.json", Path(tmp) / "user" / "settings.json"
+
+    def test_a_user_scope_value_is_respected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            local, _, user = self._scoped(tmp)
+            user.parent.mkdir()
+            user.write_text(json.dumps({"autoCompactWindow": 200000}), encoding="utf-8")
+            result = settings_merge.apply(local, self._kit(tmp), settings_merge.DEFAULT_MARKER, False, user_settings=user)
+            self.assertEqual(result["keys_added"], [])
+            self.assertNotIn("autoCompactWindow", json.loads(local.read_text(encoding="utf-8")))
+            self.assertFalse((local.parent / settings_merge.KEYS_RECORD).exists())
+
+    def test_the_user_scope_comes_from_metodo_claude_home(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            local, _, _ = self._scoped(tmp)
+            Path(os.environ["METODO_CLAUDE_HOME"], "settings.json").write_text(
+                json.dumps({"autoCompactWindow": 200000}), encoding="utf-8")
+            self.assertEqual(self._apply(local, kit_path=self._kit(tmp))["keys_added"], [])
+
+    def test_a_project_scope_value_is_respected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            local, project, _ = self._scoped(tmp)
+            project.write_text(json.dumps({"autoCompactWindow": 400000}), encoding="utf-8")
+            self.assertEqual(self._apply(local, kit_path=self._kit(tmp))["keys_added"], [])
+            self.assertNotIn("autoCompactWindow", json.loads(local.read_text(encoding="utf-8")))
+
+    def test_an_owner_value_equal_to_the_kits_survives_uninstall(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            local, _, _ = self._scoped(tmp)
+            local.write_text(json.dumps({"autoCompactWindow": 300000}), encoding="utf-8")
+            self.assertEqual(self._apply(local, kit_path=self._kit(tmp))["keys_added"], [])
+            gone = self._apply(local, remove=True)
+            self.assertEqual(gone["keys_removed"], [])
+            self.assertEqual(json.loads(local.read_text(encoding="utf-8")), {"autoCompactWindow": 300000})
+
+    def test_the_kit_records_what_it_added_and_uninstall_clears_the_record(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            local, _, _ = self._scoped(tmp)
+            record = local.parent / settings_merge.KEYS_RECORD
+            self._apply(local, kit_path=self._kit(tmp))
+            self.assertEqual(json.loads(record.read_text(encoding="utf-8")), {"added": {"autoCompactWindow": 300000}})
+            self.assertFalse(self._apply(local, kit_path=self._kit(tmp))["changed"])
+            gone = self._apply(local, remove=True)
+            self.assertEqual(gone["keys_removed"], ["autoCompactWindow"])
+            self.assertFalse(record.exists())
+            self.assertFalse(local.exists())
+
+    def test_reinstall_withdraws_the_kit_value_once_another_scope_sets_it(self):
+        # the local file outranks the others, so a kit value left there would shadow the owner's
+        with tempfile.TemporaryDirectory() as tmp:
+            local, project, _ = self._scoped(tmp)
+            self._apply(local, kit_path=self._kit(tmp))
+            project.write_text(json.dumps({"autoCompactWindow": 400000}), encoding="utf-8")
+            result = self._apply(local, kit_path=self._kit(tmp))
+            self.assertEqual(result["keys_removed"], ["autoCompactWindow"])
+            self.assertNotIn("autoCompactWindow", json.loads(local.read_text(encoding="utf-8")))
+            self.assertFalse((local.parent / settings_merge.KEYS_RECORD).exists())
 
 
 class McpConfigTests(unittest.TestCase):

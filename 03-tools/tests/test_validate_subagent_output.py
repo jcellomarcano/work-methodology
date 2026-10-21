@@ -171,3 +171,18 @@ class ExistingOutputsTests(Fixture):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DecisionMatchesModeTests(Fixture):
+    """T19 (verifier, LOW): with the hook's mode off or log nothing is shown, so the ledger says log, never warn."""
+
+    def test_invalid_output_at_mode_log_is_ledgered_as_log(self):
+        self.config_path.write_text(json.dumps({"rdd": {"enabled": True, "mode": "warn",
+                                                        "hook_modes": {"validate_subagent_output": "log"}}}), encoding="utf-8")
+        self.assertEqual(self.run_hook("not json at all"), {})
+        self.assertEqual(self.kinds(), [("output-invalid", "log")])
+
+    def test_invalid_output_at_mode_warn_is_still_a_warn(self):
+        # negative control
+        self.assertEqual(self.run_hook("not json at all"), {})
+        self.assertEqual(self.kinds(), [("output-invalid", "warn")])

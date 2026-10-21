@@ -61,6 +61,7 @@ export const HOOK_MATRIX: Record<string, { matcher: string; script: string }[]> 
 		{ matcher: "Bash", script: "tool_output_filter.py" },
 		{ matcher: "Edit|Write|MultiEdit", script: "touched_paths.py" },
 		{ matcher: "mcp__metodo__output_write", script: "output_author.py" },
+		{ matcher: "Edit|Write|MultiEdit", script: "output_author.py" },
 	],
 	Stop: [{ matcher: "", script: "done_gate.py" }],
 	SubagentStop: [{ matcher: "", script: "done_gate.py" }],

@@ -2,6 +2,7 @@
 settings.local.json (permissions + skillOverrides) and a foreign agent: installs
 the kit's own, keeps the rest, is idempotent, and --uninstall removes only its own."""
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -70,7 +71,28 @@ class InstallClaudeTests(unittest.TestCase):
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def _run(self, *extra):
-        return subprocess.run(["bash", str(INSTALLER), str(self.repo), *extra], capture_output=True, text=True)
+        # the user scope is this test's own: never the machine's ~/.claude/settings.json
+        env = dict(os.environ, METODO_CLAUDE_HOME=str(self.tmp / "claude-home"))
+        return subprocess.run(["bash", str(INSTALLER), str(self.repo), *extra], capture_output=True, text=True, env=env)
+
+    def test_auto_compact_window_respects_the_user_scope_and_leaves_no_record(self):
+        # T18 (A-003/B-009): a user-scope value wins; the kit adds nothing and records nothing
+        (self.tmp / "claude-home").mkdir()
+        (self.tmp / "claude-home" / "settings.json").write_text('{"autoCompactWindow": 200000}', encoding="utf-8")
+        proc = self._run()
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertNotIn("autoCompactWindow", json.loads(self.settings.read_text(encoding="utf-8")))
+        self.assertFalse((self.repo / ".claude" / "metodo-settings-keys.json").exists())
+
+    def test_auto_compact_window_added_by_the_kit_goes_on_uninstall_with_its_record(self):
+        proc = self._run()
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertEqual(json.loads(self.settings.read_text(encoding="utf-8"))["autoCompactWindow"], 300000)
+        self.assertTrue((self.repo / ".claude" / "metodo-settings-keys.json").exists())
+        gone = self._run("--uninstall")
+        self.assertEqual(gone.returncode, 0, gone.stdout + gone.stderr)
+        self.assertNotIn("autoCompactWindow", json.loads(self.settings.read_text(encoding="utf-8")))
+        self.assertFalse((self.repo / ".claude" / "metodo-settings-keys.json").exists())
 
     def test_install_is_complete_idempotent_and_reversible(self):
         first = self._run()

@@ -122,6 +122,33 @@ class GuardPathsTests(HookFixture):
         self.assertEqual(out, {})
         self.assertEqual(proc.stdout, "")
 
+    def test_an_edit_under_the_hooks_dir_is_the_owners(self):
+        # T16 (B-004/A-007): no agent writes a done-waiver (or any ledger) line by hand, RDD on or off
+        self.set_config(enabled=False)
+        for tool in ("Edit", "Write", "MultiEdit"):
+            payload = {"tool_name": tool, "tool_input": {"file_path": str(self.hooks_dir / "s1" / "ledger.jsonl")}}
+            out, _ = self.run_hook("guard_paths.py", payload)
+            self.assertEqual(self.decision(out), "ask", tool)
+            out, _ = self.run_hook("guard_paths.py", dict(payload, agent_type="generic-proposer", agent_id="a1"))
+            self.assertEqual(self.decision(out), "deny", tool)
+        self.assertEqual(self.ledger()[-1]["kind"], "ledger-write")
+
+    def test_a_routing_line_without_repo_never_warns(self):
+        # T16 (B-006/A-004): an old or foreign line (no repo) is not this repo's decision
+        from lib import baseline, router
+        catalog = baseline.load_json(TOOLS_ROOT / "config" / "model-tiers.json")
+        task = {"task_kind": "implement", "tier": "medium", "lane": "sonnet", "critical_hit": False, "owner_gate": False,
+                "changed_lines": 500, "modules": 1, "full_required": False, "map_age_days": 1, "offline": False,
+                "owner_named": False, "prior": {}, "approvals": []}
+        result = router.route(task, catalog, "2026-10-16")
+        self.routing_log.parent.mkdir(parents=True, exist_ok=True)
+        self.routing_log.write_text(router.log_line(result) + "\n", encoding="utf-8")
+        out, _ = self.run_hook("guard_paths.py", self._edit("app/Foo.kt"))
+        self.assertEqual(out, {})
+        self.routing_log.write_text(router.log_line(result, repo=self.repo) + "\n", encoding="utf-8")
+        out, _ = self.run_hook("guard_paths.py", self._edit("app/Foo.kt"))
+        self.assert_visible_warn(out, "delegate-writer")
+
     def test_scope_outside_warns_then_denies_in_block(self):
         out, _ = self.run_hook("guard_paths.py", self._edit("domain/Bar.kt", agent_type="generic-proposer", agent_id="a1"))
         self.assert_visible_warn(out, "scope-outside")
@@ -239,9 +266,117 @@ class GuardGatesTests(HookFixture):
 
     def test_text_about_done_waive_is_not_a_waiver(self):
         # negative control: only the command word counts
-        for cmd in ("grep -n done-waive 03-tools/README.md", "echo 'run done-waive.sh DONE-02'", "cat bin/done-waive.sh"):
+        for cmd in ("grep -n done-waive 03-tools/README.md", "echo 'run done-waive.sh DONE-02'", "cat bin/done-waive.sh",
+                    "sh -c 'cat bin/done-waive.sh'"):
             out, _ = self.run_hook("guard_gates.py", self._bash(cmd))
             self.assertIsNone(self.decision(out), cmd)
+
+    # T16 (B-004/A-007, owner decision L16 "Endurecer el guardrail")
+    WRAPPED_WAIVES = ("env METODO_X=1 03-tools/bin/done-waive.sh DONE-02 --reason x", "env -i done-waive DONE-02 --reason x",
+                      "exec bin/done-waive.sh DONE-02 --reason x", "command bin/done-waive.sh DONE-02 --reason x",
+                      "bash -x bin/done-waive.sh DONE-02 --reason x", "sh bin/done-waive.sh DONE-02 --reason x",
+                      "bash -c 'bin/done-waive.sh DONE-02 --reason x'", "\"bin/done-waive.sh\" DONE-02 --reason x",
+                      "python3 -c \"from lib import done_check; done_check.waive_main(['DONE-02', '--reason', 'x'])\"")
+
+    def test_a_waiver_through_a_wrapper_is_still_the_owners(self):
+        self.set_config(enabled=False)
+        for cmd in self.WRAPPED_WAIVES:
+            out, _ = self.run_hook("guard_gates.py", self._bash(cmd))
+            self.assertEqual(self.decision(out), "ask", cmd)
+            out, _ = self.run_hook("guard_gates.py", self._bash(cmd, agent_type="generic-proposer", agent_id="a1"))
+            self.assertEqual(self.decision(out), "deny", cmd)
+
+    def test_a_hand_written_ledger_line_is_the_same_gate(self):
+        self.set_config(enabled=False)
+        ledger = self.hooks_dir / "s1" / "ledger.jsonl"
+        line = '{"kind":"done-waiver","rule":"DONE-02"}'
+        for cmd in (f"echo '{line}' >> {ledger}", f"printf x | tee -a {ledger}", f"echo '{line}' >>ledger.jsonl",
+                    f"echo x > {self.hooks_dir / 's1' / 'profile.json'}", f'echo x > "{ledger}"',
+                    f"cat > {ledger} <<'EOF'\n{line}\nEOF"):
+            out, _ = self.run_hook("guard_gates.py", self._bash(cmd))
+            self.assertEqual(self.decision(out), "ask", cmd)
+            out, _ = self.run_hook("guard_gates.py", self._bash(cmd, agent_type="generic-proposer", agent_id="a1"))
+            self.assertEqual(self.decision(out), "deny", cmd)
+        self.assertEqual(self.ledger()[-1]["kind"], "ledger-write")
+
+    def test_reading_the_ledger_or_writing_elsewhere_is_not_a_ledger_write(self):
+        # negative control
+        self.set_config(enabled=False)
+        for cmd in (f"cat {self.hooks_dir / 's1' / 'ledger.jsonl'}", "grep ledger.jsonl README.md", "echo x > notes.txt",
+                    "make 2>&1 | tee build.log", "ls > /dev/null"):
+            out, _ = self.run_hook("guard_gates.py", self._bash(cmd))
+            self.assertIsNone(self.decision(out), cmd)
+
+    # T19 (verifier, MEDIUM): a waiver is recognized by mention, not by a fixed list of prefix words
+    BYPASS_WAIVES = ("/bin/bash bin/done-waive.sh DONE-02 --reason x", "timeout 60 bin/done-waive.sh DONE-02 --reason x",
+                     "nice bin/done-waive.sh DONE-02 --reason x", "echo DONE-02 | xargs bin/done-waive.sh --reason x",
+                     "if true; then bin/done-waive.sh DONE-02; fi", "{ bin/done-waive.sh DONE-02; }",
+                     "echo $(bin/done-waive.sh DONE-02 --reason x)", "bash <<EOF\nbin/done-waive.sh DONE-02 --reason x\nEOF",
+                     "cp bin/done-waive.sh /tmp/w.sh && /tmp/w.sh DONE-02 --reason x",
+                     "python3 <<'EOF'\nfrom lib import done_check\ndone_check.waive_main(['DONE-02'])\nEOF")
+
+    def test_a_waiver_in_any_command_form_is_the_owners(self):
+        self.set_config(enabled=False)
+        for cmd in self.BYPASS_WAIVES:
+            out, _ = self.run_hook("guard_gates.py", self._bash(cmd))
+            self.assertEqual(self.decision(out), "ask", cmd)
+            out, _ = self.run_hook("guard_gates.py", self._bash(cmd, agent_type="generic-proposer", agent_id="a1"))
+            self.assertEqual(self.decision(out), "deny", cmd)
+        self.assertEqual(self.ledger()[-1]["kind"], "gate-waiver")
+
+    def test_ledger_writes_through_file_commands_are_the_owners(self):
+        self.set_config(enabled=False)
+        ledger = self.hooks_dir / "s1" / "ledger.jsonl"
+        for cmd in (f"cp /tmp/x {ledger}", f"dd if=/tmp/x of={ledger}", f"sed -i '' 's/a/b/' {ledger}",
+                    f"mv /tmp/x {ledger}", f"rm {ledger}", f"echo x | xargs tee -a {ledger}"):
+            out, _ = self.run_hook("guard_gates.py", self._bash(cmd))
+            self.assertEqual(self.decision(out), "ask", cmd)
+            out, _ = self.run_hook("guard_gates.py", self._bash(cmd, agent_type="generic-proposer", agent_id="a1"))
+            self.assertEqual(self.decision(out), "deny", cmd)
+        self.assertEqual(self.ledger()[-1]["kind"], "ledger-write")
+
+    def test_quoted_text_and_read_only_mentions_are_not_gates(self):
+        # negative control (T19, LOW): text inside quotes is data; reading or searching is not waiving
+        self.set_config(enabled=False)
+        ledger = self.hooks_dir / "s1" / "ledger.jsonl"
+        for cmd in ('echo "a => ledger.jsonl"', 'git commit -m "docs: explain > ledger.jsonl"',
+                    "grep -n waive_main lib/done_check.py", f"cp {ledger} /tmp/backup.jsonl",
+                    "cat > notes.md <<'EOF'\nrun bin/done-waive.sh DONE-02 from your terminal\nEOF",
+                    "sed -n 1,5p bin/done-waive.sh", "ls 2>/dev/null >&2"):
+            out, _ = self.run_hook("guard_gates.py", self._bash(cmd))
+            self.assertIsNone(self.decision(out), cmd)
+        self.assertEqual(self.ledger(), [])
+
+    # T16 (A-001): a command with several gate kinds evaluates every one
+    def test_waiver_then_push_runs_both_gates(self):
+        cmd = "03-tools/bin/done-waive.sh DONE-02 --reason x && git push origin HEAD"
+        out, _ = self.run_hook("guard_gates.py", self._bash(cmd))
+        self.assertEqual(self.decision(out), "ask")
+        reason = out["hookSpecificOutput"]["permissionDecisionReason"]
+        self.assertIn("gate-waiver", reason)
+        self.assertIn("gate-push", reason)
+        self.assertIn("no approved receipt", reason)
+        lines = [(l["kind"], l["decision"]) for l in self.ledger()]
+        self.assertEqual(lines, [("gate-waiver", "ask"), ("gate-push", "warn")])
+        self.run_hook("guard_gates.py", dict(self._bash(cmd), hook_event_name="PostToolUse"))
+        self.assertEqual([l["kind"] for l in self.ledger()[2:]], ["gate-waiver-outcome", "gate-push-outcome"])
+
+    def test_several_delivery_kinds_each_get_a_line_and_the_strongest_wins(self):
+        self.set_config(enabled=True, mode="block")
+        out, _ = self.run_hook("guard_gates.py", self._bash("git push origin HEAD && gh pr create --fill"))
+        self.assertEqual(self.decision(out), "ask")
+        self.assertEqual([(l["kind"], l["decision"]) for l in self.ledger()], [("gate-push", "ask"), ("gate-pr", "ask")])
+        out, _ = self.run_hook("guard_gates.py", self._bash("done-waive DONE-02 --reason x && git push origin HEAD",
+                                                            agent_type="generic-proposer", agent_id="a1"))
+        self.assertEqual(self.decision(out), "deny")
+        self.assertEqual([(l["kind"], l["decision"]) for l in self.ledger()[2:]],
+                         [("gate-waiver", "deny"), ("gate-push", "deny")])
+
+    def test_waiver_with_an_approved_push_still_asks(self):
+        self.write_receipt()
+        out, _ = self.run_hook("guard_gates.py", self._bash("done-waive DONE-02 --reason x && git push origin HEAD"))
+        self.assertEqual(self.decision(out), "ask")
+        self.assertEqual([(l["kind"], l["decision"]) for l in self.ledger()], [("gate-waiver", "ask"), ("gate-push", "allow")])
 
 
 class BudgetTests(HookFixture):
@@ -567,13 +702,64 @@ class ActivationHookModeTests(HookFixture):
         self.assertEqual(self.decision(out), "ask")
         self.assertEqual(self.ledger()[-1]["mode"], "block")
 
-    def test_scripts_profile_warns_on_push_even_in_block_mode(self):
+    def test_owner_block_is_a_floor_the_profile_never_lowers(self):
+        # T16 (B-001/A-002, owner decision L16 "Tu 'block' es un piso"): exempt (light, OFF), low (scripts, WARN), medium
         self.enable_activation()
         self.set_config(enabled=True, mode="block")
+        for session, tier in (("s1", "exempt"), ("s2", "low"), ("s3", "medium")):
+            self.receipt_with_tier(tier)
+            out, _ = self.push(session=session)
+            self.assertEqual(self.decision(out), "ask", tier)
+            self.assertEqual((self.ledger(session)[-1]["decision"], self.ledger(session)[-1]["mode"]), ("ask", "block"), tier)
         self.receipt_with_tier("low")
+        out, _ = self.scope_edit()
+        self.assertEqual(self.decision(out), "deny")
+
+    def test_explicit_hook_modes_win_over_the_owner_floor(self):
+        self.enable_activation()
+        self.set_config(enabled=True, mode="block", hook_modes={"guard_gates": "warn"})
+        self.receipt_with_tier("exempt")
         out, _ = self.push()
         self.assert_visible_warn(out, "gate-push")
         self.assertEqual(self.ledger()[-1]["mode"], "warn")
+
+    def test_owner_warn_lets_the_profile_decide(self):
+        self.enable_activation()
+        self.receipt_with_tier("low")
+        out, _ = self.push()
+        self.assert_visible_warn(out, "gate-push")
+        self.assertEqual((self.ledger()[-1]["decision"], self.ledger()[-1]["mode"]), ("warn", "warn"))
+
+    def test_ledger_records_the_decision_really_applied(self):
+        # T16: OFF or LOG shows nothing, so the line never says warn
+        self.enable_activation()
+        self.receipt_with_tier("exempt")
+        _, proc = self.push()
+        self.assertEqual(proc.stdout, "")
+        self.assertEqual((self.ledger()[-1]["decision"], self.ledger()[-1]["mode"]), ("log", "off"))
+        self.receipt_with_tier("low")
+        _, proc = self.scope_edit()
+        self.assertEqual(proc.stdout, "")
+        self.assertEqual((self.ledger()[-1]["decision"], self.ledger()[-1]["mode"]), ("log", "log"))
+
+    def test_profile_comes_from_the_pushed_refs_tree(self):
+        # T16: HEAD's receipt is exempt (push gate OFF), the pushed branch's tree is high (BLOCK)
+        self.enable_activation()
+        self.receipt_with_tier("exempt")
+        _git(self.repo, "checkout", "-q", "-b", "feat")
+        (self.repo / "app" / "Bar.kt").write_text("class Bar\n", encoding="utf-8")
+        _git(self.repo, "add", "-A")
+        _git(self.repo, "commit", "-q", "-m", "feat")
+        feat_tree = _git(self.repo, "rev-parse", "HEAD^{tree}")
+        _git(self.repo, "checkout", "-q", "main")
+        self.write_receipt(verdict=None, state="started", tree=feat_tree)
+        path = self.rdd_dir / f"{feat_tree}.receipt.json"
+        receipt = json.loads(path.read_text(encoding="utf-8"))
+        receipt["risk"]["tier"] = "high"
+        path.write_text(json.dumps(receipt), encoding="utf-8")
+        out, _ = self.run_hook("guard_gates.py", {"tool_name": "Bash", "tool_input": {"command": "git push origin feat"}})
+        self.assertEqual(self.decision(out), "ask")
+        self.assertEqual((self.ledger()[-1]["tree"], self.ledger()[-1]["mode"]), (feat_tree, "block"))
 
     def test_light_profile_turns_the_push_gate_off(self):
         self.enable_activation()

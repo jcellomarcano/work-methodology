@@ -33,7 +33,8 @@ def main() -> int:
     result = output_lint.check(text, lint_config, kind=None, audience="public")
     failed = sorted(r["id"] for r in result.get("rules", []) if r.get("status") == "FAIL")
     if failed:
-        c.ledger(inp, HOOK, "reply-lint", "warn", c.hook_mode(config, HOOK), ", ".join(failed))
+        mode = c.hook_mode(config, HOOK)
+        c.ledger(inp, HOOK, "reply-lint", "log" if mode in ("off", "log") else "warn", mode, ", ".join(failed))
     return 0
 
 

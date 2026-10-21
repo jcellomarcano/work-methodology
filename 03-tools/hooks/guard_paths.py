@@ -11,8 +11,13 @@ routing decision for this repo put a writer at `delegate: subagent` gets one
 visible METODO-WARN delegate-writer and a ledger line, once per session per
 decision (a marker under the session dir). Never a deny or an ask. The log is
 $METODO_ROUTING_LOG or <tools>/out/runs/routing.jsonl; the newest line
-whose `repo` is absent (an instance serves one repo) or equals this repo
-wins. Lines carry per-role counts only, so the writer's delegate is read
+whose `repo` equals this repo wins (T16, B-006/A-004: a line without `repo`,
+old or foreign, never matches).
+
+The hooks dir (T16, B-004/A-007): an Edit/Write/MultiEdit under
+_common.hooks_dir() (the ledger a done-waiver line lives in) is denied to a
+subagent and asked of the main session, RDD on or off. A guardrail against a
+silent self-grant, not a signature. Lines carry per-role counts only, so the writer's delegate is read
 from the roster's own `delegate` when present, else inferred: all writers
 share one rule (main only on a small task), so fewer main entries than
 running writers means the writers are subagents; an ambiguous count stays
@@ -42,9 +47,7 @@ def _routing_log() -> Path:
 
 
 def _same_repo(value, repo: Path | None) -> bool:
-    if not value:
-        return True
-    if repo is None:
+    if not value or repo is None:
         return False
     try:
         return Path(str(value)).expanduser().resolve() == repo.resolve()
@@ -126,6 +129,16 @@ def main() -> int:
     rel = c.rel_path(file_path, repo)
     subagent = c.is_subagent(inp)
 
+    if c.in_hooks_dir(file_path, inp):
+        if subagent:
+            c.ledger(inp, HOOK, "ledger-write", "deny", "block", "subagents never write the hooks ledger", path=rel)
+            c.emit_pretool("deny", "The hooks ledger (out/hooks) is the hooks' and the owner's: report the need in your output.")
+        else:
+            c.ledger(inp, HOOK, "ledger-write", "ask", "block", "owner gate", path=rel)
+            c.emit_pretool("ask", "the hooks ledger (out/hooks) is written by the hooks and the owner's bin/done-waive.sh "
+                                  "only; confirm only if the owner asked for this write")
+        return 0
+
     hit = c.shared_build_hit(rel, config)
     if hit is not None:
         if subagent:
@@ -158,6 +171,8 @@ def main() -> int:
     if mode == "block":
         c.ledger(inp, HOOK, "scope-outside", "deny", mode, reason, path=rel)
         c.emit_pretool("deny", reason + ". Stay inside the change card's scope boundary.")
+    elif mode in ("off", "log"):  # nothing is shown, so the line says log, never warn
+        c.ledger(inp, HOOK, "scope-outside", "log", mode, reason, path=rel)
     else:
         c.ledger(inp, HOOK, "scope-outside", "warn", mode, reason, path=rel)
         c.emit_warn(inp.get("hook_event_name"), "scope-outside",

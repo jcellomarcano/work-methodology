@@ -781,7 +781,8 @@ class LogTests(unittest.TestCase):
             self.assertEqual(len(lines), 1)
             line = json.loads(lines[0])
             self.assertEqual(set(line), {"approvals", "as_of", "base_rule", "catalog_version", "delegation",
-                                         "inputs_hash", "rule", "status", "roster"})
+                                         "inputs_hash", "repo", "rule", "status", "roster"})
+            self.assertIsNone(line["repo"], "a task without repo logs repo: null, which no guard matches")
             self.assertEqual(line["approvals"], [])
             self.assertEqual((line["rule"], line["base_rule"], line["status"], line["as_of"]), ("B6", "B6", "ok", AS_OF))
             self.assertEqual(json.loads(proc.stdout)["inputs_hash"], line["inputs_hash"])
@@ -805,6 +806,20 @@ class LogTests(unittest.TestCase):
             code = router.main([str(task_path), "--as-of", AS_OF, "--log", str(log_path)])
             self.assertEqual(code, 2)
             self.assertFalse(log_path.exists())
+
+    def test_log_line_carries_the_tasks_resolved_repo(self):
+        # T16 (B-006/A-004): the main-session guard matches a decision to its repo, never a line without one
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "target"
+            (repo / "sub").mkdir(parents=True)
+            subprocess.run(["git", "init", "-q", str(repo)], check=True, timeout=30)
+            task_path = Path(tmp) / "task.json"
+            task_path.write_text(json.dumps(_task(repo=str(repo / "sub"))), encoding="utf-8")
+            log_path = Path(tmp) / "runs" / "routing.jsonl"
+            self.assertEqual(router.main([str(task_path), "--as-of", AS_OF, "--log", str(log_path)]), 0)
+            line = json.loads(log_path.read_text(encoding="utf-8"))
+            self.assertEqual(line["repo"], str(repo.resolve()))
+        self.assertEqual(json.loads(router.log_line(_route(), repo="/x/y"))["repo"], "/x/y")
 
     def test_log_line_records_the_owner_approval(self):
         result = _route(owner_named=True, approvals=["escalate-fable"])

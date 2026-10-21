@@ -106,9 +106,13 @@ def activation_config_path() -> Path:
     return (Path(project).parent if project else TOOLS_ROOT / "config") / "activation.json"
 
 
-def _profile_mode(config: dict, hook: str, inp: dict) -> str | None:
+HEAD_TREE = object()  # hook_mode's default: the receipt of HEAD's tree
+
+
+def _profile_mode(config: dict, hook: str, inp: dict, tree=HEAD_TREE) -> str | None:
     """The hook's mode from the activation profile, or None (no activation.json,
-    invalid config, no receipt tier and no session floor): then today's rules."""
+    invalid config, no receipt tier and no session floor): then today's rules.
+    The tier comes from the receipt of `tree`, the tree being judged (HEAD's by default)."""
     element = HOOK_ELEMENT.get(hook)
     path = activation_config_path()
     if element is None or not path.is_file():
@@ -118,7 +122,7 @@ def _profile_mode(config: dict, hook: str, inp: dict) -> str | None:
         settings = activation.load_config(path)
     except (ImportError, ValueError):
         return None
-    receipt = receipt_for(current_tree(repo_root(inp)))
+    receipt = receipt_for(current_tree(repo_root(inp)) if tree is HEAD_TREE else tree)
     tier = ((receipt or {}).get("risk") or {}).get("tier")
     sdir = session_dir(inp) if inp.get("session_id") else None
     floor = activation.session_floor(sdir) if sdir else None
@@ -131,24 +135,31 @@ def _profile_mode(config: dict, hook: str, inp: dict) -> str | None:
     return activation.element_mode(result["profile"], element, modifiers, settings).lower()
 
 
-def hook_mode(config: dict, hook: str, inp: dict | None = None) -> str:
-    """rdd.hook_modes[hook] (owner override) -> the activation profile's mode
-    (off | log | warn | block) -> rdd.mode -> warn. Without activation.json
-    this is exactly the pre-T8 rule. A profile OFF or LOG keeps this hook's
-    visible warn silent (the ledger line still records the run)."""
+def hook_mode(config: dict, hook: str, inp: dict | None = None, tree=HEAD_TREE) -> str:
+    """The mode (off | log | warn | block) a non-absolute hook applies:
+    1. rdd.hook_modes[hook], the owner's explicit override, wins over everything;
+    2. an owner rdd.mode `block` is a floor (owner decision L16): the activation
+       profile may raise to it, never lower it, so the result is block;
+    3. otherwise (rdd.mode warn or unset) the profile's mode, from the receipt
+       tier of `tree` (the tree being judged; HEAD's by default);
+    4. otherwise rdd.mode, else warn.
+    Without activation.json this is exactly the pre-T8 rule. A final OFF or LOG
+    keeps this hook's visible warn silent (the ledger line still records the run)."""
     rdd = config.get("rdd") or {}
     explicit = (rdd.get("hook_modes") or {}).get(hook)
     if explicit:
         return _seen_mode(hook, explicit)
+    owner = rdd.get("mode") or "warn"
     try:
-        profiled = _profile_mode(config, hook, _INPUT if inp is None else inp)
+        # Computed even under the floor: it records the session's profile floor.
+        profiled = _profile_mode(config, hook, _INPUT if inp is None else inp, tree)
     except Exception:  # noqa: BLE001 - a broken profile falls back to today's rule, never to OFF
         profiled = None
-    if profiled is not None:
-        if profiled in ("off", "log"):
-            _SILENT_HOOKS.add(hook)
-        return _seen_mode(hook, profiled)
-    return _seen_mode(hook, rdd.get("mode") or "warn")
+    if owner == "block" or profiled is None:
+        return _seen_mode(hook, owner)
+    if profiled in ("off", "log"):
+        _SILENT_HOOKS.add(hook)
+    return _seen_mode(hook, profiled)
 
 
 def is_subagent(inp: dict) -> bool:
@@ -157,6 +168,21 @@ def is_subagent(inp: dict) -> bool:
 
 def hooks_dir() -> Path:
     return Path(os.environ.get("METODO_HOOKS_DIR") or TOOLS_ROOT / "out" / "hooks")
+
+
+def in_hooks_dir(path: str, inp: dict) -> bool:
+    """True when `path` (absolute, `~`, `$VAR` or relative to the hook's cwd)
+    lands under hooks_dir(): the ledger, markers and profile floors only the
+    hooks and the owner's done-waive.sh write (T16, B-004/A-007)."""
+    try:
+        p = Path(os.path.expandvars(os.path.expanduser(str(path))))
+        if not p.is_absolute():
+            p = Path(inp.get("cwd") or os.getcwd()) / p
+        root = hooks_dir().resolve()
+        resolved = p.resolve()
+        return resolved == root or root in resolved.parents
+    except (OSError, ValueError, RuntimeError):
+        return False
 
 
 def session_dir(inp: dict) -> Path:
@@ -331,7 +357,7 @@ KIND_ELEMENT = {"force-push": "force_push", "budget-deny": "budget_deny", "budge
                 "report-over-cap": "subagent_output", "context-over-cap": "subagent_output",
                 "reply-lint": "reply_lint", "session-start": "session_start_status", "output-authored": "output_author",
                 "done-gate": "done_gate", "done-unproven": "done_gate", "done-waiver": "done_gate",
-                "gate-waiver": "done_gate"}
+                "gate-waiver": "done_gate", "ledger-write": "done_gate"}
 HOOK_DEFAULT_ELEMENT = {"budget": "budget_deny", "guard_gates": "push_gate", "guard_paths": "subagent_scope",
                         "validate_subagent_output": "subagent_output", "reply_lint": "reply_lint",
                         "touched_paths": "touched_paths", "session_start_status": "session_start_status",

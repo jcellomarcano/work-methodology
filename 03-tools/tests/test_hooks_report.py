@@ -184,9 +184,10 @@ class MarkFalsePositiveTests(Fixture):
 class VerdictTests(Fixture):
     def test_fires_boundary_19_is_insufficient_20_is_measured(self):
         self.session("cur", 0, self.warns(19))
-        self.assertEqual(self.element("push_gate")["verdict"], "INSUFFICIENT_DATA")
+        self.mark("cur", [1])
+        self.assertEqual(self.element("push_gate", metrics=self.metrics_file(10, 5))["verdict"], "INSUFFICIENT_DATA")
         self.session("cur", 0, self.warns(1))
-        e = self.element("push_gate")
+        e = self.element("push_gate", metrics=self.metrics_file(10, 5))
         self.assertEqual((e["fires"], e["verdict"], e["recommend"]), (20, "PROMOTE", "BLOCK"))
 
     def test_window_not_met_without_a_full_window_of_observation(self):
@@ -198,11 +199,11 @@ class VerdictTests(Fixture):
     def test_precision_boundary(self):
         self.session("a", 0, self.warns(20))
         self.mark("a", [1, 2])
-        e = self.element("push_gate")
+        e = self.element("push_gate", metrics=self.metrics_file(10, 5))
         self.assertEqual((e["precision"], e["verdict"]), (0.9, "PROMOTE"))
         self.session("b", 1, self.warns(80))
         self.mark("b", range(1, 10))  # 11 of 100
-        e = self.element("push_gate")
+        e = self.element("push_gate", metrics=self.metrics_file(10, 5))
         self.assertEqual((e["precision"], e["verdict"], e["recommend"]), (0.89, "DEMOTE", "OFF"))
 
     def test_precision_ok_but_more_than_two_fps_is_not_promoted(self):
@@ -231,14 +232,15 @@ class VerdictTests(Fixture):
         self.session("a", 0, self._asks(0) + [{"kind": "gate-push-outcome", "decision": "ran", "mode": "block", "tree": "zz"}])
         self.assertEqual(self.element("push_gate")["override_rate"], 0.0)
 
-    def test_override_without_outcome_lines_is_zero_and_not_measured(self):
+    def test_override_without_outcome_lines_is_unmeasured_never_zero(self):
         self.session("a", 0, [{"kind": "gate-push", "decision": "ask", "mode": "block"}] * 20)
         e = self.element("push_gate")
-        self.assertEqual(e["override_rate"], 0.0)
+        self.assertIsNone(e["override_rate"])
         self.assertIn("override_rate", [n["metric"] for n in e["not_measured"]])
 
     def test_act_rate_boundary_from_transcript_metrics(self):
         self.session("a", 0, self.warns(20))
+        self.mark("a", [1])
         e = self.element("push_gate", metrics=self.metrics_file(100, 9))
         self.assertEqual((e["act_rate"], e["verdict"]), (0.09, "DEMOTE"))
         e = self.element("push_gate", metrics=self.metrics_file(100, 10))
@@ -271,13 +273,58 @@ class VerdictTests(Fixture):
     def test_expiry_does_not_override_a_promotion(self):
         self.session("first", 20, self.warns(1))
         self.session("a", 0, self.warns(20))
-        self.assertEqual(self.element("push_gate")["verdict"], "PROMOTE")
+        self.mark("a", [1])
+        self.assertEqual(self.element("push_gate", metrics=self.metrics_file(10, 5))["verdict"], "PROMOTE")
 
     def test_main_session_deny_fp_blocks_a_promotion(self):
         self.session("a", 0, [{"kind": "scope-outside", "decision": "deny", "mode": "warn"}] * 20)
         self.mark("a", [1])
         e = self.element("subagent_scope")
         self.assertEqual((e["main_deny_false_positives"], e["verdict"]), (1, "KEEP"))
+
+    # T18 (B-007/A-009): unmeasured data never earns PROMOTE.
+    def test_warn_element_without_fp_marks_is_not_promoted_and_names_precision(self):
+        self.session("a", 0, self.warns(20))
+        e = self.element("push_gate", metrics=self.metrics_file(10, 5))
+        self.assertIsNone(e["precision"])
+        self.assertEqual((e["verdict"], e["recommend"]), ("INSUFFICIENT_DATA", None))
+        self.assertIn("precision", [n["metric"] for n in e["not_measured"]])
+        self.assertTrue(any("precision" in r for r in e["reasons"]), e["reasons"])
+
+    def test_warn_element_without_act_rate_is_not_promoted_and_names_it(self):
+        self.session("a", 0, self.warns(20))
+        self.mark("a", [1])
+        e = self.element("push_gate")
+        self.assertEqual(e["verdict"], "INSUFFICIENT_DATA")
+        self.assertTrue(any("act_rate" in r for r in e["reasons"]), e["reasons"])
+
+    def test_asks_without_outcome_lines_are_not_promoted(self):
+        asks = [{"kind": "gate-push", "decision": "ask", "mode": "warn", "tree": f"t{i}"} for i in range(20)]
+        self.session("a", 0, asks)
+        self.mark("a", [1])
+        e = self.element("push_gate", metrics=self.metrics_file(10, 5))
+        self.assertIsNone(e["override_rate"])
+        self.assertEqual(e["verdict"], "INSUFFICIENT_DATA")
+        self.assertTrue(any("override_rate" in r for r in e["reasons"]), e["reasons"])
+
+    def test_measured_asks_with_outcomes_can_still_promote(self):
+        # negative control: every PROMOTE criterion measured
+        lines = []
+        for i in range(20):
+            lines.append({"kind": "gate-push", "decision": "ask", "mode": "warn", "tree": f"t{i}"})
+            lines.append({"kind": "gate-push-outcome", "decision": "skipped", "mode": "warn", "tree": f"t{i}"})
+        self.session("a", 0, lines)
+        self.mark("a", [1])
+        e = self.element("push_gate", metrics=self.metrics_file(10, 5))
+        self.assertEqual((e["override_rate"], e["verdict"]), (0.0, "PROMOTE"))
+
+    def test_an_element_whose_lines_are_all_mode_off_is_never_promoted(self):
+        self.session("a", 0, self.warns(20, mode="off"))
+        self.mark("a", [1])
+        e = self.element("push_gate", metrics=self.metrics_file(10, 5))
+        self.assertNotEqual(e["verdict"], "PROMOTE")
+        self.assertIn(e["verdict"], ("KEEP", "INSUFFICIENT_DATA"))
+        self.assertTrue(any("mode off" in r for r in e["reasons"]), e["reasons"])
 
     def test_fire_rate_from_run_lines(self):
         run = {"kind": "run", "hook": "guard_gates", "element": "push_gate", "mode": "warn", "outcome": "silent",
@@ -318,7 +365,8 @@ class VerdictTests(Fixture):
 
     def test_markdown_is_short_and_names_each_verdict(self):
         self.session("a", 0, self.warns(20))
-        md = hooks_report.verdicts_markdown(self.verdicts())
+        self.mark("a", [1])
+        md = hooks_report.verdicts_markdown(self.verdicts(metrics=self.metrics_file(10, 5)))
         self.assertIn("| push_gate |", md)
         self.assertIn("PROMOTE", md)
         self.assertLessEqual(len(md.splitlines()), 40)

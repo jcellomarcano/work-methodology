@@ -110,8 +110,9 @@ release → full; P2 medium → standard; P3 low → scripts; P4 exempt or explo
 standard) and reads each element's mode (OFF, LOG, WARN, BLOCK) from `config/activation.json`. The
 absolute set (subagent build-file and `.claude/` edits, force push, subagent delivery, the budget deny,
 the main-session build-file ask) is BLOCK in every profile; the loader refuses a config that lowers it.
-With `activation.json` beside `project.json`, `hooks/_common.hook_mode` takes the profile from the
-current receipt's tier; `rdd.hook_modes` still wins, and without a receipt tier `rdd.mode` decides. The
+With `activation.json` beside `project.json`, `hooks/_common.hook_mode` applies: `rdd.hook_modes` wins;
+an owner `rdd.mode: block` is a floor the profile never lowers; else the profile from the receipt tier
+of the judged tree (the pushed ref's for the push gate); without a tier `rdd.mode` decides. The
 profile never falls within a session (`out/hooks/<session>/profile.json`). Without `activation.json`
 the hook modes are exactly the old rule. Method: `odd/research/context/activation.md` §3.
 

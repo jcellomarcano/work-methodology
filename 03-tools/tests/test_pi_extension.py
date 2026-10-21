@@ -335,6 +335,15 @@ class BashPostToolUse(PiExtensionFixture):
         lines = (self.hooks_dir / "pi-ephemeral" / "touched.jsonl").read_text(encoding="utf-8").splitlines()
         self.assertEqual(json.loads(lines[0])["path"], "app/Foo.kt")
 
+    def test_write_of_a_round_output_records_its_author(self):
+        # T18 (B-005/A-006): same matcher as Claude Code, so the owner's hand-written review is attributed
+        out_file = self.tmp / "round" / "002-challenger-findings.json"
+        out_file.parent.mkdir(parents=True)
+        out_file.write_text("{}\n", encoding="utf-8")
+        self.run_ext([self.result("write", path=str(out_file))])
+        [line] = [l for l in self.pi_ledger() if l["kind"] == "output-authored"]
+        self.assertTrue(line["reason"].startswith("author=main role=generic-challenger schema=findings "), line)
+
 
 class VisibleWarnOnPi(PiExtensionFixture):
     """T2 (WU5): a hook's additionalContext is read, never treated as a
@@ -419,7 +428,7 @@ class MainSessionGuardOnPi(PiExtensionFixture):
     def _delegated_log(self):
         from tests.test_main_session_guard import DELEGATED, _line
         self.routing_log.parent.mkdir(parents=True, exist_ok=True)
-        self.routing_log.write_text(_line(**DELEGATED) + "\n", encoding="utf-8")
+        self.routing_log.write_text(_line(self.repo, **DELEGATED) + "\n", encoding="utf-8")
 
     def test_owner_edit_with_writer_delegated_warns_on_the_next_turn(self):
         self._delegated_log()

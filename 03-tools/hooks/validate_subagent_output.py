@@ -70,7 +70,8 @@ def _schema_check(inp: dict, mode: str, schema_name: str, verdict: str, errors: 
     if mode == "block" and _block_once(inp, "output-blocked"):
         c.ledger(inp, HOOK, "output-invalid", "block", mode, "; ".join(errors)[:500])
         return f"Your final message must be JSON valid against {schema_name}.schema.json. Errors: " + "; ".join(errors)[:800]
-    c.ledger(inp, HOOK, "output-invalid", "warn" if mode != "block" else "invalid-let-through", mode, "; ".join(errors)[:500])
+    shown = "log" if mode in ("off", "log") else "warn"  # nothing is shown at off/log (T19)
+    c.ledger(inp, HOOK, "output-invalid", shown if mode != "block" else "invalid-let-through", mode, "; ".join(errors)[:500])
     return None
 
 
@@ -82,7 +83,7 @@ def _report_cap_check(inp: dict, mode: str, message: str) -> str | None:
         return None
     reason = f"{tokens} tokens > {fsv.REPORT_CAP_TOKENS} (ceil(chars/4))"
     if mode != "block":
-        decision = "warn"
+        decision = "log" if mode in ("off", "log") else "warn"
     elif inp.get("runtime_can_block") is False:
         decision = "over-cap-unenforced"
     elif _block_once(inp, "report-over-cap-blocked"):
