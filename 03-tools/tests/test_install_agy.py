@@ -118,6 +118,27 @@ class InstallAgyTests(unittest.TestCase):
                     self.assertEqual((self.plugin / "skills" / skill / src.name).read_bytes(),
                                      data.replace(b"__TOOLS_DEFAULT__", str(TOOLS_ROOT).encode()))
 
+    def test_contracts_ship_in_a_folder_of_their_own_byte_for_byte(self):
+        self.assertEqual(self._run().returncode, 0)
+        contracts = sorted(ROLES.glob("generic-*.contract.json"))
+        self.assertTrue(contracts)
+        self.assertEqual(sorted(p.name for p in (self.plugin / "contracts").iterdir()), [p.name for p in contracts])
+        for src in contracts:
+            with self.subTest(contract=src.name):
+                self.assertEqual((self.plugin / "contracts" / src.name).read_bytes(), src.read_bytes())
+        # agy reads agents/ as subagents: a contract never lands there
+        self.assertEqual([p.name for p in (self.plugin / "agents").iterdir() if p.suffix != ".md"], [])
+
+    def test_uninstall_keeps_a_modified_contract_and_removes_the_rest(self):
+        self.assertEqual(self._run().returncode, 0)
+        edited = self.plugin / "contracts" / "generic-proposer.contract.json"
+        edited.write_text(edited.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+        proc = self._run("--uninstall")
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("! .agents/plugins/metodo/contracts/generic-proposer.contract.json (kept: modified)", proc.stdout)
+        self.assertIn("- .agents/plugins/metodo/contracts/generic-judge.contract.json (removed)", proc.stdout)
+        self.assertEqual(self._files(), [edited.relative_to(self.repo).as_posix()])
+
     def test_nothing_is_written_under_home(self):
         self.assertEqual(self._run().returncode, 0)
         self.assertEqual(self._run("--uninstall").returncode, 0)
@@ -247,6 +268,120 @@ class InstallAgyTests(unittest.TestCase):
         self.assertEqual(report["components"]["agents"], len(list(ROLES.glob("generic-*.md"))))
         self.assertEqual(report["components"]["skills"], len(_skills()))
         self.assertEqual((report["components"]["hooks"], report["components"]["mcpServers"], report["components"]["rules"]), (1, 1, 1))
+
+
+@unittest.skipUnless(ROLES.is_dir(), "kit only: the instance does not carry 01-roles/")
+class AgyOnlyInstanceTests(unittest.TestCase):
+    """An agy-only repo (no .claude/) whose tools root is a synced instance: the
+    instance carries no 01-roles/, so the role contracts the plugin ships are the
+    only ones the guards can find. Every call runs the PreToolUse command of the
+    installed hooks.json with the stdin agy 1.4.7 sends, in block mode."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.root = Path(tempfile.mkdtemp(prefix="agy-instance-"))
+        cls.instance = cls.root / "instance"
+        cls.instance.mkdir()
+        proc = subprocess.run(["bash", str(TOOLS_ROOT / "bin" / "sync-instance.sh"), str(cls.instance)],
+                              capture_output=True, text=True)
+        if proc.returncode != 0:
+            raise RuntimeError(proc.stdout[-2000:] + proc.stderr[-2000:])
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.root, ignore_errors=True)
+
+    def setUp(self):
+        from tests.test_agy_bridge import BRIEF
+        self.brief = BRIEF
+        self.tmp = Path(tempfile.mkdtemp(prefix="agy-only-"))
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.repo = self.tmp / "repo"
+        (self.repo / "app").mkdir(parents=True)
+        _git(self.repo, "init", "-q", "-b", "main")
+        (self.repo / "app" / "Foo.kt").write_text("class Foo\n", encoding="utf-8")
+        _git(self.repo, "add", "-A")
+        _git(self.repo, "-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-q", "-m", "init")
+        base = {k: v for k, v in os.environ.items() if not k.startswith("METODO_") and k != "CLAUDE_PROJECT_DIR"}
+        proc = subprocess.run(["bash", str(INSTALLER), str(self.repo), "--tools", str(self.instance)],
+                              capture_output=True, text=True, env=dict(base, METODO_MEMORY="off"))
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertFalse((self.repo / ".claude").exists())
+        self.assertFalse((self.instance.parent / "01-roles").exists())
+        hooks = json.loads((self.repo / PLUGIN / "hooks.json").read_text(encoding="utf-8"))["metodo"]
+        self.command = hooks["PreToolUse"][0]["hooks"][0]["command"]
+        self.assertIn(str(self.instance), self.command)
+        config = self.tmp / "project.json"
+        config.write_text(json.dumps({"shared_build_files": ["settings.gradle", "app/build.gradle"],
+                                      "rdd": {"enabled": True, "mode": "block", "hook_modes": {}, "exempt_globs": ["**/*.md"]}}),
+                          encoding="utf-8")
+        self.hooks_dir = self.tmp / "hooks-out"
+        self.env = dict(base, METODO_MEMORY="off", METODO_PROJECT_CONFIG=str(config), METODO_HOOKS_DIR=str(self.hooks_dir),
+                        METODO_RDD_DIR=str(self.tmp / "rdd"), METODO_ROUTING_LOG=str(self.tmp / "runs" / "routing.jsonl"),
+                        METODO_RUNS_DIR=str(self.tmp / "runs-dir"))
+
+    def _transcript(self, conversation: str, first: dict) -> str:
+        path = self.tmp / "brain" / conversation / "transcript_full.jsonl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(first) + "\n", encoding="utf-8")
+        return str(path)
+
+    def _owner(self) -> tuple[str, str]:
+        return "owner-1", self._transcript("owner-1", {"step_index": 0, "source": "USER_EXPLICIT", "type": "USER_INPUT",
+                                                       "content": "<USER_REQUEST>do it</USER_REQUEST>"})
+
+    def _child(self, prompt: str) -> tuple[str, str]:
+        content = ("The following is a <SYSTEM_MESSAGE> not actually sent by the user.\n\n<SYSTEM_MESSAGE>\n"
+                   "[Message] timestamp=2026-10-26T16:34:16Z sender=owner-1 priority=MESSAGE_PRIORITY_HIGH "
+                   f"content={prompt}\n</SYSTEM_MESSAGE>")
+        return "child-1", self._transcript("child-1", {"step_index": 0, "source": "SYSTEM", "type": "SYSTEM_MESSAGE",
+                                                       "content": content})
+
+    def _pre(self, who: tuple[str, str], name: str, args: dict) -> dict | None:
+        """The installed hook's verdict: None when it stays neutral (empty stdout)."""
+        body = {"workspacePaths": [str(self.repo)], "modelName": "auto", "conversationId": who[0], "transcriptPath": who[1],
+                "stepIdx": 3, "toolCall": {"name": name, "args": args}}
+        proc = subprocess.run(["bash", "-c", self.command], input=json.dumps(body), capture_output=True, text=True,
+                              env=self.env, cwd=str(self.tmp))
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        return json.loads(proc.stdout) if proc.stdout.strip() else None
+
+    def _launch(self, who, type_name: str) -> dict | None:
+        return self._pre(who, "invoke_subagent", {"TypeName": type_name, "Prompt": self.brief, "Role": "r"})
+
+    def test_a_valid_launch_of_a_kit_role_is_silent(self):
+        self.assertIsNone(self._launch(self._owner(), "generic-proposer"))
+        self.assertFalse((self.hooks_dir / "owner-1" / "ledger.jsonl").exists())
+
+    def test_a_role_mismatch_is_denied(self):
+        out = self._launch(self._owner(), "generic-challenger")
+        self.assertEqual(out["decision"], "deny")
+        self.assertIn("the launched role is generic-challenger", out["reason"])
+
+    def test_a_proposer_child_may_not_launch_the_challenger(self):
+        self.assertIsNone(self._launch(self._owner(), "generic-proposer"))
+        out = self._launch(self._child(self.brief), "generic-challenger")
+        self.assertEqual(out["decision"], "deny")
+        self.assertIn("may_spawn", out["reason"])
+
+    def test_budget_counts_and_denies_past_the_role_cap(self):
+        cap = json.loads((ROLES / "generic-proposer.contract.json").read_text(encoding="utf-8"))["max_tool_calls"]
+        self.assertIsNone(self._launch(self._owner(), "generic-proposer"))
+        child = self._child(self.brief)
+        read = {"Path": str(self.repo / "app" / "Foo.kt")}
+        self.assertIsNone(self._pre(child, "read_file", read))
+        counter = self.hooks_dir / "child-1" / "budget-generic-proposer-child-1.count"
+        self.assertEqual(counter.read_text(encoding="utf-8").strip(), "1")
+        counter.write_text(f"{cap}\n", encoding="utf-8")
+        out = self._pre(child, "read_file", read)
+        self.assertEqual(out["decision"], "deny")
+        self.assertIn(f"budget exhausted ({cap} tool calls)", out["reason"])
+
+    def test_the_child_cannot_rewrite_its_own_contract(self):
+        self.assertIsNone(self._launch(self._owner(), "generic-proposer"))
+        path = self.repo / PLUGIN / "contracts" / "generic-proposer.contract.json"
+        out = self._pre(self._child(self.brief), "write_file", {"Path": str(path), "Content": "{}\n", "Overwrite": True})
+        self.assertEqual(out["decision"], "deny")
 
 
 if __name__ == "__main__":

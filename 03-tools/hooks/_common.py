@@ -227,6 +227,10 @@ def shared_build_hit(path: str, config: dict) -> str | None:
     return build_files.first_match(path, shared_build_patterns(config))
 
 
+# Where bin/install-agy.sh ships each role's contract inside the agy plugin.
+AGY_CONTRACTS = Path(".agents") / "plugins" / "metodo" / "contracts"
+
+
 def contract_for(agent_type: str | None, repo: Path | None) -> dict | None:
     if not agent_type:
         return None
@@ -235,6 +239,9 @@ def contract_for(agent_type: str | None, repo: Path | None) -> dict | None:
         candidates.append(repo / ".claude" / "agents" / f"{agent_type}.contract.json")
     candidates.append(TOOLS_ROOT.parent / "01-roles" / "agents" / f"{agent_type}.contract.json")
     candidates.append(TOOLS_ROOT / "claude" / "agents" / f"{agent_type}.contract.json")
+    if repo is not None:
+        # last: an agy-only repo on a synced instance has none of the folders above
+        candidates.append(repo / AGY_CONTRACTS / f"{agent_type}.contract.json")
     for path in candidates:
         if path.exists():
             try:

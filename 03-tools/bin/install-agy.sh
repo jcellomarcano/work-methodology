@@ -6,6 +6,10 @@
 #
 #   .agents/plugins/metodo/plugin.json       manifest
 #   .agents/plugins/metodo/agents/           generic-* roles as agy subagents
+#   .agents/plugins/metodo/contracts/        each role's *.contract.json, byte for byte:
+#                                            what the guards read when the repo has no
+#                                            .claude/agents and the tools root is an
+#                                            instance (no 01-roles/ beside it)
 #   .agents/plugins/metodo/skills/           the kit's skills
 #   .agents/plugins/metodo/hooks.json        the guards, through hooks/agy/bridge.py
 #   .agents/plugins/metodo/mcp_config.json   the metodo MCP server, started per repo
@@ -82,7 +86,7 @@ fi
 # with its two tokens replaced, nothing else.
 render_plugin() {
   local root="$1" out="$2" f skill
-  mkdir -p "$out/agents" "$out/skills" "$out/rules"
+  mkdir -p "$out/agents" "$out/contracts" "$out/skills" "$out/rules"
   cp "$TEMPLATES/plugin.json" "$out/plugin.json"
   cp "$TEMPLATES/AGENTS.md" "$out/rules/AGENTS.md"
   sed -e "s|__TOOLS_DEFAULT__|$root|g" -e "s|__REPO_DEFAULT__|$REPO|g" "$TEMPLATES/hooks.json" > "$out/hooks.json"
@@ -93,6 +97,12 @@ render_plugin() {
   for f in "$AGENTS_SRC"/generic-*.md; do
     python3 "$TOOLS_ROOT/lib/render_agents.py" "$f" --target agy --tools-default "$root" \
       --core-source "$KIT_ROOT/CONTEXT-PACK.md" --out "$out/agents/$(basename "$f")" >/dev/null
+  done
+  # The contracts sit in a folder of their own: agy reads agents/ as subagents.
+  # hooks/_common.py and hooks/guard_spawn.py look here after .claude/agents
+  # and the kit's 01-roles/agents.
+  for f in "$AGENTS_SRC"/generic-*.contract.json; do
+    cp "$f" "$out/contracts/$(basename "$f")"
   done
   for skill in "${SKILLS[@]}"; do
     [ -d "$SKILLS_SRC/$skill" ] || continue

@@ -26,7 +26,8 @@ FIX = f" Write the brief from {TEMPLATE} and launch again (methodology.md paragr
 def roster(brief_check, repo: Path | None) -> list[str]:
     names: set[str] = set()
     for directory in ([repo / ".claude" / "agents"] if repo is not None else []) + [
-            c.TOOLS_ROOT.parent / "01-roles" / "agents", c.TOOLS_ROOT / "claude" / "agents"]:
+            c.TOOLS_ROOT.parent / "01-roles" / "agents", c.TOOLS_ROOT / "claude" / "agents"] + (
+            [repo / c.AGY_CONTRACTS] if repo is not None else []):
         if directory.is_dir():
             names.update(brief_check.roster_names(directory))
     return sorted(names)

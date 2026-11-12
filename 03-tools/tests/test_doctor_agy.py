@@ -17,7 +17,7 @@ DOCTOR_SH = TOOLS_ROOT / "bin" / "doctor.sh"
 INSTALL = TOOLS_ROOT / "bin" / "install.sh"
 ENV = dict(os.environ, METODO_MEMORY="off")
 PLUGIN = Path(".agents") / "plugins" / "metodo"
-AGY_CHECKS = ("agy.agents", "agy.skills", "agy.mcp", "agy.hooks")
+AGY_CHECKS = ("agy.agents", "agy.contracts", "agy.skills", "agy.mcp", "agy.hooks")
 
 
 def _git(cwd: Path, *args: str) -> str:
@@ -146,6 +146,35 @@ class AgyDoctorTests(unittest.TestCase):
         (repo / PLUGIN / "agents" / "generic-judge.md").unlink()
         self.assert_breaks(repo, "agy.skills")
         self.assert_breaks(repo, "agy.agents")
+
+    def test_missing_contract_fails(self):
+        repo = self.copy_fixture("no-contract")
+        (repo / PLUGIN / "contracts" / "generic-judge.contract.json").unlink()
+        found = self.assert_breaks(repo, "agy.contracts")
+        self.assertIn("missing", found["detail"])
+        self.assertIn("generic-judge.contract.json", found["detail"])
+
+    def test_modified_contract_fails(self):
+        repo = self.copy_fixture("edited-contract")
+        path = repo / PLUGIN / "contracts" / "generic-proposer.contract.json"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data["max_tool_calls"] = 600000
+        path.write_text(json.dumps(data), encoding="utf-8")
+        found = self.assert_breaks(repo, "agy.contracts")
+        self.assertIn("differs", found["detail"])
+        self.assertIn("generic-proposer.contract.json", found["detail"])
+        self.assertNotIn("generic-judge.contract.json", found["detail"])
+
+    def test_absent_fails_on_a_leftover_contract(self):
+        repo = self.copy_fixture("leftover-contract")
+        shutil.rmtree(repo / ".agents")
+        leftover = repo / PLUGIN / "contracts" / "generic-judge.contract.json"
+        leftover.parent.mkdir(parents=True)
+        leftover.write_text("{}\n", encoding="utf-8")
+        proc, report = self.run_doctor(repo, "--absent")
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        self.assertEqual({c["id"] for c in report["checks"] if c["status"] == "FAIL"}, {"agy.contracts"})
+        self.assertIn("--uninstall --runtime agy", self.check(report, "agy.contracts")["fix"])
 
     def test_missing_exclude_line_fails(self):
         repo = self.copy_fixture("no-exclude")

@@ -67,7 +67,7 @@ REQUIRED_ALWAYS = ("repo.git", "tools.layout", "config.project", "hooks.fire", "
 REQUIRED_BY_RUNTIME = {
     "claude": ("claude.agents", "claude.skills", "claude.mcp", "claude.hooks"),
     "pi": ("pi.agents", "pi.skills", "pi.mcp", "pi.extension"),
-    "agy": ("agy.agents", "agy.skills", "agy.mcp", "agy.hooks"),
+    "agy": ("agy.agents", "agy.contracts", "agy.skills", "agy.mcp", "agy.hooks"),
 }
 # Agent-config folders: untracked content there does not make the repo dirty.
 AGENT_CONFIG_DIRS = (".claude", ".agents")
@@ -353,6 +353,34 @@ def check_pi_mcp(ctx: Ctx) -> dict:
     return _check("pi.mcp", "PASS", detail + ', toolPrefix "mcp"')
 
 
+def check_agy_contracts(ctx: Ctx) -> dict:
+    """Every role contract of the kit is in the plugin, byte for byte: the guards
+    read a role's caps and may_spawn from there when nothing else holds them."""
+    roles = _roles_dir(ctx)
+    if roles is None:
+        return _check("agy.contracts", "SKIP", "the kit's 01-roles/agents/ is not reachable: run the doctor from the kit",
+                      "bin/doctor.sh <repo> --tools <tools>")
+    dst_rel = f"{AGY_PLUGIN}/contracts"
+    expected = sorted(roles.glob("generic-*.contract.json"))
+    missing = [p.name for p in expected if not (ctx.repo / dst_rel / p.name).is_file()]
+    differs = []
+    for src in expected:
+        dst = ctx.repo / dst_rel / src.name
+        try:
+            if dst.is_file() and dst.read_bytes() != src.read_bytes():
+                differs.append(src.name)
+        except OSError:
+            differs.append(src.name)
+    problems = []
+    if missing:
+        problems.append(f"missing under {dst_rel}/: " + ", ".join(missing))
+    if differs:
+        problems.append(f"differs from the kit's 01-roles/agents/ under {dst_rel}/: " + ", ".join(differs))
+    if problems:
+        return _check("agy.contracts", "FAIL", "; ".join(problems), ctx.install_fix("agy"))
+    return _check("agy.contracts", "PASS", f"{len(expected)} role contracts under {dst_rel}/ match the kit's")
+
+
 def check_agy_mcp(ctx: Ctx) -> dict:
     problems, detail = _mcp_problems(ctx, f"{AGY_PLUGIN}/mcp_config.json")
     if problems:
@@ -622,6 +650,7 @@ def build_report(repo: Path, tools: Path, runtime: str) -> dict:
                    check_pi_mcp(ctx), check_pi_extension(ctx)]
     if "agy" in runtimes:
         checks += [_check_agents(ctx, "agy.agents", f"{AGY_PLUGIN}/agents", False, "agy"),
+                   check_agy_contracts(ctx),
                    _check_skills(ctx, "agy.skills", f"{AGY_PLUGIN}/skills", "agy"),
                    check_agy_mcp(ctx), check_agy_hooks(ctx)]
     checks.sort(key=lambda c: c["id"])
@@ -776,6 +805,18 @@ def _absent_agy_files(repo: Path, check_id: str, names: tuple[str, ...]) -> dict
     return _check(check_id, "PASS", f"no {', '.join(names)} under {AGY_PLUGIN}/")
 
 
+def _absent_agy_contracts(repo: Path) -> dict:
+    names = _kit_agent_names(True)
+    if names is None:
+        return _check("agy.contracts", "SKIP", "the kit's 01-roles/agents/ is not reachable: run the doctor from the kit",
+                      "bin/doctor.sh <repo> --absent")
+    dst_rel = f"{AGY_PLUGIN}/contracts"
+    left = [f"{dst_rel}/{n}" for n in names if n.endswith(".contract.json") and os.path.lexists(repo / dst_rel / n)]
+    if left:
+        return _check("agy.contracts", "FAIL", "kit role contracts remain: " + ", ".join(left), _uninstall_fix("agy"))
+    return _check("agy.contracts", "PASS", f"no kit role contract under {dst_rel}/")
+
+
 def build_absent_report(repo: Path, runtime: str) -> dict:
     head = _git(repo, "rev-parse", "--verify", "--quiet", "HEAD")
     repo_sha = head.stdout.strip() if head.returncode == 0 and head.stdout.strip() else None
@@ -792,6 +833,7 @@ def build_absent_report(repo: Path, runtime: str) -> dict:
                    _absent_pi_extension(repo), _absent_pi_mcp(repo, "all" if runtime == "all" else "pi")]
     if "agy" in runtimes:
         checks += [_absent_agents(repo, "agy.agents", f"{AGY_PLUGIN}/agents", False, "agy"),
+                   _absent_agy_contracts(repo),
                    _absent_skills(repo, "agy.skills", f"{AGY_PLUGIN}/skills", "agy"),
                    _absent_agy_files(repo, "agy.hooks", ("plugin.json", "hooks.json", "rules/AGENTS.md")),
                    _absent_agy_files(repo, "agy.mcp", ("mcp_config.json",))]

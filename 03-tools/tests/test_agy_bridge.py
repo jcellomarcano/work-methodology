@@ -698,6 +698,23 @@ class GuardTests(BridgeFixture):
             with self.subTest(raw=raw):
                 self.assertEqual(self.run_bridge("PreToolUse", {}, raw=raw), "")
 
+    def test_a_subagent_cannot_rewrite_its_own_contract(self):
+        # the plugin ships each role's contract under .agents/, which is always forbidden to a subagent
+        rel = ".agents/plugins/metodo/contracts/generic-proposer.contract.json"
+        (self.repo / rel).parent.mkdir(parents=True)
+        (self.repo / rel).write_text(json.dumps({"agent": "generic-proposer", "may_write": ["app/**"], "max_tool_calls": 60}),
+                                     encoding="utf-8")
+        self.assertEqual(self.invoke("generic-proposer", "Propose the change"), "")
+        transcript = self.subagent_transcript(prompt="Propose the change")
+        path = str(self.repo / rel)
+        for name, args in (("write_file", {"Path": path, "Content": "{}\n", "Overwrite": True}),
+                           ("edit_file", {"Path": path, "Target": "60", "Replacement": "600000"})):
+            with self.subTest(tool=name):
+                out = self.verdict(self.tool("PreToolUse", name, args, conversation="child-1", transcript=transcript))
+                self.assertEqual(out["decision"], "deny")
+                self.assertIn("agent-config", out["reason"])
+        self.assertEqual(self.last_line("child-1")["agent_type"], "generic-proposer")
+
     def test_unknown_event_prints_nothing(self):
         self.assertEqual(self.run_bridge("PreInvocation", {"conversationId": "owner-1"}), "")
 

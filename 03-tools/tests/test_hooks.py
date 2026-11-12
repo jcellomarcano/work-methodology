@@ -430,6 +430,57 @@ class BudgetTests(HookFixture):
         self.assertEqual(out, {})
 
 
+class AgyPluginContractTests(HookFixture):
+    """A role contract also resolves from the agy plugin, .agents/plugins/metodo/contracts/,
+    after every folder that already resolved one: an agy-only repo on a synced
+    instance has no other."""
+
+    def _plugin_contract(self, role: str, **fields) -> Path:
+        folder = self.repo / ".agents" / "plugins" / "metodo" / "contracts"
+        folder.mkdir(parents=True, exist_ok=True)
+        path = folder / f"{role}.contract.json"
+        path.write_text(json.dumps(dict({"agent": role, "may_write": []}, **fields)), encoding="utf-8")
+        return path
+
+    def _budget(self, n_calls: int, agent_type: str):
+        out = None
+        for _ in range(n_calls):
+            out, _ = self.run_hook("budget.py", {"tool_name": "Read", "tool_input": {}, "agent_type": agent_type, "agent_id": "a1"})
+        return out
+
+    def test_a_contract_only_in_the_agy_plugin_caps_the_role(self):
+        self.assertEqual(self._budget(3, "generic-plugin-only"), {})  # negative control: no contract, no cap
+        self.assertEqual(list(self.hooks_dir.rglob("budget-*.count")), [])
+        self._plugin_contract("generic-plugin-only", max_tool_calls=2)
+        self.assertIsNone(self.decision(self._budget(2, "generic-plugin-only")))
+        self.assertEqual(self.decision(self._budget(1, "generic-plugin-only")), "deny")
+        self.assertEqual((self.hooks_dir / "s1" / "budget-generic-plugin-only-a1.count").read_text().strip(), "3")
+
+    def test_claude_agents_still_resolves_first(self):
+        # .claude/agents says 3 calls for generic-proposer; the plugin's copy must not replace it
+        self._plugin_contract("generic-proposer", max_tool_calls=1)
+        self.assertIsNone(self.decision(self._budget(3, "generic-proposer")))
+        self.assertEqual(self.decision(self._budget(1, "generic-proposer")), "deny")
+
+    def test_the_kit_roles_still_resolve_before_the_plugin(self):
+        # generic-verifier has no .claude/agents contract in this fixture: the kit's own wins over the plugin's
+        kit = json.loads((TOOLS_ROOT.parent / "01-roles" / "agents" / "generic-verifier.contract.json").read_text(encoding="utf-8"))
+        self.assertGreater(kit["max_tool_calls"], 2)
+        self._plugin_contract("generic-verifier", max_tool_calls=1)
+        self.assertIsNone(self.decision(self._budget(2, "generic-verifier")))
+
+    def test_a_role_only_in_the_agy_plugin_is_in_the_launch_roster(self):
+        self.set_config(enabled=True, mode="block")
+        brief = GuardSpawnTests.BRIEF.replace("ROLE: generic-proposer", "ROLE: generic-plugin-only")
+        launch = {"tool_name": "Task", "tool_input": {"subagent_type": "generic-plugin-only", "prompt": brief}}
+        out, _ = self.run_hook("guard_spawn.py", launch)
+        self.assertEqual(self.decision(out), "deny")  # negative control: outside every roster
+        self.assertIn("outside the roster", out["hookSpecificOutput"]["permissionDecisionReason"])
+        self._plugin_contract("generic-plugin-only")
+        out, proc = self.run_hook("guard_spawn.py", launch)
+        self.assertEqual(out, {}, proc.stdout)
+
+
 class VisibleWarnTests(HookFixture):
     """T2 (WU5, context-method.md section 5): every warn branch that only wrote
     the ledger now also tells the agent, through one helper; the ledger line
