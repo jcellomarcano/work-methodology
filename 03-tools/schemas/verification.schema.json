@@ -1,5 +1,5 @@
 {
-  "_comment": "Salida del generic-verifier. Antes vivia inline en el cuerpo del agente; se extrae para que capture, output_write y el hook de salida puedan validarla.",
+  "_comment": "Output of generic-verifier. It used to live inline in the role's body; it is a file so that capture, output_write and the output hook can validate it.",
   "type": "object",
   "required": ["change_card_id", "battery", "verdict", "evidence"],
   "properties": {

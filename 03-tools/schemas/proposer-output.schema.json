@@ -1,5 +1,5 @@
 {
-  "_comment": "Salida del generic-proposer (antes inline en su cuerpo).",
+  "_comment": "Output of generic-proposer (it used to live inline in the role's body).",
   "type": "object",
   "required": ["change_card_id", "files_changed", "build", "role_contract_validation", "handoff_to"],
   "properties": {

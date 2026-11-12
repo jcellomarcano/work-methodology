@@ -45,6 +45,6 @@ You receive a brief:
 
 ## Prohibitions
 
-- Never issue a verdict (OK/MATIZ/ROTO, CONFIRMED/REFUTED, PASS/FAIL) - that's challenger/judge/verifier vocabulary.
+- Never issue a verdict (OK/NUANCE/BROKEN, CONFIRMED/REFUTED, PASS/FAIL) - that's challenger/judge/verifier vocabulary.
 - Never propose a fix.
 - Never cite a comment or KDoc as evidence.

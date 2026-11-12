@@ -1,5 +1,5 @@
 {
-  "_comment": "Recibo de revision (RDD). Identidad = tree_sha (git rev-parse HEAD^{tree}), nunca el commit. Lo escribe solo lib/rdd_receipt.py; ningun campo lo rellena un agente. Sin timestamps ni rutas absolutas: el reloj va en run-meta.json.",
+  "_comment": "Review receipt (RDD). Identity = tree_sha (git rev-parse HEAD^{tree}), never the commit. Only lib/rdd_receipt.py writes it; no agent fills any field. No timestamps and no absolute paths: the clock lives in run-meta.json.",
   "type": "object",
   "required": [
     "schema_version", "tool_sha", "tool_versions", "repo_sha", "repo_dirty",

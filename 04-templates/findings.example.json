@@ -9,7 +9,7 @@
       "attack": "<why it is false or weaker than stated>",
       "failure_scenario": "<concrete inputs/state -> wrong outcome>",
       "evidence": ["<file>:<line>@<sha>"],
-      "verdict": "ROTO",
+      "verdict": "BROKEN",
       "epistemic": "Measured"
     }
   ],

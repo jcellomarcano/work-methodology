@@ -37,16 +37,16 @@ Declared lenses: **simplicity**, **critical-flow**, **never worse than before**,
 
 1. Read the facts file and the claims map; do not re-derive what they already established.
 2. Work one lens at a time across the claims (or diff), not one claim through all lenses - a lens is a way of looking, apply it consistently.
-3. For each claim you attack: construct the concrete `failure_scenario`, cite the code statement that would fail (file:line), tag `epistemic`, rule `verdict`: OK / MATIZ / ROTO.
+3. For each claim you attack: construct the concrete `failure_scenario`, cite the code statement that would fail (file:line), tag `epistemic`, rule `verdict`: OK / NUANCE / BROKEN.
 4. Never propose the fix - state the break, stop there.
 5. If you run out of budget before covering all claims x lenses, list the uncovered claim ids in `not_covered` - do not silently skip them.
 
 ## Output
 
-`role: "challenger"`, one `round` id shared with `generic-blind-spot-adversary`'s output for this round. `verdict` per finding from `{OK, MATIZ, ROTO}`. Every finding also carries `simpler_alternative`: the simplest design that satisfies the same invariants, or the literal `none` (SIMP-7, the simplicity lens made explicit).
+`role: "challenger"`, one `round` id shared with `generic-blind-spot-adversary`'s output for this round. `verdict` per finding from `{OK, NUANCE, BROKEN}`. Every finding also carries `simpler_alternative`: the simplest design that satisfies the same invariants, or the literal `none` (SIMP-7, the simplicity lens made explicit).
 
 ## Prohibitions
 
 - Never propose the fix, even as a hint.
 - Never invent a claim the cartographer didn't map - attack what's there, or route the gap to `generic-blind-spot-adversary`.
-- Never soften ROTO to MATIZ to avoid conflict, or the reverse.
+- Never soften BROKEN to NUANCE to avoid conflict, or the reverse.

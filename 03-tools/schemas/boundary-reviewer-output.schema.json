@@ -1,5 +1,5 @@
 {
-  "_comment": "Salida del generic-boundary-reviewer (antes inline en su cuerpo).",
+  "_comment": "Output of generic-boundary-reviewer (it used to live inline in the role's body).",
   "type": "object",
   "required": ["source", "rulings"],
   "properties": {

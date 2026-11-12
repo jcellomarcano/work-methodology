@@ -1,5 +1,5 @@
 {
-  "_comment": "Salida del generic-comment-gate (antes inline en su cuerpo).",
+  "_comment": "Output of generic-comment-gate (it used to live inline in the role's body).",
   "type": "object",
   "required": ["findings", "pass"],
   "properties": {

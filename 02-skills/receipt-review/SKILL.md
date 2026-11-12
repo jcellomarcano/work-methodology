@@ -11,7 +11,7 @@ triggers:
 allowed-tools: [Read, Agent, mcp__metodo__receipt_start, mcp__metodo__receipt_status, mcp__metodo__receipt_capture, mcp__metodo__receipt_finalize, mcp__metodo__receipt_acknowledge, mcp__metodo__test_sectors, mcp__metodo__verify_sectors, mcp__metodo__verify_commit, mcp__metodo__job_status, mcp__metodo__change_card_validate, mcp__metodo__comment_gate_measure, mcp__metodo__docs_lint, mcp__metodo__role_contract_validate, mcp__metodo__output_validate, mcp__metodo__route]
 ---
 
-**IRON LAW**: the receipt is tied to the tree, not the commit; the tier is set by the script and stays frozen; approval is evidence about that tree, never authority to push. A ROTO gets one correction and no more.
+**IRON LAW**: the receipt is tied to the tree, not the commit; the tier is set by the script and stays frozen; approval is evidence about that tree, never authority to push. A BROKEN gets one correction and no more.
 
 ## Input
 

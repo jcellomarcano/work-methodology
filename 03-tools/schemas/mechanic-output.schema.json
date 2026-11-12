@@ -1,5 +1,5 @@
 {
-  "_comment": "Salida del generic-mechanic (antes inline en su cuerpo).",
+  "_comment": "Output of generic-mechanic (it used to live inline in the role's body).",
   "type": "object",
   "required": ["fix_id", "applied", "files_changed"],
   "properties": {

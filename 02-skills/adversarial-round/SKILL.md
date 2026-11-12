@@ -10,7 +10,7 @@ triggers:
 allowed-tools: [Read, Agent, mcp__metodo__domain_invariants, mcp__metodo__dep_boundaries, mcp__metodo__change_card_validate, mcp__metodo__receipt_status, mcp__metodo__output_validate, mcp__metodo__receipt_capture, mcp__metodo__route]
 ---
 
-**IRON LAW**: ABIERTO beats OK until the judge rules. A truncated round is not a silent PASS, it is INCOMPLETE.
+**IRON LAW**: OPEN beats OK until the judge rules. A truncated round is not a silent PASS, it is INCOMPLETE.
 
 ## Input
 
