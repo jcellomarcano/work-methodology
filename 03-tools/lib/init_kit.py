@@ -18,12 +18,19 @@ every step as {step, status: done|skipped|warn|fail, detail, fix}:
                   the kit's copy, PMD is fetched and targets are declared
    7 install      <kit>/bin/install.sh <repo> --runtime <r> --tools <instance>
    8 baseline     <instance>/bin/metrics.sh <repo> --save (unless --no-baseline)
-   9 map          <instance>/bin/cartography.sh <repo>, best effort
-  10 doctor       the kit's lib/doctor.py (the instance has no 01-roles/)
-  11 smoke        the kit's lib/smoke_loop.py with the instance's config
+   9 bench        <instance>/bin/bench.sh adopt <repo> (the install timestamp, once),
+                  then bench.sh collect <repo> over the repo's existing Claude Code
+                  transcripts (unless --no-bench or bench.enabled is false). It
+                  writes only under <instance>/out/bench/, warns when there is
+                  nothing to measure or the collect fails, and never changes the
+                  exit code. Skipped on --runtime pi and agy, whatever the flags:
+                  only Claude Code sessions are measured
+  10 map          <instance>/bin/cartography.sh <repo>, best effort
+  11 doctor       the kit's lib/doctor.py (the instance has no 01-roles/)
+  12 smoke        the kit's lib/smoke_loop.py with the instance's config
                   (METODO_PROJECT_CONFIG) on a throwaway clone (unless --no-smoke)
-  12 suggestions  lib/suggest.py over config/suggestions.json (never installs)
-  13 report       <instance>/out/init/<repo_sha>.json
+  13 suggestions  lib/suggest.py over config/suggestions.json (never installs)
+  14 report       <instance>/out/init/<repo_sha>.json
 
 Every checklist item (05-adopt/checklist.md) the run cannot do is a
 pending human step naming its file. Personal assets are never copied
@@ -33,7 +40,7 @@ pending human step naming its file. Personal assets are never copied
 Usage:
     lib/init_kit.py <repo> [--instance <dir>] [--audit <dir>] [--runtime claude|pi|agy|all]
                     [--answers <json|file>] [--engram-project NAME] [--no-fetch] [--no-baseline]
-                    [--no-smoke] [--read-global-config] [--dry-run]
+                    [--no-bench] [--no-smoke] [--read-global-config] [--dry-run]
     lib/init_kit.py <repo> --uninstall [--instance <dir>] [--audit <dir>] [--purge]
                     [--runtime claude|pi|agy|all] [--dry-run]
 
@@ -92,8 +99,10 @@ from lib import baseline, detect_repo, suggest  # noqa: E402
 
 SCHEMA_VERSION = "1.0.0"
 RUNTIMES = ("claude", "pi", "agy", "all")
-STEPS = ("preflight", "instance", "adapt", "scaffolds", "fetch", "calibrate", "install", "baseline", "map",
-         "doctor", "smoke", "suggestions")
+STEPS = ("preflight", "instance", "adapt", "scaffolds", "fetch", "calibrate", "install", "baseline", "bench",
+         "map", "doctor", "smoke", "suggestions")
+# Runtimes without a Claude Code install: the bench measures Claude Code sessions only.
+BENCH_SKIP_RUNTIMES = ("pi", "agy")
 SECTIONS = {1: "1. Declare", 2: "2. Write", 3: "3. Tools", 4: "4. People and gates", 5: "5. Start"}
 MIN_PYTHON = (3, 11)
 CHILD_ENV_DROP = ("METODO_PROJECT_CONFIG", "METODO_TOOLS")
@@ -481,6 +490,10 @@ class Init:
                           "kit's copy, PMD is fetched and targets are declared)"),
             ("install", f"bash {kit}/bin/install.sh {repo} --runtime {a.runtime} --tools {inst}{engram}"),
             ("baseline", "skipped (--no-baseline)" if a.no_baseline else f"bash {inst}/bin/metrics.sh {repo} --save"),
+            ("bench", f"skipped (runtime {a.runtime}: Claude Code only)" if a.runtime in BENCH_SKIP_RUNTIMES else
+                      "skipped (--no-bench)" if a.no_bench else
+                      f"bash {inst}/bin/bench.sh adopt {repo} --tools {inst}; then bash {inst}/bin/bench.sh collect "
+                      f"{repo} --tools {inst} (skipped when bench.enabled is false)"),
             ("map", f"bash {inst}/bin/cartography.sh {repo} (best effort)"),
             ("doctor", f"python3 {kit}/lib/doctor.py {repo} --tools {inst} --runtime {a.runtime} --out {out('doctor')}"),
             ("smoke", "skipped (--no-smoke)" if a.no_smoke else
@@ -717,7 +730,62 @@ class Init:
             return
         self.record("baseline", "done", done_detail)
 
-    # -- 9 map
+    # -- 9 bench
+
+    def bench(self, sub: str) -> Proc:
+        """The collector is reached only through the instance's own bin/bench.sh."""
+        return run(["bash", self.instance / "bin" / "bench.sh", sub, self.repo, "--tools", self.instance])
+
+    def step_bench(self) -> None:
+        """The adoption timestamp once, then the repo's existing Claude Code sessions.
+        The detail names the resulting state, never a count or a time, so a second run
+        reports the same bytes. Only a failed adopt is `fail`; nothing here changes
+        the exit code or stops the steps that follow. A runtime without a Claude Code
+        install skips first, before --no-bench and bench.enabled: nothing would clear a warning there."""
+        adopt_fix, collect_fix = "<instance>/bin/bench.sh adopt <repo>", "<instance>/bin/bench.sh collect <repo>"
+        if self.args.runtime in BENCH_SKIP_RUNTIMES:
+            self.record("bench", "skipped", f"runtime {self.args.runtime}: the measurement is Claude Code only, so no "
+                        "adoption timestamp is recorded and no session is measured")
+            return
+        if self.args.no_bench:
+            self.record("bench", "skipped", "--no-bench: this run records no adoption timestamp and measures no past "
+                        "session", adopt_fix)
+            return
+        # bench.enabled as the collector reads it (absent means on): its own status answers
+        try:
+            enabled = json.loads(self.bench("status").out).get("enabled") is not False
+        except (json.JSONDecodeError, AttributeError):
+            enabled = True
+        if not enabled:
+            self.record("bench", "skipped", "bench.enabled is false in <instance>/config/project.json")
+            return
+        adopt = self.bench("adopt")
+        if adopt.code != 0:
+            self.record("bench", "fail", f"bench.sh adopt failed: {adopt.last_line()}", adopt_fix)
+            return
+        say(f"  bench adopt: {adopt.out.strip()}")
+        proc = self.bench("collect")
+        try:
+            summary = json.loads(proc.out.strip().splitlines()[-1]) if proc.code == 0 else None
+        except (IndexError, json.JSONDecodeError):
+            summary = None
+        if not isinstance(summary, dict):
+            self.record("bench", "warn", f"adoption on file; bench.sh collect failed: {proc.last_line()}", collect_fix)
+            return
+        say(f"  bench collect: {json.dumps(summary, sort_keys=True)}")
+        if summary.get("locked"):
+            self.record("bench", "warn", "adoption on file; another collect held the lock, so this run did not "
+                        "measure the history", collect_fix)
+        elif summary.get("failed"):
+            self.record("bench", "warn", "adoption on file; some sessions could not be measured (they are listed "
+                        "under failures in <instance>/out/bench/data/sessions.json)", collect_fix)
+        elif not summary.get("measured") and not summary.get("skipped"):
+            self.record("bench", "warn", "adoption on file; no Claude Code transcripts for <repo> yet (only Claude "
+                        "Code sessions are measured)", collect_fix)
+        else:
+            self.record("bench", "done", "adoption on file; history collected")
+
+    # -- 10 map
 
     def step_map(self) -> None:
         command = "<instance>/bin/cartography.sh <repo>"
@@ -730,7 +798,7 @@ class Init:
         self.record("map", "done", f"first map at <instance>/out/{self.repo_sha}/cartography.md; review by hand the "
                     "boundary config it proposes")
 
-    # -- 10 doctor
+    # -- 11 doctor
 
     def step_doctor(self) -> dict:
         out = self.instance / "out" / "doctor" / f"{self.repo_sha}.json"
@@ -756,7 +824,7 @@ class Init:
         return {"verdict": report.get("verdict"), "kit_installed": bool(report.get("kit_installed")),
                 "report": f"<instance>/out/doctor/{self.repo_sha}.json"}
 
-    # -- 11 smoke
+    # -- 12 smoke
 
     def step_smoke(self) -> dict:
         # The kit's code with the instance's config: smoke_loop.py looks for the role
@@ -787,7 +855,7 @@ class Init:
         return {"verdict": report.get("verdict"), "loop_ran": bool(report.get("loop_ran")),
                 "report": f"<instance>/out/smoke/{self.repo_sha}.json"}
 
-    # -- 12 suggestions
+    # -- 13 suggestions
 
     def step_suggestions(self) -> list[dict]:
         found = suggest.suggest(self.repo, self.instance, self.args.runtime, self.args.read_global_config)
@@ -874,6 +942,7 @@ class Init:
             self.step_calibrate()
             self.step_install()
             self.step_baseline()
+            self.step_bench()
             self.step_map()
             doctor = self.step_doctor()
             smoke = self.step_smoke()
@@ -1230,6 +1299,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--engram-project", default=None)
     parser.add_argument("--no-fetch", action="store_true")
     parser.add_argument("--no-baseline", action="store_true")
+    parser.add_argument("--no-bench", action="store_true",
+                        help="record no adoption timestamp and measure no past session; an installed SessionEnd "
+                             "hook is not removed")
     parser.add_argument("--no-smoke", action="store_true")
     parser.add_argument("--read-global-config", action="store_true",
                         help="let the suggestions test the runtime's global MCP config (~/.claude.json, ~/.pi/agent/mcp.json, "

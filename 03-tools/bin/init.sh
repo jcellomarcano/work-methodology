@@ -2,7 +2,8 @@
 # One command from zero to a working kit instance in a target repo: creates
 # or refreshes the tools instance, adapts it, writes the audit-folder
 # scaffolds, fetches the pinned tools, installs the kit for each runtime,
-# saves the first baseline, draws the first map, runs the wiring doctor and
+# saves the first baseline, records the benchmark adoption and measures the
+# repo's past Claude Code sessions, draws the first map, runs the wiring doctor and
 # the full-loop smoke, and suggests the helpers that are missing. Whatever
 # it cannot do is printed as a pending human step naming the file to fill
 # in. Thin wrapper over lib/init_kit.py, which holds the logic and the
@@ -10,7 +11,7 @@
 #
 #   bin/init.sh <repo> [--instance <dir>] [--audit <dir>] [--runtime claude|pi|agy|all]
 #               [--answers <json|file>] [--engram-project NAME] [--no-fetch]
-#               [--no-baseline] [--no-smoke] [--read-global-config] [--dry-run]
+#               [--no-baseline] [--no-bench] [--no-smoke] [--read-global-config] [--dry-run]
 #   bin/init.sh <repo> --uninstall [--instance <dir>] [--audit <dir>] [--purge]
 #               [--runtime claude|pi|agy|all] [--dry-run]
 #
@@ -32,7 +33,7 @@ set -euo pipefail
 
 if [ $# -lt 1 ]; then
   echo "usage: $0 <repo> [--instance <dir>] [--audit <dir>] [--runtime claude|pi|agy|all] [--answers <json|file>]" >&2
-  echo "          [--engram-project NAME] [--no-fetch] [--no-baseline] [--no-smoke] [--read-global-config] [--dry-run]" >&2
+  echo "          [--engram-project NAME] [--no-fetch] [--no-baseline] [--no-bench] [--no-smoke] [--read-global-config] [--dry-run]" >&2
   echo "       $0 <repo> --uninstall [--instance <dir>] [--audit <dir>] [--purge] [--runtime claude|pi|agy|all] [--dry-run]" >&2
   exit 2
 fi

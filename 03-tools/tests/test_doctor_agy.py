@@ -90,6 +90,20 @@ class AgyDoctorTests(unittest.TestCase):
         self.assertIn(PLUGIN.as_posix(), self.check(report, "git.exclude")["detail"])
         self.assertNotIn(str(self.fixture), proc.stdout)
 
+    def test_the_agy_report_skips_bench_wired_and_never_requires_the_bench_checks(self):
+        # benchmark-port S8: agy has no SessionEnd event, so there is no hook to judge
+        proc, report = self.run_doctor(self.fixture)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        wired = self.check(report, "bench.wired")
+        self.assertEqual((wired["status"], wired["fix"]), ("SKIP", None), wired)
+        self.assertIn("agy sessions are not measured", wired["detail"])
+        used = self.check(report, "bench.used")
+        self.assertEqual((used["status"], used["detail"], used["fix"]),
+                         ("SKIP", "Claude Code only: agy sessions are not measured", None), used)
+        self.assertEqual(set(used["counts"]), {"sessions", "hooks", "agents", "mcp", "skills", "engram"})
+        self.assertFalse([i for i in report["required"] if i.startswith("bench.")])
+        self.assertTrue(report["kit_installed"])
+
     def test_copy_fixture_is_still_wired(self):
         proc, report = self.run_doctor(self.copy_fixture("copy"))
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)

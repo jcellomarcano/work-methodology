@@ -16,6 +16,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 TOOLS_ROOT = Path(__file__).resolve().parent.parent
 DOCTOR = TOOLS_ROOT / "lib" / "doctor.py"
@@ -106,10 +107,16 @@ class DoctorTests(unittest.TestCase):
         for expected in ("repo.git", "tools.layout", "tools.is_kit", "config.project", "config.base_ref",
                          "claude.agents", "claude.skills", "claude.mcp", "claude.hooks", "hooks.fire",
                          "git.exclude", "pi.agents", "pi.skills", "pi.mcp", "pi.extension", "memory.engram",
-                         "vendor.tools", "baseline.latest", "personal.absent", "router.catalog"):
+                         "vendor.tools", "baseline.latest", "personal.absent", "router.catalog",
+                         "bench.wired", "bench.used"):
             self.assertIn(expected, ids)
+        # benchmark-port S8: informative, never required, so a fresh install never fails on them
+        self.assertNotIn("bench.wired", report["required"])
+        self.assertNotIn("bench.used", report["required"])
+        self.assertEqual(self.check(report, "bench.wired")["status"], "PASS")
         for c in report["checks"]:
-            self.assertEqual(set(c), {"id", "status", "detail", "fix"})
+            extra = {"counts"} if c["id"] == "bench.used" else set()
+            self.assertEqual(set(c), {"id", "status", "detail", "fix"} | extra)
             self.assertIn(c["status"], {"PASS", "WARN", "FAIL", "SKIP"})
             if c["status"] == "PASS":
                 self.assertIsNone(c["fix"], c)
@@ -211,6 +218,189 @@ class DoctorTests(unittest.TestCase):
         self.assertIn(".pi/output-lint.personal.json", detail)
         # negative control: the word alone, outside the convention, is not personal
         self.assertNotIn("personal-notes.md", detail)
+
+    # benchmark-port S8: bench.wired, bench.used, and claude.hooks leaving bench_queue.py to bench.wired
+    def ctx(self, repo: Path, tools: Path, runtime: str = "all"):
+        from lib import doctor
+        return doctor, doctor.Ctx(repo, tools, runtime)
+
+    def bench_tools(self, name: str, config: dict | None = None) -> Path:
+        """A tools root with only what the bench checks read: the kit's hooks.settings.json
+        (SessionEnd entry included) and, when given, a config/project.json."""
+        tools = self.tmp / name
+        (tools / "hooks").mkdir(parents=True)
+        shutil.copyfile(TOOLS_ROOT / "hooks" / "hooks.settings.json", tools / "hooks" / "hooks.settings.json")
+        if config is not None:
+            (tools / "config").mkdir()
+            (tools / "config" / "project.json").write_text(json.dumps(config), encoding="utf-8")
+        return tools
+
+    @staticmethod
+    def kit_entries() -> list[dict]:
+        hooks = json.loads((TOOLS_ROOT / "hooks" / "hooks.settings.json").read_text(encoding="utf-8"))["hooks"]
+        return [entry for event in sorted(hooks) for entry in hooks[event]]
+
+    @staticmethod
+    def drop_session_end(repo: Path) -> Path:
+        path = repo / ".claude" / "settings.local.json"
+        settings = json.loads(path.read_text(encoding="utf-8"))
+        del settings["hooks"]["SessionEnd"]
+        path.write_text(json.dumps(settings), encoding="utf-8")
+        return path
+
+    def test_claude_hooks_passes_without_the_bench_entry_and_bench_wired_warns(self):
+        # a repo installed before the SessionEnd hook existed: wired for everything else
+        repo = self.copy_fixture("no-bench-hook")
+        self.drop_session_end(repo)
+        doctor, ctx = self.ctx(repo, self.bench_tools("tools-bench-hook"))
+        bench_entries = [e for e in self.kit_entries() if "bench_queue.py" in json.dumps(e)]
+        self.assertEqual(len(bench_entries), 1)
+        hooks = doctor.check_claude_hooks(ctx)
+        self.assertEqual((hooks["status"], hooks["detail"]),
+                         ("PASS", f"{len(self.kit_entries()) - 1} kit-marked hooks in .claude/settings.local.json"))
+        for runtime in ("all", "claude"):
+            wired = doctor.check_bench_wired(doctor.Ctx(repo, ctx.tools, runtime))
+            self.assertEqual(wired["status"], "WARN", wired)
+            self.assertIn("SessionEnd", wired["detail"])
+            self.assertTrue(wired["fix"].startswith("re-run init: bin/init.sh <repo>"), wired)
+        # never a required failure: the whole report still passes and the kit counts as installed
+        proc, report = self.run_doctor(repo)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertEqual((report["verdict"], report["kit_installed"]), ("PASS", True))
+        self.assertEqual(self.check(report, "claude.hooks")["status"], "PASS")
+        self.assertEqual(self.check(report, "bench.wired")["status"], "WARN")
+
+    def test_claude_hooks_reports_the_same_count_with_the_bench_entry_installed(self):
+        doctor, ctx = self.ctx(self.fixture, TOOLS_ROOT)
+        self.assertEqual(doctor.check_claude_hooks(ctx)["detail"],
+                         f"{len(self.kit_entries()) - 1} kit-marked hooks in .claude/settings.local.json")
+
+    def test_claude_hooks_still_fails_on_a_missing_kit_hook_next_to_the_bench_skip(self):
+        repo = self.copy_fixture("no-stop-hook")
+        path = self.drop_session_end(repo)
+        settings = json.loads(path.read_text(encoding="utf-8"))
+        del settings["hooks"]["Stop"]
+        path.write_text(json.dumps(settings), encoding="utf-8")
+        doctor, ctx = self.ctx(repo, self.bench_tools("tools-bench-stop"))
+        result = doctor.check_claude_hooks(ctx)
+        self.assertEqual(result["status"], "FAIL", result)
+        self.assertIn("Stop", result["detail"])
+        self.assertNotIn("SessionEnd", result["detail"])
+
+    def test_bench_wired_passes_only_with_the_kit_marked_session_end_entry(self):
+        repo = self.copy_fixture("bench-hook")
+        doctor, ctx = self.ctx(repo, self.bench_tools("tools-bench-wired"))
+        wired = doctor.check_bench_wired(ctx)
+        self.assertEqual((wired["id"], wired["status"], wired["fix"]), ("bench.wired", "PASS", None), wired)
+        self.assertIn("bench_queue.py", wired["detail"])
+        path = repo / ".claude" / "settings.local.json"
+        settings = json.loads(path.read_text(encoding="utf-8"))
+        settings["hooks"]["SessionEnd"] = [{"matcher": "", "hooks": [{"type": "command", "command":
+                                                                     'python3 "/t/hooks/bench_queue.py"'}]}]
+        path.write_text(json.dumps(settings), encoding="utf-8")
+        self.assertEqual(doctor.check_bench_wired(ctx)["status"], "WARN", "an unmarked hook is the owner's, not the kit's")
+
+    def test_bench_wired_is_skipped_on_pi_and_agy_whatever_the_claude_settings_say(self):
+        doctor, _ = self.ctx(self.fixture, TOOLS_ROOT)
+        bare = self.copy_fixture("bench-bare")
+        self.drop_session_end(bare)
+        for runtime in ("pi", "agy"):
+            for repo in (self.fixture, bare):
+                wired = doctor.check_bench_wired(doctor.Ctx(repo, TOOLS_ROOT, runtime))
+                self.assertEqual((wired["status"], wired["fix"]), ("SKIP", None), wired)
+                self.assertIn(f"{runtime} sessions are not measured", wired["detail"])
+        _, pi = self.run_doctor(self.fixture, "--runtime", "pi")
+        self.assertEqual(self.check(pi, "bench.wired")["status"], "SKIP")
+        self.assertEqual(self.check(pi, "bench.used")["status"], "SKIP")
+        self.assertNotIn("bench.wired", pi["required"])
+        self.assertNotIn("bench.used", pi["required"])
+
+    def test_bench_wired_is_skipped_when_bench_is_disabled_in_the_config(self):
+        tools = self.bench_tools("tools-bench-off", config={"bench": {"enabled": False}})
+        doctor, ctx = self.ctx(self.fixture, tools)
+        wired = doctor.check_bench_wired(ctx)
+        self.assertEqual((wired["status"], wired["fix"]), ("SKIP", None), wired)
+        self.assertIn("bench.enabled is false", wired["detail"])
+        # when the runtime skip applies too, the runtime reason wins
+        for runtime in ("pi", "agy"):
+            for check in (doctor.check_bench_wired, doctor.check_bench_used):
+                found = check(doctor.Ctx(self.fixture, tools, runtime))
+                self.assertEqual((found["status"], found["detail"], found["fix"]),
+                                 ("SKIP", f"Claude Code only: {runtime} sessions are not measured", None), found)
+
+    def collector_enabled(self, tools: Path, config_override: Path | None = None) -> bool:
+        """What the collector itself answers, asked the only way the kit reaches it: bin/bench.sh."""
+        env = {k: v for k, v in ENV.items() if k not in ("METODO_PROJECT_CONFIG", "METODO_TOOLS")}
+        if config_override is not None:
+            env["METODO_PROJECT_CONFIG"] = str(config_override)
+        proc = subprocess.run(["bash", str(TOOLS_ROOT / "bin" / "bench.sh"), "status", str(self.fixture), "--tools",
+                               str(tools)], capture_output=True, text=True, env=env)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        return json.loads(proc.stdout)["enabled"]
+
+    def test_bench_enabled_is_read_the_way_the_collector_reads_it(self):
+        cases = [None, {}, {"bench": {}}, {"bench": {"enabled": False}}, {"bench": {"enabled": True}},
+                 {"bench": {"enabled": 0}}, {"bench": {"enabled": "no"}}, {"bench": False}, ["not", "an", "object"]]
+        for index, config in enumerate(cases):
+            tools = self.bench_tools(f"tools-enabled-{index}", config=config)
+            doctor, ctx = self.ctx(self.fixture, tools)
+            with mock.patch.dict(os.environ):
+                os.environ.pop("METODO_PROJECT_CONFIG", None)
+                self.assertIs(doctor.bench_enabled(ctx), self.collector_enabled(tools), config)
+        (tools / "config" / "project.json").write_text("{not json", encoding="utf-8")
+        with mock.patch.dict(os.environ):
+            os.environ.pop("METODO_PROJECT_CONFIG", None)
+            self.assertIs(doctor.bench_enabled(ctx), self.collector_enabled(tools))
+        # the override every hook honors wins over the tools root's own file
+        off = self.tmp / "override-off.json"
+        off.write_text(json.dumps({"bench": {"enabled": False}}), encoding="utf-8")
+        on_tools = self.bench_tools("tools-enabled-on", config={})
+        doctor, ctx = self.ctx(self.fixture, on_tools)
+        self.assertFalse(self.collector_enabled(on_tools, off))
+        with mock.patch.dict(os.environ, {"METODO_PROJECT_CONFIG": str(off)}):
+            self.assertFalse(doctor.bench_enabled(ctx))
+
+    def test_bench_used_counts_each_module_for_this_repo_only(self):
+        tools = self.bench_tools("tools-bench-used")
+        rows = tools / "out" / "bench" / "sessions"
+        rows.mkdir(parents=True)
+
+        def row(sid, project, markers, weak, recall, save):
+            record = {"session_id": sid, "project": project, "kit": {"markers": markers, "weak_markers": weak},
+                      "engram": {"recall_calls": recall, "save_calls": save}, "first_prompt": "the secret word zebra"}
+            (rows / f"{sid}.json").write_text(json.dumps(record), encoding="utf-8")
+
+        row("s1", "fixture", ["hook:metodo", "mcp:metodo"], [], 1, 0)
+        row("s2", "fixture", ["subagent:generic-judge"], ["skill:cartography"], 0, 0)
+        row("s3", "fixture", [], [], 0, 2)
+        row("s4", "other-repo", ["hook:metodo", "mcp:metodo", "subagent:generic-judge"], ["skill:x"], 3, 3)
+        (rows / "broken.json").write_text("{not json", encoding="utf-8")
+        (rows / "list.json").write_text("[]", encoding="utf-8")
+        doctor, ctx = self.ctx(self.fixture, tools)
+        used = doctor.check_bench_used(ctx)
+        self.assertEqual(set(used), {"id", "status", "detail", "fix", "counts"})
+        self.assertEqual((used["id"], used["status"], used["fix"]), ("bench.used", "PASS", None), used)
+        self.assertEqual(used["counts"], {"sessions": 3, "hooks": 1, "agents": 1, "mcp": 1, "skills": 1, "engram": 2})
+        for needle in ("3 sessions", "hooks 1", "agents 1", "mcp 1", "skills 1", "engram 2"):
+            self.assertIn(needle, used["detail"])
+        # counts only: nothing a row carries besides its markers reaches the report
+        self.assertNotIn("zebra", json.dumps(used))
+        self.assertNotIn(str(self.tmp), json.dumps(used))
+        self.assertEqual(doctor.check_bench_used(doctor.Ctx(self.fixture, tools, "claude")), used)
+        # pi and agy have no Claude Code install: SKIP whatever the rows say, and no warning nothing could clear
+        zero = dict.fromkeys(("sessions", "hooks", "agents", "mcp", "skills", "engram"), 0)
+        for runtime in ("pi", "agy"):
+            for root in (tools, self.bench_tools(f"tools-bench-used-none-{runtime}")):
+                self.assertEqual(doctor.check_bench_used(doctor.Ctx(self.fixture, root, runtime)),
+                                 {"id": "bench.used", "status": "SKIP", "fix": None, "counts": zero,
+                                  "detail": f"Claude Code only: {runtime} sessions are not measured"}, runtime)
+
+    def test_bench_used_warns_with_the_collect_fix_when_nothing_is_measured(self):
+        doctor, ctx = self.ctx(self.fixture, self.bench_tools("tools-bench-empty"))
+        used = doctor.check_bench_used(ctx)
+        self.assertEqual(used["status"], "WARN", used)
+        self.assertEqual(used["fix"], "<tools>/bin/bench.sh collect <repo>")
+        self.assertEqual(used["counts"], {"sessions": 0, "hooks": 0, "agents": 0, "mcp": 0, "skills": 0, "engram": 0})
 
     # non-git, usage
     def test_non_git_dir_reports_repo_git_fail(self):

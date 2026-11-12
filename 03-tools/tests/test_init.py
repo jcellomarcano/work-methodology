@@ -82,6 +82,9 @@ class InitBase(unittest.TestCase):
                              "[init]\n\tdefaultBranch = main\n", encoding="utf-8")
         env = {k: v for k, v in os.environ.items() if not k.startswith(("METODO_", "GIT_"))}
         env.update(HOME=str(home), METODO_MEMORY="off", GIT_CONFIG_GLOBAL=str(gitconfig), GIT_CONFIG_NOSYSTEM="1")
+        # the bench step reads Claude Code transcripts: only the ones under the fake HOME, never the user's
+        env.pop("CLAUDE_PROJECTS_DIR", None)
+        env["METODO_BENCH_NO_SPAWN"] = "1"
         return env
 
     @staticmethod
@@ -152,13 +155,15 @@ class InitFullRunTests(InitBase):
     def test_every_step_is_recorded_in_order(self):
         names = [s["step"] for s in self.report["steps"]]
         self.assertEqual(names, ["preflight", "instance", "adapt", "scaffolds", "fetch", "calibrate", "install",
-                                 "baseline", "map", "doctor", "smoke", "suggestions"])
+                                 "baseline", "bench", "map", "doctor", "smoke", "suggestions"])
         for s in self.report["steps"]:
             self.assertEqual(set(s), {"step", "status", "detail", "fix"}, s)
             self.assertIn(s["status"], {"done", "skipped", "warn", "fail"}, s)
         self.assertEqual(self.step("fetch")["status"], "skipped")
         self.assertEqual(self.step("install")["status"], "done")
         self.assertEqual(self.step("baseline")["status"], "done")
+        # the fake HOME has no Claude Code transcripts: the bench step warns, it never fails the init
+        self.assertEqual(self.step("bench")["status"], "warn")
         self.assertTrue((self.instance / "baselines" / "latest").exists())
         self.assertTrue((self.instance / "out" / "doctor" / f"{self.sha}.json").is_file())
         self.assertTrue((self.instance / "out" / "smoke" / f"{self.sha}.json").is_file())
@@ -336,7 +341,7 @@ class InitCheapTests(InitBase):
         proc = self.run_init(repo, self.tmp / "inst", self.tmp / "audit", self.env, "--dry-run")
         self.assertEqual(proc.returncode, 0, proc.stderr)
         for name in ("preflight", "instance", "adapt", "scaffolds", "fetch", "calibrate", "install", "baseline",
-                     "map", "doctor", "smoke", "suggestions", "report"):
+                     "bench", "map", "doctor", "smoke", "suggestions", "report"):
             self.assertIn(name, proc.stdout)
         self.assertEqual(before, tree_digest(self.tmp, skip_top=()))
         self.assertFalse((self.tmp / "inst").exists())

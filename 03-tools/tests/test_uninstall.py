@@ -54,6 +54,9 @@ def make_env(root: Path) -> dict:
                          "[init]\n\tdefaultBranch = main\n", encoding="utf-8")
     env = {k: v for k, v in os.environ.items() if not k.startswith(("METODO_", "GIT_"))}
     env.update(HOME=str(home), METODO_MEMORY="off", GIT_CONFIG_GLOBAL=str(gitconfig), GIT_CONFIG_NOSYSTEM="1")
+    # init's bench step reads Claude Code transcripts: only the ones under the fake HOME, never the user's
+    env.pop("CLAUDE_PROJECTS_DIR", None)
+    env["METODO_BENCH_NO_SPAWN"] = "1"
     return env
 
 

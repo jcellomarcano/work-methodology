@@ -33,6 +33,17 @@ command or file to edit. Paths are repo-relative, or written with the
 placeholders <repo> and <tools>; `bin/...` commands run from the kit's 03-tools.
 kit_installed is true only when every check in `required` is PASS or WARN,
 which is what 08-benchmark reads to accept a kit arm or mark it invalid-arm.
+
+bench.wired and bench.used are never required: a fresh install has measured
+nothing yet. Both judge the Claude Code install (claude and all) and are SKIP
+for pi and agy, where no session is measured; that reason wins over any other.
+bench.wired is also SKIP when bench.enabled is false. claude.hooks leaves the SessionEnd bench_queue.py entry to
+bench.wired, so a repo installed before that hook existed still passes.
+bench.used also carries counts {sessions, hooks, agents, mcp, skills, engram}:
+the measured sessions of this repo (by directory name) under
+<tools>/out/bench/sessions/ and how many of them show each kit module in use.
+It reads those rows only, never a transcript; on SKIP it reads nothing and
+the counts are zero.
 """
 from __future__ import annotations
 
@@ -54,6 +65,11 @@ SCHEMA_VERSION = "1.0.0"
 RUNTIMES = ("claude", "pi", "agy", "all")
 STATUSES = ("PASS", "WARN", "FAIL", "SKIP")
 HOOK_MARKER = ": metodo-hook;"
+# The SessionEnd hook that queues a session for measurement: bench.wired reports it, claude.hooks skips it.
+BENCH_HOOK = "bench_queue.py"
+BENCH_MODULES = ("hooks", "agents", "mcp", "skills", "engram")
+# Runtimes without a Claude Code install: only Claude Code sessions are measured.
+BENCH_SKIP_RUNTIMES = ("pi", "agy")
 TOOLS_TOKEN = "__TOOLS_DEFAULT__"
 REPO_TOKEN = "__REPO_DEFAULT__"
 REQUIRED_CONFIG_KEYS = ("shared_build_files", "property_order", "rdd", "test_sectors")
@@ -424,6 +440,9 @@ def check_claude_hooks(ctx: Ctx) -> dict:
             total += 1
             matcher = kit_entry.get("matcher", "")
             scripts = {m for h in kit_entry.get("hooks", []) for m in re.findall(r"[\w-]+\.py", str(h.get("command", "")))}
+            if BENCH_HOOK in scripts:
+                total -= 1  # reported by bench.wired, never required
+                continue
             found = False
             for entry in (installed.get(event) or []):
                 if not isinstance(entry, dict) or entry.get("matcher", "") != matcher:
@@ -437,6 +456,80 @@ def check_claude_hooks(ctx: Ctx) -> dict:
     if missing:
         return _check("claude.hooks", "FAIL", "no kit-marked hook for: " + ", ".join(missing), ctx.install_fix("claude"))
     return _check("claude.hooks", "PASS", f"{total} kit-marked hooks in .claude/settings.local.json")
+
+
+def bench_enabled(ctx: Ctx) -> bool:
+    """Config key bench.enabled, absent means on: the file and the rule of
+    lib/bench_collect.bench_enabled (the same file hooks/_common.load_config reads)."""
+    path = Path(os.environ.get("METODO_PROJECT_CONFIG") or ctx.tools / "config" / "project.json")
+    try:
+        config = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        config = None
+    bench = config.get("bench") if isinstance(config, dict) else None
+    if isinstance(bench, dict) and "enabled" in bench:
+        return bool(bench["enabled"])
+    return True
+
+
+def _bench_runtime_skip(ctx: Ctx) -> str:
+    return f"Claude Code only: {ctx.runtime} sessions are not measured"
+
+
+def check_bench_wired(ctx: Ctx) -> dict:
+    """Is the SessionEnd hook that queues each finished session installed? Claude Code only."""
+    if ctx.runtime in BENCH_SKIP_RUNTIMES:
+        return _check("bench.wired", "SKIP", _bench_runtime_skip(ctx))
+    if not bench_enabled(ctx):
+        return _check("bench.wired", "SKIP", "bench.enabled is false in <tools>/config/project.json: sessions are not measured")
+    try:
+        installed = json.loads((ctx.repo / ".claude" / "settings.local.json").read_text(encoding="utf-8")).get("hooks") or {}
+    except (OSError, json.JSONDecodeError, AttributeError):
+        installed = {}
+    entries = installed.get("SessionEnd") if isinstance(installed, dict) else None
+    for entry in entries if isinstance(entries, list) else []:
+        hooks = entry.get("hooks") if isinstance(entry, dict) else None
+        commands = [str(h.get("command", "")) for h in (hooks if isinstance(hooks, list) else []) if isinstance(h, dict)]
+        if any(HOOK_MARKER in c and BENCH_HOOK in c for c in commands):
+            return _check("bench.wired", "PASS", f"kit-marked SessionEnd hook runs {BENCH_HOOK} (every finished session "
+                          "is queued for measurement)")
+    return _check("bench.wired", "WARN", f"no kit-marked SessionEnd hook for {BENCH_HOOK} in .claude/settings.local.json: "
+                  "sessions are measured only when someone runs bench.sh collect",
+                  "re-run init: bin/init.sh <repo> (or " + ctx.install_fix("claude") + ")")
+
+
+def check_bench_used(ctx: Ctx) -> dict:
+    """How many measured sessions of this repo show each kit module in use. Reads the
+    collector's rows (counts and markers), never a transcript."""
+    counts = dict.fromkeys(("sessions",) + BENCH_MODULES, 0)
+    if ctx.runtime in BENCH_SKIP_RUNTIMES:  # no warning that no command could clear
+        skipped = _check("bench.used", "SKIP", _bench_runtime_skip(ctx))
+        skipped["counts"] = counts
+        return skipped
+    rows = ctx.tools / "out" / "bench" / "sessions"
+    project = os.path.basename(ctx.repo_real)
+    for path in sorted(rows.glob("*.json")) if rows.is_dir() else []:
+        try:
+            record = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if not isinstance(record, dict) or record.get("project") != project:
+            continue
+        kit = record.get("kit") if isinstance(record.get("kit"), dict) else {}
+        markers = [str(m) for m in kit.get("markers") or []]
+        weak = [str(m) for m in kit.get("weak_markers") or []]
+        engram = record.get("engram") if isinstance(record.get("engram"), dict) else {}
+        counts["sessions"] += 1
+        counts["hooks"] += "hook:metodo" in markers
+        counts["agents"] += any(m.startswith("subagent:generic-") for m in markers)
+        counts["mcp"] += "mcp:metodo" in markers
+        counts["skills"] += any(m.startswith("skill:") for m in weak)
+        counts["engram"] += any(isinstance(engram.get(k), int) and engram[k] > 0 for k in ("recall_calls", "save_calls"))
+    modules = ", ".join(f"{name} {counts[name]}" for name in BENCH_MODULES)
+    detail = f"{counts['sessions']} sessions of this repo measured under <tools>/out/bench/sessions/; sessions using {modules}"
+    check = _check("bench.used", "PASS" if counts["sessions"] else "WARN", detail, "<tools>/bin/bench.sh collect <repo>")
+    check["counts"] = counts
+    return check
 
 
 def check_hooks_fire(ctx: Ctx) -> dict:
@@ -637,7 +730,7 @@ def build_report(repo: Path, tools: Path, runtime: str) -> dict:
     checks = [check_repo_git(ctx), check_tools_git(ctx, tool_sha), check_tools_layout(ctx), check_tools_is_kit(ctx),
               check_config_project(ctx), check_config_base_ref(ctx), check_hooks_fire(ctx), check_git_exclude(ctx),
               check_memory_engram(ctx), check_vendor_tools(ctx), check_baseline_latest(ctx), check_personal_absent(ctx),
-              check_router_catalog(ctx)]
+              check_router_catalog(ctx), check_bench_wired(ctx), check_bench_used(ctx)]
     runtimes = ("claude", "pi") if runtime == "all" else (runtime,)
     if "claude" in runtimes:
         checks += [_check_agents(ctx, "claude.agents", ".claude/agents", True, "claude"),
