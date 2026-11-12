@@ -1,7 +1,9 @@
 """lib/render_agents.py: the Claude target is the current file byte for byte
 (only __TOOLS_DEFAULT__ rendered) plus the subagent core, and the pi target
 maps the tool names, drops what pi has no equivalent for, appends the same
-core and writes what only the contract knows as prose, role marker last."""
+core and writes what only the contract knows as prose, role marker last. The
+agy target writes Antigravity subagent frontmatter (name, description, model
+tier) with the same body, core, contract prose and role marker."""
 import json
 import sys
 import shutil
@@ -138,6 +140,51 @@ class RenderAgentsTests(unittest.TestCase):
         self.agent.write_text(AGENT.replace("maxTurns: 50\n", "maxTurns: 50\nomitClaudeMd: true\n"), encoding="utf-8")
         self.assertIn("\nomitClaudeMd: true\n", self.render("claude"))
         self.assertNotIn("omitClaudeMd", self.render("pi"))
+
+    def test_agy_target_writes_agy_frontmatter(self):
+        # agy subagents take name, description and a model tier: no tool list, no Claude hooks
+        out = self.render("agy")
+        frontmatter = out.split("\n---\n", 1)[0]
+        self.assertEqual(frontmatter, "---\nname: generic-example\ndescription: An example role, nothing more.\nmodel: inherit")
+        self.assertNotIn("maxTurns", out)
+        self.assertNotIn("metodo-hook", out)
+
+    def test_agy_target_maps_the_model_tier(self):
+        # this tree's roles carry full model ids (claude-opus-5-5), so the tier is read from the id
+        for claude_model, agy_model in (("opus", "pro"), ("claude-opus-5-5", "pro"), ("sonnet", "inherit"),
+                                        ("claude-sonnet-5-5", "inherit"), ("haiku", "flash"),
+                                        ("claude-haiku-5-5", "flash"), ("", "inherit")):
+            with self.subTest(model=claude_model):
+                self.agent.write_text(AGENT.replace("model: sonnet", f"model: {claude_model}"), encoding="utf-8")
+                self.assertIn(f"\nmodel: {agy_model}\n", self.render("agy"))
+
+    def test_agy_target_keeps_body_core_contract_and_role_marker(self):
+        out = self.render("agy")
+        self.assertIn("You are the **Example**.", out)
+        self.assertIn("Body line two.", out)
+        self.assertEqual(out.count(CORE), 1)
+        self.assertLess(out.index("Body line two."), out.index("## Kit core"))
+        self.assertLess(out.index(CORE), out.index("## Contract"))
+        self.assertIn("at most 40 tool calls", out)
+        self.assertIn("`out/**`", out)
+        self.assertIn("Hand off to: `generic-judge`", out)
+        self.assertIn("`**/.agents/**`", out)
+        self.assertEqual(out.count("<!-- metodo-role: generic-example -->"), 1)
+        self.assertTrue(out.rstrip("\n").endswith("<!-- metodo-role: generic-example -->"))
+
+    def test_pi_contract_does_not_mention_the_agy_folder(self):
+        # the pi render is unchanged by the agy target: .agents/ is another runtime's folder
+        self.assertNotIn(".agents/", self.render("pi"))
+
+    def test_cli_accepts_the_agy_target(self):
+        pack = self.tmp / "pack.md"
+        pack.write_text("<!-- subagent-core:start -->\n" + CORE + "\n<!-- subagent-core:end -->\n", encoding="utf-8")
+        self.agent.with_name("generic-example.contract.json").write_text(json.dumps(CONTRACT), encoding="utf-8")
+        out = self.tmp / "out.md"
+        code = render_agents.main([str(self.agent), "--target", "agy", "--tools-default", "/opt/tools",
+                                   "--core-source", str(pack), "--out", str(out)])
+        self.assertEqual(code, 0)
+        self.assertEqual(out.read_text(encoding="utf-8"), self.render("agy"))
 
     def test_a_file_without_frontmatter_is_an_error(self):
         self.agent.write_text("no frontmatter here\n", encoding="utf-8")
@@ -293,7 +340,7 @@ class HistoryCandidatesTests(unittest.TestCase):
 
 @unittest.skipUnless((TOOLS_ROOT.parent / "01-roles").is_dir(), "kit only: the instance does not carry 01-roles/")
 class RealAgentsTests(unittest.TestCase):
-    def test_every_kit_role_renders_for_both_targets(self):
+    def test_every_kit_role_renders_for_every_target(self):
         for path in sorted((TOOLS_ROOT.parent / "01-roles" / "agents").glob("generic-*.md")):
             with self.subTest(agent=path.name):
                 claude = render_agents.render(path, "claude", "/opt/tools")
@@ -302,6 +349,11 @@ class RealAgentsTests(unittest.TestCase):
                 pi = render_agents.render(path, "pi", "/opt/tools")
                 self.assertIn('  - "*": false', pi)
                 self.assertIn("## Contract (partly enforced by the extension on this runtime)", pi)
+                agy = render_agents.render(path, "agy", "/opt/tools")
+                self.assertIn("<!-- metodo-role: " + path.name[: -len(".md")] + " -->", agy)
+                self.assertRegex(agy, r"\nmodel: (pro|flash|inherit)\n")
+                self.assertIn(render_agents.core_section(render_agents.load_core()), agy)
+                self.assertNotIn("__TOOLS_DEFAULT__", agy)
 
 
 if __name__ == "__main__":

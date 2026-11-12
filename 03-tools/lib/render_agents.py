@@ -2,7 +2,7 @@
 """Renders a kit role (01-roles/agents/generic-*.md plus its .contract.json)
 into the agent format a runtime understands.
 
-Both targets append the subagent core: the block of the kit's CONTEXT-PACK.md
+Every target appends the subagent core: the block of the kit's CONTEXT-PACK.md
 between <!-- subagent-core:start --> and <!-- subagent-core:end -->, byte for
 byte, under a "## Kit core" heading. It is the one source of the cold-start
 rules every role shares (evidence tags, JSON output, budget deny, build files,
@@ -18,6 +18,13 @@ owner gates, no subagents), so no body copies them by hand.
                       part of it, so it also travels as prose. The last line
                       is a role marker (<!-- metodo-role: <name> -->) that
                       hooks/pi/metodo-hooks.ts reads to find the contract.
+    --target agy      Antigravity CLI subagent frontmatter (name, description,
+                      model mapped to the tier pro, flash or inherit), the
+                      body, the core, the same contract section and the same
+                      role marker. agy subagents take no tool list: the kit's
+                      hooks/agy bridge gates tools. The contract section also
+                      names `**/.agents/**`, agy's workspace folder, which the
+                      core does not.
 
     --no-core         the pre-core format (what the kit installed before the
                       subagent core existed): same render, no core section.
@@ -32,6 +39,7 @@ renderer, contract and core committed with it. Prints {"history": bool}.
 Usage:
     lib/render_agents.py --target pi <agent.md> [--tools-default EXPR] [--core-source FILE] [--no-core]
     lib/render_agents.py --target claude <agent.md> [--tools-default EXPR] [--core-source FILE] [--no-core]
+    lib/render_agents.py --target agy <agent.md> [--tools-default EXPR] [--core-source FILE] [--no-core]
     lib/render_agents.py --target T <agent.md>... --candidates-dir DIR [--kit-root DIR] [--tools-default EXPR]
 
 Output goes to stdout, or to --out <file>.
@@ -63,6 +71,15 @@ PI_TOOL_MAP = {
     "LS": "ls",
 }
 MCP_PREFIX = "mcp__metodo__"
+TARGETS = ("claude", "pi", "agy")
+# agy subagents pick a model tier, not a model: pro, flash or the parent's
+# (inherit). A role names its model by alias (opus) or by id (claude-opus-5-5),
+# so the tier is the family name found in it.
+AGY_MODEL_TIERS = (("opus", "pro"), ("haiku", "flash"))
+AGY_MODEL_DEFAULT = "inherit"
+# Always-forbidden globs the subagent core does not name (it names shared build
+# files and .claude/**), per runtime: they travel in the contract section.
+RUNTIME_FORBIDDEN = {"agy": ("**/.agents/**",)}
 # hooks/pi/metodo-hooks.ts reads this line out of the system prompt and only
 # accepts [A-Za-z0-9_-] names: a role name is a contract file stem.
 ROLE_MARKER = "<!-- metodo-role: {name} -->"
@@ -133,12 +150,19 @@ def core_section(core: str | None) -> str:
     return f"{CORE_HEADING}\n\n{core}\n" if core is not None else ""
 
 
-def contract_section(contract: dict) -> str:
+def agy_model(model: str) -> str:
+    """The agy model tier for a role's Claude model (alias or full id)."""
+    lowered = model.lower()
+    return next((tier for family, tier in AGY_MODEL_TIERS if family in lowered), AGY_MODEL_DEFAULT)
+
+
+def contract_section(contract: dict, runtime: str = "pi") -> str:
     """What only the contract knows and the pi harness cannot enforce: the
     tool-call cap, forbidden and writable paths, handoff targets. The shared
     rules (budget deny, build files, output FAIL, delivery) live in the core,
     and the output_write call with its schema lives in the body: none is
-    repeated here."""
+    repeated here. A runtime whose own config folder the core does not name
+    (RUNTIME_FORBIDDEN) gets it named next to the forbidden paths."""
     cap = contract.get("max_tool_calls")
     forbidden = list(contract.get("forbidden_paths") or [])
     may_write = [g for g in (contract.get("may_write") or []) if "<" not in g]
@@ -151,7 +175,10 @@ def contract_section(contract: dict) -> str:
     lines.append("")
     if cap:
         lines.append(f"- Budget: at most {cap} tool calls.")
-    lines.append("- Forbidden paths: " + (", ".join(f"`{p}`" for p in forbidden) if forbidden else "none of its own") + ".")
+    runtime_forbidden = RUNTIME_FORBIDDEN.get(runtime, ())
+    lines.append("- Forbidden paths: " + (", ".join(f"`{p}`" for p in forbidden) if forbidden else "none of its own") + "."
+                 + (" Always off-limits too on this runtime: " + ", ".join(f"`{g}`" for g in runtime_forbidden) + "."
+                    if runtime_forbidden else ""))
     if may_write:
         lines.append("- May write: " + ", ".join(f"`{g}`" for g in may_write) + ", and nothing else.")
     else:
@@ -194,6 +221,23 @@ def render_pi(text: str, contract: dict, core: str | None) -> str:
     return "\n".join(out)
 
 
+def render_agy(text: str, contract: dict, core: str | None) -> str:
+    frontmatter, body = split_frontmatter(text)
+    name = frontmatter_field(frontmatter, "name")
+    description = frontmatter_field(frontmatter, "description")
+    model = agy_model(frontmatter_field(frontmatter, "model"))
+
+    out = ["---", f"name: {name}", f"description: {description}", f"model: {model}", "---", ""]
+    out.append(body.lstrip("\n").rstrip("\n"))
+    out.append("")
+    if core is not None:
+        out.append(core_section(core))
+    out.append(contract_section(contract, "agy"))
+    if name:
+        out.append(ROLE_MARKER.format(name=name) + "\n")
+    return "\n".join(out)
+
+
 def contract_path_for(agent_path: Path) -> Path:
     return agent_path.with_name(agent_path.name[: -len(".md")] + ".contract.json")
 
@@ -215,8 +259,10 @@ def render(agent_path: Path, target: str, tools_default: str = DEFAULT_TOOLS_EXP
         core = load_core()
     if target == "claude":
         return render_claude(text, tools_default, core)
-    return render_pi(text.replace(TOOLS_DEFAULT_TOKEN, tools_default),
-                     contract if contract is not None else load_contract(agent_path, None), core)
+    contract = contract if contract is not None else load_contract(agent_path, None)
+    if target == "agy":
+        return render_agy(text.replace(TOOLS_DEFAULT_TOKEN, tools_default), contract, core)
+    return render_pi(text.replace(TOOLS_DEFAULT_TOKEN, tools_default), contract, core)
 
 
 def _git(kit_root: Path, *args: str, data: bytes | None = None) -> bytes | None:
@@ -380,7 +426,7 @@ def write_candidates(agents: list[Path], target: str, tools_default: str, core: 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("agent", nargs="+", help="path to 01-roles/agents/generic-<role>.md")
-    parser.add_argument("--target", choices=("claude", "pi"), required=True)
+    parser.add_argument("--target", choices=TARGETS, required=True)
     parser.add_argument("--tools-default", default=DEFAULT_TOOLS_EXPR)
     parser.add_argument("--contract", default=None, help="contract JSON, defaults to <agent>.contract.json")
     parser.add_argument("--core-source", default=str(CORE_SOURCE),
