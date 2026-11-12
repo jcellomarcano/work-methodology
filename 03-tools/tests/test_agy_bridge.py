@@ -255,6 +255,15 @@ class RoutingTests(StubTree):
         self.assertNotIn("tool_output_filter.py", self.scripts_run())
         self.assertIn(("PostToolUse", "Bash", "tool_output_filter.py"), bridge.EXEMPT)
 
+    def test_the_session_end_queue_never_runs_on_agy(self):
+        """benchmark-port S7: bench_queue.py is exempt, so no agy event runs it, whatever name it arrives under."""
+        self.assertEqual(self.run_bridge("SessionEnd", {"conversationId": "owner-1", "transcriptPath": self.owner_transcript()}), "")
+        self.stop("owner-1", self.owner_transcript(reply="Done."))
+        self.tool("PostToolUse", "run_command", {"CommandLine": "git status"})
+        self.assertNotEqual(self.scripts_run(), [])
+        self.assertNotIn("bench_queue.py", self.scripts_run())
+        self.assertEqual(bridge.scripts_for("SessionEnd", ""), [])
+
     def test_mcp_arguments_in_an_unexpected_shape_still_reach_the_gates(self):
         """Which shape agy sends is not measured: a JSON text is parsed, anything else is an empty
         input, and the gates judge the call by its name instead of the bridge failing open."""
@@ -489,6 +498,17 @@ class ParityTests(unittest.TestCase):
         for key, reason in bridge.EXEMPT.items():
             with self.subTest(exempt=key):
                 self.assertRegex(reason, r"agy 1\.4\.7|agy has no")
+
+    def test_the_session_end_queue_is_exempt_as_a_claude_code_only_measurement(self):
+        """benchmark-port S7: the reason states the measured fact (the agy spike found no SessionEnd
+        event, agy-adapter L3) and what the measurement reads, which holds whatever agy fires."""
+        key = ("SessionEnd", "", "bench_queue.py")
+        self.assertIn(key, settings_entries())
+        self.assertNotIn(key, bridge.ROWS)
+        reason = bridge.EXEMPT.get(key, "")
+        self.assertIn("agy 1.4.7 has no SessionEnd event (Measured", reason)
+        self.assertIn("reads Claude Code transcripts", reason)
+        self.assertIn("an agy session writes none", reason)
 
     def test_the_launch_gate_and_this_trees_native_entries_have_rows(self):
         for key in (("PreToolUse", "Task|Agent", "guard_spawn.py"), ("PreToolUse", "", "budget.py"),

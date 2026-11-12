@@ -229,6 +229,69 @@ class AutoCompactWindowTests(_NoUserScope):
             self.assertFalse((local.parent / settings_merge.KEYS_RECORD).exists())
 
 
+class SessionEndMergeTests(_NoUserScope):
+    """benchmark-port S7: the kit's SessionEnd entry (hooks/bench_queue.py), merged from the real
+    hooks.settings.json, never costs the owner a SessionEnd hook of their own."""
+
+    KIT_HOOKS = Path(__file__).resolve().parent.parent / "hooks" / "hooks.settings.json"
+    OWN_HOOK = {"matcher": "", "hooks": [{"type": "command", "command": "echo bye >> ~/sessions.log"}]}
+
+    def setUp(self):
+        super().setUp()
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.path = Path(self._tmp.name) / ".claude" / "settings.local.json"
+
+    def write(self, settings: dict) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(json.dumps(settings), encoding="utf-8")
+
+    def read(self) -> dict:
+        return json.loads(self.path.read_text(encoding="utf-8"))
+
+    def merge(self, **kwargs) -> dict:
+        return settings_merge.apply(self.path, self.KIT_HOOKS, settings_merge.DEFAULT_MARKER, False, **kwargs)
+
+    def remove(self) -> dict:
+        return settings_merge.apply(self.path, None, settings_merge.DEFAULT_MARKER, True)
+
+    def kit_session_end(self) -> list:
+        entries = self.read()["hooks"].get("SessionEnd", [])
+        return [entry for entry in entries if "bench_queue.py" in entry["hooks"][0]["command"]]
+
+    def test_merge_keeps_the_owners_session_end_hook_and_adds_the_kits(self):
+        self.write({"hooks": {"SessionEnd": [self.OWN_HOOK]}})
+        self.merge(tools_default="/opt/tools")
+        self.assertEqual(self.read()["hooks"]["SessionEnd"][0], self.OWN_HOOK)
+        self.assertEqual(len(self.read()["hooks"]["SessionEnd"]), 2)
+        (kit,) = self.kit_session_end()
+        self.assertEqual(kit["matcher"], "")
+        self.assertTrue(kit["hooks"][0]["command"].startswith(': metodo-hook; H="${METODO_TOOLS:-/opt/tools}/hooks";'))
+        self.assertEqual(kit["hooks"][0]["timeout"], 10)
+
+    def test_merge_twice_keeps_one_kit_session_end_entry(self):
+        self.write({"hooks": {"SessionEnd": [self.OWN_HOOK]}})
+        self.merge()
+        second = self.merge()
+        self.assertFalse(second["changed"])
+        self.assertEqual(len(self.kit_session_end()), 1)
+        self.assertEqual(self.read()["hooks"]["SessionEnd"][0], self.OWN_HOOK)
+
+    def test_remove_drops_the_kit_entry_and_keeps_the_owners(self):
+        self.write({"hooks": {"SessionEnd": [self.OWN_HOOK]}})
+        self.merge()
+        self.assertEqual(len(self.kit_session_end()), 1)
+        self.remove()
+        self.assertEqual(self.read(), {"hooks": {"SessionEnd": [self.OWN_HOOK]}})
+
+    def test_remove_without_owner_hooks_leaves_no_session_end(self):
+        self.write({"permissions": {"allow": ["Bash(ls)"]}})
+        self.merge()
+        self.assertEqual(len(self.kit_session_end()), 1)
+        self.remove()
+        self.assertEqual(self.read(), {"permissions": {"allow": ["Bash(ls)"]}})
+
+
 class McpConfigTests(unittest.TestCase):
     def test_merge_keeps_other_servers(self):
         existing = {"mcpServers": {"github": {"type": "http", "url": "https://x"}}}

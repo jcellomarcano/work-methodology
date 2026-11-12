@@ -110,6 +110,10 @@ EXEMPT: dict[tuple[str, str, str], str] = {
         "Unknown on agy 1.4.7: L2, L3 and L5 name neither a PostToolUse stdin field holding the command "
         "output (the script reads tool_response) nor a stdout field that replaces it (it answers with "
         "updatedToolOutput), so the script would get nothing and could change nothing",
+    ("SessionEnd", "", "bench_queue.py"):
+        "agy 1.4.7 has no SessionEnd event (Measured, odd/tasks/agy-adapter.md L3). The measurement is "
+        "Claude Code only either way: it reads Claude Code transcripts and an agy session writes none, "
+        "so a queued agy session would give the collector nothing to measure",
 }
 
 
