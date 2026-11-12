@@ -72,7 +72,7 @@
     }
   },
   "memory": {
-    "_comment": "engram persistent memory (lib/engram_bridge.py). enabled false, or no engram binary on PATH, turns every save into a no-op. engram_project empty falls back to ENGRAM_PROJECT and then to the repo folder's name.",
+    "_comment": "engram persistent memory (lib/engram_bridge.py). enabled false, or no engram binary on PATH, turns every save and every recall into a no-op. engram_project empty falls back to ENGRAM_PROJECT and then to the repo folder's name.",
     "enabled": true,
     "engram_project": ""
   },

@@ -8,12 +8,18 @@ section 4.3): the active task document, its open task ids with their S#,
 and the last receipt state for the current tree, at most 120 tokens
 (ceil(chars / 4)), sent as SessionStart additionalContext. The active
 document is config memory.active_task_doc when set, else the latest-modified
-odd/tasks/*.md whose `## Tasks` table has a row not marked done. Nothing
-outside the repo is read."""
+odd/tasks/*.md whose `## Tasks` table has a row not marked done. The
+anchor reads nothing outside the repo.
+
+When memory is on and the branch is not a trunk, it also prints up to three
+pointers to what engram holds for the branch's subject: id, kind and title,
+never the body, each at most 30 tokens. Memory off, no engram binary or any
+engram failure prints none; the status lines never depend on it."""
 from __future__ import annotations
 
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -24,6 +30,9 @@ HOOK = "session_start_status"
 ANCHOR_SOURCES = ("compact", "resume")
 ANCHOR_MAX_TOKENS = 120
 TASK_DOC_MAX_BYTES = 256 * 1024
+MEMORY_POINTERS = 3
+MEMORY_LINE_MAX_TOKENS = 30
+TRUNK_BRANCHES = ("HEAD", "main", "master", "develop", "trunk")
 
 
 def _inside(path: Path, repo: Path) -> Path | None:
@@ -150,6 +159,28 @@ def goal_anchor(repo: Path | None, config: dict, tree: str | None, receipt: dict
     return text[:limit - 1] + "\u2026"
 
 
+def memory_lines(repo: Path | None, config: dict) -> list[str]:
+    """The branch's subject is the query: feat/refund-guard asks for "refund
+    guard". A trunk branch or a detached HEAD has no subject and asks nothing."""
+    try:
+        from lib import engram_bridge
+        if repo is None or not engram_bridge.memory_enabled(config):
+            return []
+        branch = subprocess.run(["git", "-C", str(repo), "rev-parse", "--abbrev-ref", "HEAD"],
+                                capture_output=True, text=True, timeout=5).stdout.strip()
+        if not branch or branch in TRUNK_BRANCHES:
+            return []
+        query = re.sub(r"[-_]+", " ", branch.rsplit("/", 1)[-1]).strip()
+        limit = MEMORY_LINE_MAX_TOKENS * 4
+        lines = []
+        for found in engram_bridge.recall(query, limit=MEMORY_POINTERS, repo=repo)[:MEMORY_POINTERS]:
+            text = f"[metodo] memory: #{found['id']} ({found['kind']}) {found['title']}"
+            lines.append(text if len(text) <= limit else text[:limit - 1] + "\u2026")
+        return lines
+    except Exception:  # noqa: BLE001 - memory is never load-bearing: no pointer, same status lines
+        return []
+
+
 def main() -> int:
     inp = c.read_input()
     config = c.load_config()
@@ -180,6 +211,7 @@ def main() -> int:
     if open_receipts:
         lines.append("[metodo] open receipts: " + "; ".join(open_receipts[:5]))
     lines.append(f"[metodo] ledger: {c.session_dir(inp) / 'ledger.jsonl'}")
+    lines += memory_lines(repo, config)
     anchor = goal_anchor(repo, config, tree, receipt) if inp.get("source") in ANCHOR_SOURCES else None
     if anchor:
         context = "\n".join(lines[:9] + [anchor])
