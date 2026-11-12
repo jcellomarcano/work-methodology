@@ -28,7 +28,8 @@
 #                a git checkout (render_agents.py --candidates-dir). A
 #                modified kit file is kept as `kept: modified`.
 #
-# Writes only inside <repo>: .agents/plugins/metodo/ and .git/info/exclude.
+# Writes only .agents/plugins/metodo/ inside <repo> and the repo's git exclude
+# file (the main checkout's .git/info/exclude when <repo> is a linked worktree).
 # It never writes to ~/.gemini/, so nothing agy or gentle-ai manages there can
 # be touched.
 set -euo pipefail

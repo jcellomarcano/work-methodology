@@ -255,6 +255,17 @@ class RoutingTests(StubTree):
         self.assertNotIn("tool_output_filter.py", self.scripts_run())
         self.assertIn(("PostToolUse", "Bash", "tool_output_filter.py"), bridge.EXEMPT)
 
+    def test_mcp_arguments_in_an_unexpected_shape_still_reach_the_gates(self):
+        """Which shape agy sends is not measured: a JSON text is parsed, anything else is an empty
+        input, and the gates judge the call by its name instead of the bridge failing open."""
+        for raw, expected in (('{"sha": "abc"}', {"sha": "abc"}), ("not json", {}), (["a"], {}), (7, {})):
+            with self.subTest(arguments=raw):
+                self.clear()
+                self.assertEqual(self.tool("PreToolUse", "call_mcp_tool", {"ServerName": "metodo_metodo",
+                                                                          "ToolName": "receipt_start", "Arguments": raw}), "")
+                self.assertEqual(self.scripts_run(), ["guard_gates.py", "budget.py"])
+                self.assertEqual(self.calls()[0]["payload"]["tool_input"], expected)
+
     def test_a_mcp_call_passes_its_arguments_as_the_tool_input(self):
         self.tool("PostToolUse", "call_mcp_tool", {"ServerName": "metodo_metodo", "ToolName": "output_write",
                                                    "Arguments": {"round_dir": "out/r1"}})

@@ -609,7 +609,8 @@ def _is_personal(rel: str, name: str) -> bool:
 
 def check_personal_absent(ctx: Ctx) -> dict:
     found = []
-    for top in (".claude", ".pi", ".agents"):
+    tops = (".claude", ".pi") + ((".agents",) if ctx.runtime == "agy" else ())
+    for top in tops:
         root = ctx.repo / top
         if not root.is_dir():
             continue
@@ -626,7 +627,8 @@ def check_personal_absent(ctx: Ctx) -> dict:
     if found:
         return _check("personal.absent", "FAIL", "personal assets installed: " + ", ".join(found),
                       "rm -r -- " + " ".join(f"<repo>/{p}" for p in found))
-    return _check("personal.absent", "PASS", "no personal asset under .claude/, .pi/ or .agents/")
+    where = ".claude/, .pi/ or .agents/" if ctx.runtime == "agy" else ".claude/ or .pi/"
+    return _check("personal.absent", "PASS", f"no personal asset under {where}")
 
 
 # ---------------------------------------------------------------- report

@@ -44,8 +44,8 @@ Every entry of that file has a row here or a stated exemption [Tested, `test_agy
 | exempt | `tool_output_filter.py` never runs | no measured field carries or replaces a command's output |
 
 Decisions [Measured, three spike runs on a scratch repo]: an empty stdout is neutral; `{}` denies (a
-decision is required); a nonzero exit fails the tool; `allow` would skip agy's own permissions. So the
-bridge prints only a deny, a `force_ask` for an owner gate (a plain `ask` let an edit through in
+decision is required); a nonzero exit fails the tool; `allow` would skip agy's own permissions. So on a tool
+call the bridge prints only a deny, a `force_ask` for an owner gate (a plain `ask` let an edit through in
 accept-edits mode; inside a subagent nobody can answer, so it becomes a deny that says to report it), or
 nothing, and always exits 0. A script's stdout is read line by line, so a warn line beside a deny stays a
 deny [Tested]. On Stop a script's `block` becomes `continue`, the send-back of agy's own docs [Tested].

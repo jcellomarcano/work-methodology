@@ -185,6 +185,21 @@ class AgyDoctorTests(unittest.TestCase):
         self.assertIn(PLUGIN.as_posix(), found["detail"])
         self.assertIn(PLUGIN.as_posix(), found["fix"])
 
+    def test_claude_and_pi_reports_keep_their_personal_check_as_before(self):
+        """.agents/ is scanned for the agy runtime only: the other reports read as they did."""
+        repo = self.copy_fixture("personal-other-runtimes")
+        (repo / PLUGIN / "skills" / "output-lint.personal.json").write_text("[]\n", encoding="utf-8")
+        for runtime in ("claude", "pi", "all"):
+            with self.subTest(runtime=runtime):
+                _, report = self.run_doctor(repo, runtime=runtime)
+                found = self.check(report, "personal.absent")
+                self.assertEqual((found["status"], found["detail"]), ("PASS", "no personal asset under .claude/ or .pi/"))
+
+    def test_the_agy_report_names_the_agents_folder_in_its_personal_check(self):
+        _, report = self.run_doctor(self.fixture)
+        found = self.check(report, "personal.absent")
+        self.assertEqual((found["status"], found["detail"]), ("PASS", "no personal asset under .claude/, .pi/ or .agents/"))
+
     def test_personal_asset_under_agents_fails(self):
         repo = self.copy_fixture("personal")
         (repo / PLUGIN / "skills" / "output-lint.personal.json").write_text("[]\n", encoding="utf-8")

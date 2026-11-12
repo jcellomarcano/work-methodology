@@ -90,7 +90,7 @@ init writes a detected or answered value, the owner confirms it.
 ```
 
 - Removes from the repo only what the kit installed and is still byte-identical to its render, for
-  Claude Code, pi and agy; a kit file you modified stays, listed in `kept_modified` (exit 1). Your own
+  Claude Code and pi (agy only with `--runtime agy`); a kit file you modified stays, listed in `kept_modified` (exit 1). Your own
   hooks, servers, agents, skills, permissions and exclude lines are never touched.
 - The instance and the audit folder stay. `--purge` deletes them only when untouched: the instance with
   init's single commit and no change of yours (and the repo `kit_absent`), the audit folder with only

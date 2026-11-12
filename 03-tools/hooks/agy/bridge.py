@@ -154,6 +154,19 @@ def scripts_for(event: str, name: str) -> list[tuple[str, int]]:
             and (matcher == "" or re.fullmatch(f"(?:{matcher})", name))]
 
 
+def mcp_arguments(value) -> dict:
+    """agy's Arguments as the kit tool's input. Which shape agy sends is not
+    measured: a JSON text is parsed, and any other shape is an empty input, so
+    the gates still judge the call by its name instead of the bridge failing
+    open on it."""
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except ValueError:
+            return {}
+    return dict(value) if isinstance(value, dict) else {}
+
+
 def claude_call(name: str, args: dict) -> tuple[str, dict]:
     """The Claude tool name and input the hook scripts match on.
 
@@ -178,7 +191,7 @@ def claude_call(name: str, args: dict) -> tuple[str, dict]:
         server = str(args.get("ServerName") or "")
         if server == "metodo" or server.endswith("_metodo"):
             server = "metodo"
-        return f"mcp__{server}__{args.get('ToolName', '')}", dict(args.get("Arguments") or {})
+        return f"mcp__{server}__{args.get('ToolName', '')}", mcp_arguments(args.get("Arguments"))
     if args.get("Path") and WRITE_LIKE.search(name):
         return "Edit", {**args, "file_path": args.get("Path", "")}
     return name, args
