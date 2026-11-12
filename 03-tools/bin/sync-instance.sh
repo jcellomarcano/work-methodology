@@ -7,6 +7,11 @@
 # modules). Committing in the instance is the owner's job, after reviewing
 # the diff.
 #
+# The benchmark has one source of truth, the kit's 08-benchmark/: its lib/
+# bin/ protocols/ land in <instance>/bench/ under the same rules (changed
+# files overwritten, bytecode skipped, nothing deleted, modes kept, extras
+# listed). The instance's bin/bench.sh measures with that copy.
+#
 # Personal assets are never copied (S8). They follow one convention, the same
 # the doctor and kit_status apply: any path component named `personal`, or
 # matching `*.personal.*` (both git-ignored in the kit). An instance that
@@ -22,6 +27,8 @@ fi
 DST="$(cd "$1" && pwd)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SRC="$(cd "$SCRIPT_DIR/.." && pwd)"
+BENCH_SRC="$(cd "$SRC/.." && pwd)/08-benchmark"
+BENCH_DIRS=(lib bin protocols)
 if [ "$DST" = "$SRC" ]; then
   echo "the instance is the kit itself" >&2
   exit 2
@@ -38,21 +45,31 @@ is_personal() {
 }
 
 copied=0; same=0
-for dir in lib bin schemas mcp hooks tests; do
-  [ -d "$SRC/$dir" ] || continue
+# copy_tree <src-dir> <dst-dir> <rel-prefix>: file by file, recursive; prints
+# paths relative to the instance (<rel-prefix>/<path inside the dir>).
+copy_tree() {
+  local from="$1" to="$2" prefix="$3" f inner rel
+  [ -d "$from" ] || return 0
   while IFS= read -r -d '' f; do
-    rel="${f#"$SRC/"}"
+    inner="${f#"$from/"}"
+    rel="$prefix/$inner"
     case "$rel" in *__pycache__*|*.pyc) continue;; esac
     is_personal "$rel" && continue
-    mkdir -p "$DST/$(dirname "$rel")"
-    if [ -f "$DST/$rel" ] && cmp -s "$f" "$DST/$rel"; then
+    mkdir -p "$(dirname "$to/$inner")"
+    if [ -f "$to/$inner" ] && cmp -s "$f" "$to/$inner"; then
       same=$((same + 1))
     else
-      if [ -f "$DST/$rel" ]; then echo "  ~ $rel"; else echo "  + $rel"; fi
-      cp -p "$f" "$DST/$rel"
+      if [ -f "$to/$inner" ]; then echo "  ~ $rel"; else echo "  + $rel"; fi
+      cp -p "$f" "$to/$inner"
       copied=$((copied + 1))
     fi
-  done < <(find "$SRC/$dir" -type f -print0)
+  done < <(find "$from" -type f -print0)
+}
+for dir in lib bin schemas mcp hooks tests; do
+  copy_tree "$SRC/$dir" "$DST/$dir" "$dir"
+done
+for dir in "${BENCH_DIRS[@]}"; do
+  copy_tree "$BENCH_SRC/$dir" "$DST/bench/$dir" "bench/$dir"
 done
 
 # config/: only what's missing, never overwrites what the instance already decided
@@ -77,6 +94,14 @@ for dir in lib bin schemas mcp hooks tests; do
     case "$rel" in *__pycache__*|*.pyc) continue;; esac
     [ -f "$SRC/$rel" ] || echo "  $rel"
   done < <(find "$DST/$dir" -type f -print0)
+done
+for dir in "${BENCH_DIRS[@]}"; do
+  [ -d "$DST/bench/$dir" ] || continue
+  while IFS= read -r -d '' f; do
+    rel="${f#"$DST/bench/"}"
+    case "$rel" in *__pycache__*|*.pyc) continue;; esac
+    [ -f "$BENCH_SRC/$rel" ] || echo "  bench/$rel"
+  done < <(find "$DST/bench/$dir" -type f -print0)
 done
 
 echo

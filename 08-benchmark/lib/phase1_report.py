@@ -5,6 +5,11 @@ Inputs (all optional; a missing one is reported as failed, never silently skippe
   data/sessions.json  (transcript_metrics.py)   data/git.json     (git_metrics.py)
   data/engram.json    (engram_metrics.py)       data/kit.json     (kit_telemetry.py)
 
+Optional data/adoption.json ({installed_at, repo, label}, written once by `bench.sh adopt` at
+install) replaces the inferred boundary of the project named `repo` with the exact install
+timestamp (label Measured, first marker "install"). Without it the inferred rule stands and
+the output carries no trace of the file.
+
 Outputs: <out-dir>/phase1-baseline.json and phase1-baseline.md. Every number carries
 the label of its METRICS.md row (Measured / Inferred / Unknown) and the whole report
 is deterministic: same inputs, same bytes.
@@ -133,6 +138,30 @@ def adoption(sessions):
                 p["first_kit_session"] = s["session_id"]
                 p["first_marker"] = min(s["kit"]["marker_ts"], key=lambda k: s["kit"]["marker_ts"][k] or "9")
     return dict(sorted(out.items()))
+
+
+def load_adoption_file(data_dir: pathlib.Path):
+    """(record, status) from data/adoption.json; (None, None) when the file is absent."""
+    path = data_dir / "adoption.json"
+    if not path.exists():
+        return None, None
+    try:
+        record = json.loads(path.read_text(encoding="utf-8"))
+        if not (isinstance(record.get("installed_at"), str) and isinstance(record.get("repo"), str)):
+            raise ValueError("installed_at and repo must be strings")
+    except (OSError, ValueError, AttributeError) as exc:
+        return None, {"status": "failed", "error": type(exc).__name__}
+    return record, {"status": "ok", "tool_sha256": None, "schema_version": None}
+
+
+def apply_adoption_file(adopt, record):
+    """The install timestamp is the boundary of its repo (Measured), not the first kit marker."""
+    p = adopt.get(record["repo"])
+    if p is None:
+        p = {"first_kit_session": None, "installer_file_mtime": INSTALLER_MTIME.get(record["repo"]),
+             "sessions": 0, "kit_sessions": 0}
+    p = dict(p, ts=record["installed_at"], date=record["installed_at"][:10], first_marker="install", label="Measured")
+    return dict(sorted({**adopt, record["repo"]: p}.items()))
 
 
 def split_groups(sessions, adopt):
@@ -314,6 +343,11 @@ def build(data_dir: pathlib.Path) -> dict:
     payloads, status = load_inputs(data_dir)
     sessions = (payloads["sessions"] or {}).get("sessions", [])
     adopt = adoption(sessions) if payloads["sessions"] else {}
+    record, adoption_status = load_adoption_file(data_dir)
+    if adoption_status is not None:
+        status["adoption"] = adoption_status
+    if record is not None:
+        adopt = apply_adoption_file(adopt, record)
     return {
         "schema_version": SCHEMA_VERSION,
         "tool_sha256": hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest(),

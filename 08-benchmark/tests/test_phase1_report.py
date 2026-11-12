@@ -1,4 +1,5 @@
 """Tests for phase1_report over tiny synthetic extracts (sessions, git, engram, kit)."""
+import hashlib
 import json
 import pathlib
 import subprocess
@@ -186,6 +187,84 @@ class Phase1ReportTests(unittest.TestCase):
         self.assertIn("| Measured |", md)
         self.assertIn("Inferred", md)
         self.assertIn("Unknown", md)
+
+
+class AdoptionFileTests(unittest.TestCase):
+    """data/adoption.json (written once by `bench.sh adopt`) sets the exact boundary of its repo."""
+
+    # sha256 of the output without an adoption file, taken before phase1_report.py learned to read
+    # one. The JSON is hashed with its own tool_sha256 set to null, the only field that follows the
+    # source of the script. A change to the fixtures above needs both pins taken again.
+    MD_SHA256 = "c0c441a527063bb73b3801c64b4578e3f41ec9e8e685293d75e23445f50f9e43"
+    JSON_SHA256 = "53f79c0a305488b47caf53769f630c6c904d71663cd21201d02d4113456af49a"
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.data = pathlib.Path(self.tmp.name) / "data"
+        self.data.mkdir()
+        for name, payload in (("sessions", SESSIONS), ("git", GIT), ("engram", ENGRAM), ("kit", KIT)):
+            (self.data / f"{name}.json").write_text(json.dumps(payload))
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def write_adoption(self, repo="alpha", installed_at="2026-09-11T00:00:00.000Z"):
+        (self.data / "adoption.json").write_text(json.dumps(
+            {"installed_at": installed_at, "repo": repo, "label": "Measured"}))
+
+    def test_adoption_file_sets_the_boundary_of_its_repo(self):
+        self.write_adoption()
+        report = pr.build(self.data)
+        a = report["adoption"]["alpha"]
+        self.assertEqual(a["ts"], "2026-09-11T00:00:00.000Z")
+        self.assertEqual(a["date"], "2026-09-11")
+        self.assertEqual(a["first_marker"], "install")
+        self.assertEqual(a["label"], "Measured")
+        self.assertEqual(a["sessions"], 6)
+        self.assertEqual(a["kit_sessions"], 3)
+        self.assertIsNone(report["adoption"]["beta"]["date"])
+        self.assertEqual(report["adoption"]["beta"]["label"], "Inferred")
+        self.assertEqual(report["inputs"]["adoption"]["status"], "ok")
+
+    def test_groups_and_git_split_on_the_install_timestamp(self):
+        self.write_adoption()
+        report = pr.build(self.data)
+        g = report["groups"]["alpha"]
+        # s1, s2, s3, s4 end before 2026-09-11; s5 starts after it with the kit; s7 spans it
+        self.assertEqual(g["before"]["n"], 4)
+        self.assertEqual(g["after_kit"]["n"], 1)
+        self.assertEqual(g["after_no_kit"]["n"], 0)
+        self.assertEqual(g["spanning"]["n"], 1)
+        self.assertEqual(report["git"]["alpha"]["adoption_date"], "2026-09-11")
+        self.assertEqual(report["git"]["alpha"]["before"]["commits"], 3)
+        md = pr.render_md(report)
+        self.assertIn("| alpha | 2026-09-11 | install |", md)
+        self.assertIn("| adoption.json | ok |", md)
+
+    def test_adoption_file_for_a_repo_without_sessions_adds_its_boundary_only(self):
+        self.write_adoption(repo="gamma")
+        report = pr.build(self.data)
+        self.assertEqual(report["adoption"]["alpha"]["date"], "2026-09-05")
+        self.assertEqual(report["adoption"]["alpha"]["label"], "Inferred")
+        gamma = report["adoption"]["gamma"]
+        self.assertEqual((gamma["date"], gamma["first_marker"], gamma["label"]), ("2026-09-11", "install", "Measured"))
+        self.assertEqual((gamma["sessions"], gamma["kit_sessions"]), (0, 0))
+
+    def test_unreadable_adoption_file_is_reported_and_the_inferred_boundary_stands(self):
+        (self.data / "adoption.json").write_text('{"installed_at": 5, "repo": "alpha"}')
+        report = pr.build(self.data)
+        self.assertEqual(report["inputs"]["adoption"]["status"], "failed")
+        self.assertEqual(report["adoption"]["alpha"]["label"], "Inferred")
+        self.assertEqual(report["adoption"]["alpha"]["first_marker"], "mcp:metodo")
+        self.assertIn("adoption.json: failed", pr.render_md(report))
+
+    def test_without_adoption_file_the_output_is_byte_for_byte_the_previous_one(self):
+        report = pr.build(self.data)
+        self.assertNotIn("adoption", report["inputs"])
+        md = pr.render_md(report)
+        body = json.dumps(dict(report, tool_sha256=None), indent=1, sort_keys=True, ensure_ascii=False) + "\n"
+        self.assertEqual(hashlib.sha256(md.encode("utf-8")).hexdigest(), self.MD_SHA256)
+        self.assertEqual(hashlib.sha256(body.encode("utf-8")).hexdigest(), self.JSON_SHA256)
 
 
 if __name__ == "__main__":
