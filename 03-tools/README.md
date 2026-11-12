@@ -11,14 +11,15 @@ over the repo they analyze: they never write or `git add` there). Python
   `kit-status.sh` (the kit README's measured status block),
   `fetch-tools.sh`, `metrics.sh`, `cartography.sh`, `clean-pass.sh`,
   `verify-commit.sh`, `verify-sectors.sh`, `benchmark-release.sh`,
-  `install.sh` (picks the runtimes), `install-claude.sh`, `install-pi.sh`
-  (reads the skill list out of `install-claude.sh`), `sync-instance.sh`,
-  `adopt.sh`.
+  `install.sh` (picks the runtimes), `install-claude.sh`, `install-pi.sh`,
+  `install-agy.sh` (both read the skill list out of `install-claude.sh`),
+  `sync-instance.sh`, `adopt.sh`.
 - `mcp/`: `metodo` MCP server (JSON-RPC over stdio, stdlib): `catalog.py` is
   the tool table; each one wraps a script from `lib/` or `bin/`.
 - `hooks/`: Claude Code hooks (path, gate and launch guards, budget, output
   validation, session state, ledger); `hooks.settings.json` is what the
-  installer merges into `.claude/settings.local.json`.
+  installer merges into `.claude/settings.local.json`. `hooks/pi/` and
+  `hooks/agy/` adapt the same scripts to pi and agy.
 - `lib/`: one module per tool; `baseline.py` (I/O), `repo_scan.py` and
   `toolenv.py` are the common base; `worktree.sh` is the only lib in bash.
   `base_ref.py` is the one resolver of the repo's base ref (explicit, config
@@ -41,26 +42,28 @@ over the repo they analyze: they never write or `git add` there). Python
 ## Invocation
 
 ```bash
-bin/init.sh <repo> [--instance D] [--audit D] [--runtime claude|pi|all] [--answers <json|file>]
+bin/init.sh <repo> [--instance D] [--audit D] [--runtime claude|pi|agy|all] [--answers <json|file>]
             [--engram-project NAME] [--no-fetch] [--no-baseline] [--no-smoke]
             [--read-global-config] [--dry-run]  # report: <instance>/out/init/<repo_sha>.json
-bin/init.sh <repo> --uninstall [--instance D] [--audit D] [--purge] [--runtime claude|pi|all] [--dry-run]
+bin/init.sh <repo> --uninstall [--instance D] [--audit D] [--purge] [--runtime claude|pi|agy|all] [--dry-run]
                                          # unplug: report <instance>/out/uninstall/<repo_sha>.json; instance and
                                          # audit stay; --purge deletes them only if untouched; exit 1 = kit left
-bin/doctor.sh <repo> [--tools D] [--runtime claude|pi|all] [--out F]   # FAIL names its fix
-bin/doctor.sh <repo> --absent [--runtime claude|pi|all]   # after --uninstall: PASS = nothing left, kit_absent
+bin/doctor.sh <repo> [--tools D] [--runtime claude|pi|agy|all] [--out F]   # FAIL names its fix
+bin/doctor.sh <repo> --absent [--runtime claude|pi|agy|all]   # after --uninstall: PASS = nothing left, kit_absent
 bin/smoke-loop.sh <repo> [--tools D] [--keep] [--out F]   # card -> receipt -> finalize, throwaway clone
 bin/kit-status.sh --check | --write [--allow-failing]   # README status block: --check is cheap (exit 1 =
                                          # stale, prints the fix); --write runs the suite + init on a fixture
 bin/adopt.sh <repo> <audit-folder> [--critical-flow-example] [--answers <json|file>] [--dry-run]
              [--allow-kit] [--kit D]   # writes config/project.json; refuses on the kit unless --allow-kit
-bin/install.sh <repo> [--runtime claude|pi|all] [--tools D] [--engram-project NAME]
-bin/install.sh <repo> --uninstall [--runtime claude|pi|all] [--tools D]   # removes only byte-identical kit
+bin/install.sh <repo> [--runtime claude|pi|agy|all] [--tools D] [--engram-project NAME]
+bin/install.sh <repo> --uninstall [--runtime claude|pi|agy|all] [--tools D]   # removes only byte-identical kit
                                          # files; a modified one is kept and printed `kept: modified`
 bin/install-claude.sh <repo> [--tools D] [--uninstall] # agents, skills, .mcp.json, hooks
 bin/install-pi.sh <repo> [--tools D] [--uninstall]     # .pi/agents, .pi/skills, .pi/mcp.json, guards extension
+bin/install-agy.sh <repo> [--tools D] [--uninstall]    # one agy workspace plugin: .agents/plugins/metodo/
+                                         # (opt-in: --runtime agy, never part of all; 00-principles/agy-adapter.md)
 bin/sync-instance.sh <instance>          # code to an instance; config/ only what is missing; personal assets never
-python3 lib/suggest.py <repo> [--tools D] [--runtime claude|pi|all] [--read-global-config]   # never installs
+python3 lib/suggest.py <repo> [--tools D] [--runtime claude|pi|agy|all] [--read-global-config]   # never installs
 python3 lib/detect_repo.py <repo>        # language, build files, base ref, ticket keys (JSON)
 python3 lib/base_ref.py <repo> [--config project.json] [--base REF]
 python3 mcp/server.py --selftest         # initialize + tools/list in-process

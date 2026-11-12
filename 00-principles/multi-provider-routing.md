@@ -38,7 +38,7 @@ they mean this table's medium tier.
 | output validation on close | `validate_subagent_output.py` hook | none: done by the orchestrator with `lib/round_output.py` | same |
 | handoff via numbered file | `output_write` / `round_output.py` | same (it's a script) | same |
 
-A per-harness installer (`bin/install-claude.sh` today; `install-gemini.sh` and `install-codex.sh` pending) generates the definitions from `01-roles/agents/` and `model-tiers.json`; the kit stays the source of truth.
+A per-harness installer (`bin/install-claude.sh`, `install-pi.sh` and `install-agy.sh` for Google's Antigravity CLI today; `install-gemini.sh` and `install-codex.sh` pending) generates the definitions from `01-roles/agents/` and `model-tiers.json`; the kit stays the source of truth.
 
 ## 4. Protocol for admitting a model into a role (without this, `status: candidate`)
 

@@ -6,7 +6,7 @@ Order matters: no change cards or rounds until a measured baseline exists. Typic
 
 ```bash
 03-tools/bin/init.sh <repo> --dry-run              # the plan; writes nothing
-03-tools/bin/init.sh <repo> [--answers <json|file>] [--instance <dir>] [--audit <dir>] [--runtime claude|pi|all]
+03-tools/bin/init.sh <repo> [--answers <json|file>] [--instance <dir>] [--audit <dir>] [--runtime claude|pi|agy|all]
 ```
 
 Or the `init-kit` skill: it interviews the owner for `--answers` (`property_order`,
@@ -59,6 +59,8 @@ init writes a detected or answered value, the owner confirms it.
       same source into every runtime. For Claude Code that is agents, skills, `.mcp.json` (excluded from
       commits) and the hooks in `.claude/settings.local.json`; for pi it is `.pi/agents`, `.pi/skills`,
       the `.pi/mcp.json` prefix override and the guards extension. [human] Trust the project in pi once.
+      agy is opt-in (`--runtime agy`, `00-principles/agy-adapter.md`): one workspace plugin
+      `.agents/plugins/metodo/`. [human] Restart agy; allow the kit's MCP server for headless runs.
       See `00-principles/runtime-adapters.md` for what each runtime does and does not enforce.
 - [ ] [init] Wiring doctor (`bin/doctor.sh <repo> --tools <instance>`): a FAIL names its fix.
 - [ ] [init] Full-loop smoke (`bin/smoke-loop.sh <repo>`) on a throwaway clone; skip with `--no-smoke`.
@@ -88,7 +90,7 @@ init writes a detected or answered value, the owner confirms it.
 ```
 
 - Removes from the repo only what the kit installed and is still byte-identical to its render, for
-  Claude Code and pi; a kit file you modified stays, listed in `kept_modified` (exit 1). Your own
+  Claude Code, pi and agy; a kit file you modified stays, listed in `kept_modified` (exit 1). Your own
   hooks, servers, agents, skills, permissions and exclude lines are never touched.
 - The instance and the audit folder stay. `--purge` deletes them only when untouched: the instance with
   init's single commit and no change of yours (and the repo `kit_absent`), the audit folder with only

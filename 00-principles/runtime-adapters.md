@@ -1,7 +1,7 @@
 # Runtime adapters · v1
 
-Cap: 120 lines. Scripts: `03-tools/bin/install.sh`, `install-claude.sh`, `install-pi.sh`,
-`03-tools/lib/render_agents.py`, `03-tools/lib/engram_bridge.py`, `03-tools/hooks/pi/metodo-hooks.ts`.
+Cap: 120 lines. Scripts: `03-tools/bin/install.sh`, `install-claude.sh`, `install-pi.sh`, `install-agy.sh`,
+`03-tools/lib/render_agents.py`, `03-tools/lib/engram_bridge.py`, `03-tools/hooks/pi/metodo-hooks.ts`, `hooks/agy/`.
 
 ## 1. Purpose: one source, many runtimes
 
@@ -17,6 +17,7 @@ twice ends up true in one runtime and stale in the other.
 gentle-ai 2.9.1 installed. `[Tested]` means a kit test asserts it. `[Unverified]` means the code is written and untested. `[Harness]` means
 driven through node with a fake pi API by `03-tools/tests/test_pi_extension.py` on 15-oct-2026: the
 extension's logic is proven, a live pi delivering the same event fields is not.
+agy (Google Antigravity CLI) is a third, opt-in adapter with its own matrix, limits and evidence: `agy-adapter.md`.
 
 | | Claude Code | pi | pi + gentle-ai |
 |---|---|---|---|
@@ -53,8 +54,7 @@ environment names the role (the child's variables carry the session and tools, n
 
 ```bash
 bin/install.sh <repo>                          # claude and pi
-bin/install.sh <repo> --runtime pi             # pi only
-bin/install.sh <repo> --runtime claude         # claude only
+bin/install.sh <repo> --runtime claude|pi|agy  # one runtime; agy is never part of the default (agy-adapter.md)
 bin/install.sh <repo> --tools ~/<instance>     # point at a synced tools instance
 bin/install.sh <repo> --engram-project <name>  # fix the engram project name
 ```
@@ -75,7 +75,7 @@ pi loads `.pi/extensions` only after the project is trusted: interactively `/tru
 
 gentle-ai owns the files listed in `~/.pi/agent/gentle-ai/managed-assets.json` and the hooks in
 `~/.claude/settings.json`. The kit writes to neither. Every path an installer touches is inside the
-target repo: `.claude/`, `.pi/`, `.mcp.json`, `.git/info/exclude`. Nothing is installed globally, so
+target repo: `.claude/`, `.pi/`, `.agents/plugins/metodo/`, `.mcp.json`, `.git/info/exclude`. Nothing is installed globally, so
 removing the kit from a repo cannot take a gentle-ai asset with it.
 
 Two receipt systems in one repo need one of them to be the authority, and that is a decision, not a

@@ -1,5 +1,6 @@
 {
   "caps": {
+    "00-principles/agy-adapter.md": 80,
     "00-principles/runtime-adapters.md": 120,
     "00-principles/why-layer.md": 120,
     "00-principles/model-routing.md": 60,

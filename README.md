@@ -138,7 +138,7 @@ installed. `05-adopt/checklist.md` marks every adoption item as done by init or 
 |---|---|---|---|
 | Claude Code, pi | agents, skills, MCP server, hooks, budget, output check | instruction file | pi: the output check records, never blocks |
 | Codex CLI | none | MCP, skills, role TOMLs, `codex exec` per role, hooks | path guard (`apply_patch`), owner `ask`, budget |
-| Antigravity (App, `agy`) | none | MCP, skills, role agents, `agy -p` per role | every kit guard, budget, output check |
+| Antigravity CLI (`agy`) | opt-in `--runtime agy`: one workspace plugin with agents, skills, MCP server, hooks through a bridge, budget, output check (`00-principles/agy-adapter.md`) | instruction file, the MCP allow rule for headless runs, `agy -p` per role | warn lines stay in the ledger and never reach the model; tool-output filter; a live subagent write deny (not reachable on agy 1.4.7) |
 | OpenCode | none | MCP (`metodo_*` names), skills, subagents, `edit` denies | Python guards (plugin not written), output check |
 
 Local models (Ollama, LM Studio, llama.cpp) run small-tier roles only, for offline or privacy repos, and
@@ -298,7 +298,8 @@ change runs scripts only. See `docs/04-review.md`.
 (`docs/07-adoption.md`), and humans own every gate.
 
 **Which AI tools does the kit support?** Claude Code and pi are installed by the kit from one source
-(`00-principles/runtime-adapters.md`). Codex CLI, Antigravity and OpenCode work by hand with fewer guards, and
+(`00-principles/runtime-adapters.md`), and Google Antigravity's CLI `agy` on request, with stated limits
+(`--runtime agy`, `00-principles/agy-adapter.md`). Codex CLI and OpenCode work by hand with fewer guards, and
 local models only in the small tier (`docs/08-harnesses.md`). Other providers' models are admitted per role
 only after a measured trial (`00-principles/multi-provider-routing.md`).
 

@@ -1,29 +1,31 @@
 # Using the kit with other harnesses and local models
 
-The kit installs itself for Claude Code and pi (`03-tools/bin/init.sh`). This page says what works on Codex
-CLI, Google Antigravity and OpenCode by hand, with no installer (owner decision L2, `odd/tasks/harness-guides.md`),
-and how to run local models. Read the matrix, then the section for your harness and what it leaves unenforced.
+The kit installs itself for Claude Code and pi (`03-tools/bin/init.sh`) and, on request, for Google Antigravity's
+CLI `agy` (`--runtime agy`; owner decision L1, `odd/tasks/agy-adapter.md`). This page says what works on Codex CLI
+and OpenCode by hand, with no installer (owner decision L2, `odd/tasks/harness-guides.md`), what the agy adapter
+leaves to the owner, and how to run local models. Read the matrix, then your harness and what it leaves unenforced.
 
 Tags: **[Measured]** seen in a local `--help` or command on 2026-10-18 (codex-cli 0.154.0, agy 1.3.5, opencode
-1.18.25, pi 1.3.0); **[Documented]** an official page says so (id in the dossier); **[Unverified]** never run
+1.18.25, pi 1.3.0) or, where the line says 1.4.7, on agy 1.4.7 on 2026-10-26 with the kit's Spanish tree, not
+re-measured on this one; **[Documented]** an official page says so (id in the dossier); **[Unverified]** never run
 end to end here, or inferred. `<kit>` = this checkout, `<tools>` = the tools instance, `<repo>` = the target.
 
 ## Support matrix
 
 ✅ the kit installer sets it up · 🟡 manual steps on this page · ❌ not available (or unsafe as is).
-Sources: RA = `00-principles/runtime-adapters.md`; CX, AG, OC = the Codex, Antigravity, OpenCode dossiers;
-LO = `odd/research/model-router/local.md`; RM = `odd/research/model-router/routing-method.md`.
+Sources: RA = `00-principles/runtime-adapters.md`; AA = `00-principles/agy-adapter.md`; CX, AG, OC = the Codex,
+Antigravity, OpenCode dossiers; LO = `odd/research/model-router/local.md`; RM = `odd/research/model-router/routing-method.md`.
 
-| Kit element | Claude Code | pi | Codex CLI | Antigravity (App / CLI `agy`) | OpenCode |
+| Kit element | Claude Code | pi | Codex CLI | Antigravity CLI `agy` (opt-in `--runtime agy`) | OpenCode |
 |---|---|---|---|---|---|
-| Instruction file | 🟡 the repo's `CLAUDE.md`; the kit writes none | 🟡 the repo's `AGENTS.md` or `CLAUDE.md` | 🟡 `AGENTS.md`, read automatically (CX §1) | 🟡 `AGENTS.md` or `GEMINI.md` (AG §2) | 🟡 `AGENTS.md` plus `instructions` (OC §1) |
-| Skills | ✅ `.claude/skills/` (RA §2) | ✅ `.pi/skills/` (RA §2) | 🟡 `.agents/skills` (CX §1, §2.3) | 🟡 `.agents/skills/` (AG §2) | 🟡 reads `.claude/skills/` (OC §1) |
-| `metodo` MCP server | ✅ `.mcp.json` (RA §2) | ✅ `.mcp.json` + `.pi/mcp.json` (RA §2) | 🟡 `.codex/config.toml` (CX §2.1) | 🟡 `.agents/mcp_config.json` (AG §3) | 🟡 `opencode.json`; tools named `metodo_<tool>` (OC §2.1) |
-| Role agents with model + effort | ✅ `.claude/agents/`, model pinned (RA §2) | ✅ `.pi/agents/`; model and effort per launch (RA §2, RM §6) | 🟡 `.codex/agents/*.toml` (CX §2.3) | 🟡 `.agents/agents/`; model tier only, effort per process (AG §2) | 🟡 `.opencode/agents/*.md`, `model` + `variant` (OC §2.3) |
+| Instruction file | 🟡 the repo's `CLAUDE.md`; the kit writes none | 🟡 the repo's `AGENTS.md` or `CLAUDE.md` | 🟡 `AGENTS.md`, read automatically (CX §1) | 🟡 `AGENTS.md` or `GEMINI.md` (AG §2); ✅ a plugin rule naming the kit's tools (AA §1) | 🟡 `AGENTS.md` plus `instructions` (OC §1) |
+| Skills | ✅ `.claude/skills/` (RA §2) | ✅ `.pi/skills/` (RA §2) | 🟡 `.agents/skills` (CX §1, §2.3) | ✅ the plugin's `skills/` (AA §1) | 🟡 reads `.claude/skills/` (OC §1) |
+| `metodo` MCP server | ✅ `.mcp.json` (RA §2) | ✅ `.mcp.json` + `.pi/mcp.json` (RA §2) | 🟡 `.codex/config.toml` (CX §2.1) | ✅ the plugin's `mcp_config.json`, named `metodo_metodo`; 🟡 an allow rule for headless runs (AA §4) | 🟡 `opencode.json`; tools named `metodo_<tool>` (OC §2.1) |
+| Role agents with model + effort | ✅ `.claude/agents/`, model pinned (RA §2) | ✅ `.pi/agents/`; model and effort per launch (RA §2, RM §6) | 🟡 `.codex/agents/*.toml` (CX §2.3) | ✅ the plugin's `agents/`; model tier only, effort per process (AA §1, AG §2) | 🟡 `.opencode/agents/*.md`, `model` + `variant` (OC §2.3) |
 | Router roster at launch | ✅ `mcp__metodo__route` (RM §6) | ✅ same tool; `pi --model` (RM §6) | 🟡 one `codex exec` per role (CX §2.4) | 🟡 one `agy -p` per role (AG §3) | 🟡 `opencode run` per role (OC §2.6) |
-| Guard hooks | ✅ seven hooks (RA §2) | ✅ `.pi/extensions/metodo-hooks.ts` (RA §2) | 🟡 gates and Bash log; path guard ❌ (CX §2.5) | ❌ payload differs (AG §3, §5) | 🟡 `permission.edit` denies; Python guards ❌ (OC §2.4, §2.5) |
-| Per-subagent budget | ✅ `budget.py` (RA §2) | ✅ one counter per subagent (RA §2) | ❌ no per-agent cap known (CX §1) | ❌ no role in the payload (AG §2) | 🟡 `steps` caps turns, not tool calls (OC §1) |
-| Output check on close | ✅ blocks once (RA §2) | ✅ recorded, cannot block (RA §2) | 🟡 `SubagentStop` entry, unverified (CX §2.5) | ❌ no SubagentStop (AG §2) | ❌ no blocking check (OC §1) |
+| Guard hooks | ✅ seven hooks (RA §2) | ✅ `.pi/extensions/metodo-hooks.ts` (RA §2) | 🟡 gates and Bash log; path guard ❌ (CX §2.5) | ✅ the same scripts through `hooks/agy/bridge.py`; warn lines stay in the ledger, tool-output filter ❌ (AA §2, §3) | 🟡 `permission.edit` denies; Python guards ❌ (OC §2.4, §2.5) |
+| Per-subagent budget | ✅ `budget.py` (RA §2) | ✅ one counter per subagent (RA §2) | ❌ no per-agent cap known (CX §1) | ✅ `budget.py`, with the role the bridge resolves (AA §2) | 🟡 `steps` caps turns, not tool calls (OC §1) |
+| Output check on close | ✅ blocks once (RA §2) | ✅ recorded, cannot block (RA §2) | 🟡 `SubagentStop` entry, unverified (CX §2.5) | ✅ on Stop inside the subagent; a live send-back was never measured (AA §2, §3) | ❌ no blocking check (OC §1) |
 | Local models | ❌ unsupported by Anthropic; avoid (LO §3, §4) | 🟡 `models.json` provider (LO §3) | 🟡 `--oss` (CX §3) | ❌ App/CLI; Python SDK only (AG §4) | 🟡 custom provider (OC §3) |
 
 Checkers, receipts and memory run in the kit's scripts and MCP server, so every 🟡 harness keeps them (OC §1).
@@ -88,54 +90,46 @@ Add every path you create to `<repo>/.git/info/exclude`, as the installers do (R
 - Hook trust is per hash: untrusted hooks are skipped, so a headless `codex exec` may run unguarded after a kit
   update [Unverified]. `--dangerously-bypass-hook-trust` exists [Measured]; that is the owner's call.
 
-## Google Antigravity (App and CLI `agy`)
+## Google Antigravity (CLI `agy`)
 
-App and `agy` share one harness and settings; the IDE has no custom subagents; Gemini 4 Argon needs a paid
-plan and is absent from the IDE (AG §1). Every step below is [Unverified] end to end.
+The kit has an adapter for `agy`: `03-tools/bin/init.sh <repo> --runtime agy` (or `install.sh <repo> --runtime
+agy`) writes one workspace plugin, `<repo>/.agents/plugins/metodo/`, holding the roles as subagents, the skills,
+the `metodo` MCP server, a rule and the guard hooks, which a bridge runs on the same Python scripts as Claude
+Code. It is opt-in, never part of `--runtime all`, and writes nothing under `~/.gemini/`. Shape, bridge, limits
+and evidence: `00-principles/agy-adapter.md` (AA). The adapter ran end to end on agy 1.4.7 with the kit's Spanish
+tree; this tree's installer and bridge are covered by tests and never ran against a live agy [Unverified].
 
-1. **Instruction file**: `AGENTS.md` (or `GEMINI.md`) at the root, at most 24,000 bytes, no frontmatter
+What stays by hand:
+
+1. **Restart agy** in the repo after install: a new plugin folder loads on the next start (AA §4).
+2. **Allow the kit's MCP server for headless runs.** MCP tools default to Ask [Documented, A4, A11, A13] and
+   `agy -p` denied the kit's `call_mcp_tool` [Measured, 1.4.7]. The allow rule lives in agy's own settings under
+   `~/.gemini/`, which the kit never writes: the owner's decision (AA §4).
+3. **Instruction file**: `AGENTS.md` (or `GEMINI.md`) at the root, at most 24,000 bytes, no frontmatter
    [Documented, A5]. Plain `@file` does not inline; `@[identity](<path>)` does [Documented; Unverified here].
-2. **Register `metodo`** in `<repo>/.agents/mcp_config.json`, literal absolute paths, no `"type"` key
-   [Documented, A4]:
-   ```json
-   {"mcpServers": {"metodo": {"command": "python3", "args": ["<tools>/mcp/server.py"],
-     "env": {"METODO_TOOLS": "<tools>", "METODO_REPO": "<repo>"}, "cwd": "<repo>"}}}
-   ```
-   Check with `/mcp`. MCP tools default to Ask, soft-denied under `agy -p`; allowing `"mcp(metodo/*)"` is a global
-   setting, the owner's decision [Documented, A4, A11, A13]. `agy mcp add` has no scope flag [Measured].
-3. **Skills**: copy each kit skill folder to `<repo>/.agents/skills/<name>/` [Documented, A6].
-4. **One role as an agent**, `<repo>/.agents/agents/generic-verifier/agent.md`: the `render_agents.py
-   --target pi` body under this frontmatter [Documented keys, A8, A9]:
-   ```yaml
-   ---
-   name: generic-verifier
-   description: Independent, clean-context executor - runs the battery a change card names and reports a verdict.
-   tools: [view_file, grep_search, find_by_name, list_dir, run_command]
-   model: flash
-   mainAgent: true
-   subagent: true
-   commandExecutionPolicy: sandbox
-   ---
-   ```
-   `model` is a tier (`inherit`, `flash`, `pro`), not an id. No `invoke_subagent`, to keep the no-spawn rule;
-   a misspelled tool name may hang the subagent [Documented, A8].
+4. **Writer roles**: a custom subagent got read tools and `call_mcp_tool`, no `edit_file` [Measured, 1.4.7], so
+   `generic-proposer` and `generic-mechanic` report a diff and the main session applies it (AA §4).
 5. **Apply the router's roster**: per `launch: "run"` entry with `provider: "google"`, one process
-   [Measured flags: `-p`, `--agent`, `--model`, `--output-format`, `--effort`]:
+   [Measured flags, 1.3.5: `-p`, `--agent`, `--model`, `--output-format`, `--effort`; `--agent` with a plugin
+   agent is Unverified]:
    ```bash
    agy -p "<brief>" --agent generic-verifier --model gemini-3.8-flash-medium --output-format json
    ```
    The id-plus-effort slug follows A11's list [Unverified pattern]; an unknown `--model` fails, never falls
-   back [Documented]. The small tier has no equivalent (no Flash-Lite, no effort below `low`). Check outputs
-   on the orchestrator side with `lib/round_output.py` and `lib/cite_check.py`.
+   back [Documented]. The small tier has no equivalent (no Flash-Lite, no effort below `low`). A role's own
+   `model` is a tier (`inherit`, `flash`, `pro`), not an id (AA §1).
 
-**What is NOT enforced on Antigravity.**
-- No kit guard. Do not wire `03-tools/hooks/*.py` into `.agents/hooks.json` as they are: the payload is
-  camelCase with other tool names (`write_to_file`, `run_command`), the scripts read `tool_input.file_path`
-  and fail open on unexpected input (`_common.py:4`), so they would silently allow everything (AG §3, §5).
-- No budget (no role in the payload), no output check (no SubagentStop event) (AG §2).
-- Nesting up to 10 levels against the kit's depth 1; only the `tools` allowlist stops a role from spawning.
-- Effort per role is session-wide. App/CLI MCP tool names are undocumented (the SDK uses
-  `mcp_{server_name}_{tool_name}`), so no receipt-gate matcher can be written [Unknown] (AG §5).
+**What is NOT enforced on Antigravity** (AA §3).
+- The kit's warn lines never reach the model: no output that reaches it without a decision was measured, so
+  `METODO-WARN` and the done gate's warn-first block stay in the ledger. A deny, an owner prompt and a
+  send-back are what the model sees.
+- No tool-output filter, no goal anchor on compact or resume, no SessionEnd event.
+- A live subagent write deny was not reachable on agy 1.4.7: the subagent had no `edit_file` [Measured, 1.4.7].
+  Whether a subagent can launch another is [Unknown], so the kit's depth 1 is proven through the bridge's tests
+  only (agy allows 10 levels of nesting [Documented, A8]).
+- Effort per role is session-wide (AG §2). Only the CLI was measured: whether the App loads the workspace
+  plugin is [Unknown], and the IDE has no custom subagents (AG §1).
+- The advisories left open by the adapter's verification, listed in AA §3.
 
 ## OpenCode (V1)
 
@@ -226,9 +220,10 @@ local entry stays `candidate` until a real run here passes the admission test of
 
 ## Known gaps
 
-- Nothing here ran end to end on Codex, Antigravity or OpenCode; each section is a manual recipe.
-- Guards: Codex needs `guard_paths.py` to parse `apply_patch`; Antigravity a payload adapter; OpenCode the
-  plugin sketched in OC §2.5. All new code, outside L2.
+- Nothing here ran end to end on Codex or OpenCode; each of those sections is a manual recipe. The agy adapter
+  ran end to end on the kit's Spanish tree (agy 1.4.7, 2026-10-26), not on this one.
+- Guards: Codex needs `guard_paths.py` to parse `apply_patch`; OpenCode the plugin sketched in OC §2.5. Both
+  new code, outside L2.
 - The default roster picks only admitted Anthropic models; OpenAI, Google and local entries are `candidate`
   and need the owner's OK (CX §2.4, AG §3).
 - `model-tiers.json` `harness.codex-cli` lists `sandbox` and `mcp_servers` as agent fields, which the Codex
@@ -236,4 +231,5 @@ local entry stays `candidate` until a real run here passes the admission test of
 
 Dossiers: [Codex CLI](../odd/research/harnesses/codex.md) · [Antigravity](../odd/research/harnesses/antigravity.md) ·
 [OpenCode](../odd/research/harnesses/opencode.md) · [local models](../odd/research/model-router/local.md) ·
-[routing §6](../odd/research/model-router/routing-method.md) · [runtime adapters](../00-principles/runtime-adapters.md).
+[routing §6](../odd/research/model-router/routing-method.md) · [runtime adapters](../00-principles/runtime-adapters.md) ·
+[agy adapter](../00-principles/agy-adapter.md).
