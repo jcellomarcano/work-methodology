@@ -1,10 +1,10 @@
 {
-  "_comment": "External helpers bin/init.sh detects and suggests (lib/suggest.py). Commands are data: suggest.py never runs an install command, never writes a global file, and reads the global configs in detect.mcp_server.global only with --read-global-config. detect keys: binary (on PATH), probe (argv that must exit 0), version (argv, regex, min), config_flag (dotted key in <tools>/config/project.json that must be true), mcp_server (server key looked up in the repo-local files, and in the global ones only with the flag), status (read-only argv whose first line is appended to why). command keys: install (when the binary is missing), claude / pi (per runtime, when the entry is missing; all replaces both for --runtime all when present), config (when only config_flag fails), mcp (when only the MCP server is missing). Placeholders: <repo>, <tools>. verified=false marks a command that could not be checked on the authoring machine.",
+  "_comment": "External helpers bin/init.sh detects and suggests (lib/suggest.py). Commands are data: suggest.py never runs an install command, never writes a global file, and reads the global configs in detect.mcp_server.global only with --read-global-config. detect keys: binary (on PATH), probe (argv that must exit 0), version (argv, regex, min), config_flag (dotted key in <tools>/config/project.json that must be true), mcp_server (server key looked up in the repo-local files, and in the global ones only with the flag; each list may be {runtime: [files]}), status (read-only argv whose first line is appended to why). command keys: install (when the binary is missing), claude / pi / agy (per runtime, when the entry is missing; all replaces claude and pi for --runtime all when present), config (when only config_flag fails), mcp (when only the MCP server is missing). Placeholders: <repo>, <tools>. verified=false marks a command that could not be checked on the authoring machine.",
   "suggestions": [
     {
       "id": "engram",
       "why": "Persistent memory: lib/engram_bridge.py saves every finalized receipt and every handoff (topic keys metodo/receipt/<tree>, metodo/handoff/<round>/<role>), so later sessions can find what earlier ones concluded",
-      "runtimes": ["claude", "pi"],
+      "runtimes": ["claude", "pi", "agy"],
       "detect": {
         "binary": "engram",
         "config_flag": "memory.enabled"
@@ -21,26 +21,28 @@
     {
       "id": "context7",
       "why": "Up-to-date library documentation for the agents through MCP, instead of what the model remembers about an API",
-      "runtimes": ["claude", "pi"],
+      "runtimes": ["claude", "pi", "agy"],
       "detect": {
         "mcp_server": {
           "key": "context7",
-          "repo": [".mcp.json", ".pi/mcp.json"],
-          "global": ["~/.claude.json", "~/.pi/agent/mcp.json"]
+          "repo": {"claude": [".mcp.json", ".pi/mcp.json"], "pi": [".mcp.json", ".pi/mcp.json"], "agy": []},
+          "global": {"claude": ["~/.claude.json", "~/.pi/agent/mcp.json"], "pi": ["~/.claude.json", "~/.pi/agent/mcp.json"],
+                     "agy": ["~/.gemini/config/mcp_config.json"]}
         }
       },
       "command": {
         "claude": "claude mcp add --scope project context7 -- npx -y @upstash/context7-mcp",
         "pi": "add \"context7\": {\"command\": \"npx\", \"args\": [\"-y\", \"@upstash/context7-mcp\"]} under mcpServers in <repo>/.mcp.json (pi reads the same file)",
-        "all": "claude mcp add --scope project context7 -- npx -y @upstash/context7-mcp (writes <repo>/.mcp.json, which pi reads too)"
+        "all": "claude mcp add --scope project context7 -- npx -y @upstash/context7-mcp (writes <repo>/.mcp.json, which pi reads too)",
+        "agy": "agy mcp add context7 -- npx -y @upstash/context7-mcp (writes the global ~/.gemini/config/mcp_config.json: the owner's decision)"
       },
-      "source": "Context7 README (github.com/upstash/context7) for the npm package @upstash/context7-mcp; `claude mcp add --help` for the --scope / -- syntax; the package name was not checked against the npm registry",
+      "source": "Context7 README (github.com/upstash/context7) for the npm package @upstash/context7-mcp; `claude mcp add --help` for the --scope / -- syntax; `agy mcp add --help` (agy 1.4.7, read on the Spanish tree 2026-10-26) for the agy one; the package name was not checked against the npm registry",
       "verified": false
     },
     {
       "id": "gentle-ai",
       "why": "Its receipt-driven review can run beside the kit; config/project.json rdd.review_authority decides which one owns the review (00-principles/runtime-adapters.md section 4)",
-      "runtimes": ["claude", "pi"],
+      "runtimes": ["claude", "pi", "agy"],
       "detect": {
         "binary": "gentle-ai",
         "status": ["gentle-ai", "review", "mode", "status", "--cwd", "<repo>"]
@@ -54,7 +56,7 @@
     {
       "id": "gh",
       "why": "GitHub pull requests and review comments from the terminal; `gh pr create` / `gh pr merge` is what the kit's PR gate (hooks/guard_gates.py gate-pr) intercepts. The kit's own comment poster (lib/review_comment_post.py) targets Bitbucket, not GitHub",
-      "runtimes": ["claude", "pi"],
+      "runtimes": ["claude", "pi", "agy"],
       "detect": {
         "binary": "gh"
       },
@@ -67,7 +69,7 @@
     {
       "id": "java",
       "why": "Runs the vendored jars bin/fetch-tools.sh pins (detekt, PMD CPD for duplication and its calibration, ktlint); without it duplication falls back to a line-hash heuristic",
-      "runtimes": ["claude", "pi"],
+      "runtimes": ["claude", "pi", "agy"],
       "detect": {
         "binary": "java",
         "probe": ["java", "-version"]

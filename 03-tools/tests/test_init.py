@@ -341,6 +341,40 @@ class InitCheapTests(InitBase):
         self.assertEqual(before, tree_digest(self.tmp, skip_top=()))
         self.assertFalse((self.tmp / "inst").exists())
 
+    def test_dry_run_for_agy_plans_the_agy_install(self):
+        repo = self.make_repo(self.tmp / "repo", self.env)
+        proc = self.run_init(repo, self.tmp / "inst", self.tmp / "audit", self.env, "--dry-run", "--runtime", "agy")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("install.sh", proc.stdout)
+        self.assertIn("--runtime agy", proc.stdout)
+        self.assertFalse((repo / ".agents").exists())
+        self.assertFalse((self.tmp / "inst").exists())
+
+    def test_init_for_agy_installs_the_plugin_and_uninstall_removes_it(self):
+        repo = self.make_repo(self.tmp / "repo", self.env)
+        before = repo_state(repo, self.env)
+        proc = self.run_init(repo, self.tmp / "inst", self.tmp / "audit", self.env, "--runtime", "agy",
+                             "--no-baseline", "--no-smoke")
+        self.assertIn(proc.returncode, (0, 1), proc.stdout[-2000:] + proc.stderr[-2000:])
+        report = json.loads((self.tmp / "inst" / "out" / "init" / f"{before['head']}.json").read_text(encoding="utf-8"))
+        steps = {s["step"]: s for s in report["steps"]}
+        self.assertEqual(report["runtime"], "agy")
+        self.assertEqual(steps["install"]["status"], "done", steps["install"])
+        self.assertIn(".agents/plugins/metodo/", steps["install"]["detail"])
+        self.assertNotIn(".pi/", steps["install"]["detail"])
+        self.assertEqual(steps["doctor"]["status"], "done", steps["doctor"])
+        files = [p["file"] for p in report["pending_human_steps"]]
+        self.assertIn("<repo>/.agents/plugins/metodo/plugin.json", files)
+        self.assertNotIn("<repo>/.pi/extensions/metodo-hooks.ts", files)
+        self.assertTrue((repo / ".agents" / "plugins" / "metodo" / "plugin.json").is_file())
+        self.assertFalse((repo / ".claude").exists() or (repo / ".pi").exists() or (repo / ".mcp.json").exists())
+        self.assertEqual(sorted(p.name for p in (self.tmp / "home").iterdir()), [])
+
+        back = self.run_init(repo, self.tmp / "inst", self.tmp / "audit", self.env, "--uninstall", "--runtime", "agy")
+        self.assertEqual(back.returncode, 0, back.stdout[-2000:] + back.stderr[-2000:])
+        self.assertFalse((repo / ".agents").exists())
+        self.assertEqual(repo_state(repo, self.env), before)
+
     def test_scaffolds_never_overwrite(self):
         from lib import init_kit
         audit = self.tmp / "audit"

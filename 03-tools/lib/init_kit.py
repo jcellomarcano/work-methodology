@@ -31,11 +31,11 @@ pending human step naming its file. Personal assets are never copied
 --read-global-config.
 
 Usage:
-    lib/init_kit.py <repo> [--instance <dir>] [--audit <dir>] [--runtime claude|pi|all]
+    lib/init_kit.py <repo> [--instance <dir>] [--audit <dir>] [--runtime claude|pi|agy|all]
                     [--answers <json|file>] [--engram-project NAME] [--no-fetch] [--no-baseline]
                     [--no-smoke] [--read-global-config] [--dry-run]
     lib/init_kit.py <repo> --uninstall [--instance <dir>] [--audit <dir>] [--purge]
-                    [--runtime claude|pi|all] [--dry-run]
+                    [--runtime claude|pi|agy|all] [--dry-run]
 
 Defaults: --instance ~/<repo_name>-tools, --audit ~/<repo_name>-audit,
 --runtime all; repo_name comes from lib/detect_repo.py.
@@ -91,7 +91,7 @@ sys.path.insert(0, str(KIT_TOOLS))
 from lib import baseline, detect_repo, suggest  # noqa: E402
 
 SCHEMA_VERSION = "1.0.0"
-RUNTIMES = ("claude", "pi", "all")
+RUNTIMES = ("claude", "pi", "agy", "all")
 STEPS = ("preflight", "instance", "adapt", "scaffolds", "fetch", "calibrate", "install", "baseline", "map",
          "doctor", "smoke", "suggestions")
 SECTIONS = {1: "1. Declare", 2: "2. Write", 3: "3. Tools", 4: "4. People and gates", 5: "5. Start"}
@@ -462,8 +462,8 @@ class Init:
         for runtime in runtimes:
             if shutil.which(runtime) is None:
                 self.preflight_warns.append(f"{runtime} is not on PATH (runtime {runtime})")
-                self.preflight_fixes.append(f"install the {runtime} CLI, or pass --runtime "
-                                            f"{'pi' if runtime == 'claude' else 'claude'}")
+                other = "pi" if runtime == "claude" else "claude"
+                self.preflight_fixes.append(f"install the {runtime} CLI, or pass --runtime {other}")
 
     def plan(self) -> list[tuple[str, str]]:
         a, inst, kit, repo = self.args, self.instance, KIT_TOOLS, self.repo
@@ -668,11 +668,16 @@ class Init:
         if proc.code != 0:
             self.record("install", "fail", f"install.sh failed: {proc.last_line()}", fix)
             return
+        files = ".agents/plugins/metodo/" if self.args.runtime == "agy" else ".claude/, .pi/, .mcp.json"
         self.record("install", "done", f"kit installed in <repo> for runtime {self.args.runtime} with tools "
-                    "<instance> (local files only: .claude/, .pi/, .mcp.json, .git/info/exclude)")
+                    f"<instance> (local files only: {files}, .git/info/exclude)")
         if self.args.runtime in ("pi", "all"):
             self.todo(3, "trust the project in pi once (/trust, or --approve for one run) so it loads the guards "
                       "extension", "<repo>/.pi/extensions/metodo-hooks.ts")
+        if self.args.runtime == "agy":
+            self.todo(3, "start agy in the repo again so it loads the new workspace plugin, and keep it enabled "
+                      "(agy plugin list); check it with agy plugin validate --strict .agents/plugins/metodo",
+                      "<repo>/.agents/plugins/metodo/plugin.json")
 
     # -- 8 baseline
 
@@ -1227,7 +1232,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-baseline", action="store_true")
     parser.add_argument("--no-smoke", action="store_true")
     parser.add_argument("--read-global-config", action="store_true",
-                        help="let the suggestions test ~/.claude.json and ~/.pi/agent/mcp.json for an MCP server key")
+                        help="let the suggestions test the runtime's global MCP config (~/.claude.json, ~/.pi/agent/mcp.json, "
+                             "~/.gemini/config/mcp_config.json for agy) for a server key")
     parser.add_argument("--dry-run", action="store_true", help="print the planned steps; write nothing anywhere")
     parser.add_argument("--uninstall", action="store_true",
                         help="unplug the kit from the repo; the instance and the audit folder stay")

@@ -123,6 +123,36 @@ class SuggestTests(unittest.TestCase):
         self.assertNotIn("node", self.run_suggest(runtime="claude"))
         self.assertIn("node", self.run_suggest(runtime="pi"))
 
+    def test_agy_gets_its_own_commands_and_no_pi_only_helper(self):
+        got = self.run_suggest(runtime="agy")
+        self.assertNotIn("node", got)
+        self.assertIn("agy mcp add context7", got["context7"]["command"])
+        self.assertNotIn("claude mcp add", got["context7"]["command"])
+        for helper in ("engram", "gentle-ai", "gh", "java"):
+            self.assertIn(helper, got)
+
+    def test_all_still_means_claude_and_pi(self):
+        got = self.run_suggest(runtime="all")
+        self.assertNotIn("agy mcp add", got["context7"]["command"])
+        self.assertIn("claude mcp add", got["context7"]["command"])
+        self.assertEqual(self.suggest._runtimes("all"), ("claude", "pi"))
+
+    def test_agy_does_not_read_the_repo_mcp_json(self):
+        # agy loads MCP servers from its global config or a plugin, never from .mcp.json or .pi/mcp.json
+        (self.repo / ".mcp.json").write_text(json.dumps({"mcpServers": {"context7": {"command": "npx"}}}), encoding="utf-8")
+        self.assertEqual(self.run_suggest(runtime="claude")["context7"]["status"], "present")
+        self.assertEqual(self.run_suggest(runtime="pi")["context7"]["status"], "present")
+        got = self.run_suggest(runtime="agy")["context7"]
+        self.assertEqual(got["status"], "unknown")
+        self.assertNotIn("the repo's the repo", got["why"])
+        self.assertIn("~/.gemini/config/mcp_config.json", got["why"])
+
+    def test_cli_accepts_the_agy_runtime(self):
+        proc = subprocess.run([sys.executable, str(SUGGEST), str(self.repo), "--tools", str(self.tools), "--runtime", "agy"],
+                              capture_output=True, text=True, env=dict(os.environ, HOME=str(self.home)))
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertNotIn("node", [e["id"] for e in json.loads(proc.stdout)])
+
     def test_context7_in_repo_mcp_json_is_present(self):
         (self.repo / ".mcp.json").write_text(json.dumps({"mcpServers": {"context7": {"command": "npx"}}}), encoding="utf-8")
         self.assertEqual(self.run_suggest()["context7"]["status"], "present")
@@ -136,6 +166,25 @@ class SuggestTests(unittest.TestCase):
         payload = json.dumps({"mcpServers": {"context7": {"command": "npx", "env": {"TOKEN": "secret-value"}}}})
         (self.home / ".claude.json").write_text(payload, encoding="utf-8")
         (self.home / ".pi" / "agent" / "mcp.json").write_text(payload, encoding="utf-8")
+
+    def test_global_mcp_configs_are_read_per_runtime(self):
+        gemini = self.home / ".gemini" / "config" / "mcp_config.json"
+        gemini.parent.mkdir(parents=True)
+        gemini.write_text(json.dumps({"mcpServers": {"context7": {"command": "npx"}}}), encoding="utf-8")
+        self.assertEqual(self.run_suggest(read_global=True, runtime="claude")["context7"]["status"], "missing")
+        self.assertEqual(self.run_suggest(read_global=True, runtime="pi")["context7"]["status"], "missing")
+        self.assertEqual(self.run_suggest(read_global=True, runtime="all")["context7"]["status"], "missing")
+        self.assertEqual(self.run_suggest(read_global=True, runtime="agy")["context7"]["status"], "present")
+        self.assertNotIn(".gemini", self.run_suggest(runtime="claude")["context7"]["why"])
+        self.assertNotIn(".claude.json", self.run_suggest(runtime="agy")["context7"]["why"])
+
+    def test_a_plain_file_list_still_applies_to_every_runtime(self):
+        entries = [{"id": "x", "why": "w", "runtimes": ["claude", "pi", "agy"], "command": {"claude": "c", "agy": "a"},
+                    "detect": {"mcp_server": {"key": "x", "repo": [".mcp.json"], "global": ["~/.claude.json"]}}}]
+        (self.repo / ".mcp.json").write_text(json.dumps({"mcpServers": {"x": {}}}), encoding="utf-8")
+        for runtime in ("claude", "pi", "agy", "all"):
+            got = self.suggest.suggest(self.repo, self.tools, runtime, False, env=self.env, entries=entries)
+            self.assertEqual(got[0]["status"], "present", runtime)
 
     def test_global_configs_are_never_opened_without_the_flag(self):
         self._plant_global_context7()

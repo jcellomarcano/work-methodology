@@ -8,11 +8,11 @@
 # in. Thin wrapper over lib/init_kit.py, which holds the logic and the
 # report contract.
 #
-#   bin/init.sh <repo> [--instance <dir>] [--audit <dir>] [--runtime claude|pi|all]
+#   bin/init.sh <repo> [--instance <dir>] [--audit <dir>] [--runtime claude|pi|agy|all]
 #               [--answers <json|file>] [--engram-project NAME] [--no-fetch]
 #               [--no-baseline] [--no-smoke] [--read-global-config] [--dry-run]
 #   bin/init.sh <repo> --uninstall [--instance <dir>] [--audit <dir>] [--purge]
-#               [--runtime claude|pi|all] [--dry-run]
+#               [--runtime claude|pi|agy|all] [--dry-run]
 #
 # Defaults: --instance ~/<repo_name>-tools, --audit ~/<repo_name>-audit,
 # --runtime all. Report: <instance>/out/init/<repo_sha>.json (also on
@@ -31,9 +31,9 @@
 set -euo pipefail
 
 if [ $# -lt 1 ]; then
-  echo "usage: $0 <repo> [--instance <dir>] [--audit <dir>] [--runtime claude|pi|all] [--answers <json|file>]" >&2
+  echo "usage: $0 <repo> [--instance <dir>] [--audit <dir>] [--runtime claude|pi|agy|all] [--answers <json|file>]" >&2
   echo "          [--engram-project NAME] [--no-fetch] [--no-baseline] [--no-smoke] [--read-global-config] [--dry-run]" >&2
-  echo "       $0 <repo> --uninstall [--instance <dir>] [--audit <dir>] [--purge] [--runtime claude|pi|all] [--dry-run]" >&2
+  echo "       $0 <repo> --uninstall [--instance <dir>] [--audit <dir>] [--purge] [--runtime claude|pi|agy|all] [--dry-run]" >&2
   exit 2
 fi
 

@@ -3,12 +3,14 @@
 # one source of truth (01-roles/agents/, 02-skills/, 03-tools/lib/,
 # 03-tools/mcp/server.py); this script only picks the adapters that render it.
 #
-#   bin/install.sh <repo> [--runtime claude|pi|all] [--tools <dir>]
+#   bin/install.sh <repo> [--runtime claude|pi|agy|all] [--tools <dir>]
 #                         [--engram-project NAME]
-#   bin/install.sh <repo> --uninstall [--runtime claude|pi|all] [--tools <dir>]
+#   bin/install.sh <repo> --uninstall [--runtime claude|pi|agy|all] [--tools <dir>]
 #
 # --runtime           default all. claude delegates to install-claude.sh, pi to
-#                     install-pi.sh; all runs both, in that order.
+#                     install-pi.sh, agy to install-agy.sh; all runs claude and
+#                     pi, in that order (agy is opt-in: it is named explicitly,
+#                     for --uninstall too).
 # --tools <dir>       tools root the hooks, the extension and the server will
 #                     use in that repo; defaults to this kit. Passed through.
 # --engram-project N  writes memory.engram_project in the tools instance's
@@ -22,7 +24,7 @@
 set -euo pipefail
 
 if [ $# -lt 1 ]; then
-  echo "usage: $0 <repo> [--runtime claude|pi|all] [--tools <dir>] [--engram-project NAME] [--uninstall]" >&2
+  echo "usage: $0 <repo> [--runtime claude|pi|agy|all] [--tools <dir>] [--engram-project NAME] [--uninstall]" >&2
   exit 2
 fi
 
@@ -62,8 +64,8 @@ if [ "$UNINSTALL" = "1" ]; then
 fi
 
 case "$RUNTIME" in
-  claude|pi|all) ;;
-  *) echo "unknown runtime: $RUNTIME (claude, pi, all)" >&2; exit 2;;
+  claude|pi|agy|all) ;;
+  *) echo "unknown runtime: $RUNTIME (claude, pi, agy, all)" >&2; exit 2;;
 esac
 
 if [ -n "$ENGRAM_PROJECT" ]; then
@@ -94,4 +96,10 @@ if [ "$RUNTIME" = "pi" ] || [ "$RUNTIME" = "all" ]; then
   echo
   echo "############ pi ############"
   bash "$SCRIPT_DIR/install-pi.sh" "$REPO" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}
+fi
+
+if [ "$RUNTIME" = "agy" ]; then
+  echo
+  echo "############ agy ############"
+  bash "$SCRIPT_DIR/install-agy.sh" "$REPO" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}
 fi

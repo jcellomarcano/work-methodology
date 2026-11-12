@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 """Wiring doctor: proves the kit is installed in a target repo and responds,
-for Claude Code and pi, and names the exact fix for every missing piece.
+for Claude Code, pi and agy, and names the exact fix for every missing piece.
 
 Usage:
-    lib/doctor.py <repo> [--tools <tools-root>] [--runtime claude|pi|all] [--out <file>] [--table]
-    lib/doctor.py <repo> --absent [--runtime claude|pi|all] [--out <file>] [--table]
+    lib/doctor.py <repo> [--tools <tools-root>] [--runtime claude|pi|agy|all] [--out <file>] [--table]
+    lib/doctor.py <repo> --absent [--runtime claude|pi|agy|all] [--out <file>] [--table]
 
 --tools    tools root the repo was installed against (default: this kit's 03-tools).
---runtime  default all. claude.* checks run for claude/all, pi.* for pi/all, the rest always.
+--runtime  default all. claude.* checks run for claude/all, pi.* for pi/all, agy.* for agy
+           only (agy is opt-in: `all` is claude and pi), the rest always. With agy,
+           git.exclude checks the plugin folder's line instead of .mcp.json's.
 --out      also writes the JSON report to that file.
 --table    prints a short human table on stdout instead of the JSON.
 --absent   inverts the wiring checks into an absence report (after
            bin/install.sh <repo> --uninstall): PASS when no kit agent, skill,
-           hook, MCP entry, pi extension or override remains in the repo, FAIL
+           hook, MCP entry, pi extension or override, or agy plugin file remains in the repo, FAIL
            per remaining item with its fix. Envelope {schema_version, mode:
            "absent", repo_sha, runtime, verdict, kit_absent, summary,
            placeholders, checks}; exit 0 when kit_absent, 1 otherwise. The
@@ -49,7 +51,7 @@ from pathlib import Path
 KIT_TOOLS = Path(__file__).resolve().parent.parent
 # Same header version as lib/baseline.py's SCHEMA_VERSION.
 SCHEMA_VERSION = "1.0.0"
-RUNTIMES = ("claude", "pi", "all")
+RUNTIMES = ("claude", "pi", "agy", "all")
 STATUSES = ("PASS", "WARN", "FAIL", "SKIP")
 HOOK_MARKER = ": metodo-hook;"
 TOOLS_TOKEN = "__TOOLS_DEFAULT__"
@@ -65,7 +67,12 @@ REQUIRED_ALWAYS = ("repo.git", "tools.layout", "config.project", "hooks.fire", "
 REQUIRED_BY_RUNTIME = {
     "claude": ("claude.agents", "claude.skills", "claude.mcp", "claude.hooks"),
     "pi": ("pi.agents", "pi.skills", "pi.mcp", "pi.extension"),
+    "agy": ("agy.agents", "agy.skills", "agy.mcp", "agy.hooks"),
 }
+# Agent-config folders: untracked content there does not make the repo dirty.
+AGENT_CONFIG_DIRS = (".claude", ".agents")
+# bin/install-agy.sh puts the whole kit in one agy workspace plugin.
+AGY_PLUGIN = ".agents/plugins/metodo"
 
 # The same awk install-pi.sh runs over install-claude.sh's SKILLS=( ... ) array.
 _SKILLS_AWK = r'/^SKILLS=\(/{f=1;next} f&&/^\)/{exit} f{gsub(/[ \t]/,"");if($0!="")print}'
@@ -92,15 +99,16 @@ def _real(path: os.PathLike | str) -> str:
 
 
 def _is_dirty(repo: Path) -> bool:
-    """Same rule as lib/baseline.is_repo_dirty: anything reported by
-    `git status --porcelain` outside .claude/ (agent worktrees) counts."""
+    """lib/baseline.is_repo_dirty's rule, plus agy's folder: anything reported
+    by `git status --porcelain` outside the agent-config folders .claude/
+    (agent worktrees) and .agents/ (agy's workspace folder) counts."""
     out = _git(repo, "status", "--porcelain")
     for line in out.stdout.splitlines():
         if not line.strip():
             continue
         path = line[3:] if len(line) > 3 else line.strip()
         path = path.split(" -> ")[-1].strip().strip('"')
-        if path == ".claude" or path.startswith(".claude/") or "/.claude/" in path:
+        if any(path == top or path.startswith(top + "/") or f"/{top}/" in path for top in AGENT_CONFIG_DIRS):
             continue
         return True
     return False
@@ -294,18 +302,18 @@ def _check_skills(ctx: Ctx, check_id: str, dst_rel: str, runtime: str) -> dict:
     return _check(check_id, "PASS", f"{len(skills)} skills under {dst_rel}/")
 
 
-def _mcp_problems(ctx: Ctx) -> tuple[list[str], str]:
-    """Problems with .mcp.json's metodo entry and the server it starts; and a PASS detail."""
-    path = ctx.repo / ".mcp.json"
+def _mcp_problems(ctx: Ctx, rel: str = ".mcp.json") -> tuple[list[str], str]:
+    """Problems with <rel>'s metodo entry and the server it starts; and a PASS detail."""
+    path = ctx.repo / rel
     if not path.is_file():
-        return [".mcp.json is missing"], ""
+        return [f"{rel} is missing"], ""
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return [".mcp.json does not parse"], ""
+        return [f"{rel} does not parse"], ""
     entry = ((data or {}).get("mcpServers") or {}).get("metodo") if isinstance(data, dict) else None
     if not isinstance(entry, dict):
-        return [".mcp.json has no mcpServers.metodo"], ""
+        return [f"{rel} has no mcpServers.metodo"], ""
     args = entry.get("args") or []
     if not args:
         return ["mcpServers.metodo has no server path in args"], ""
@@ -343,6 +351,34 @@ def check_pi_mcp(ctx: Ctx) -> dict:
     if problems:
         return _check("pi.mcp", "FAIL", "; ".join(problems), ctx.install_fix("pi"))
     return _check("pi.mcp", "PASS", detail + ', toolPrefix "mcp"')
+
+
+def check_agy_mcp(ctx: Ctx) -> dict:
+    problems, detail = _mcp_problems(ctx, f"{AGY_PLUGIN}/mcp_config.json")
+    if problems:
+        return _check("agy.mcp", "FAIL", "; ".join(problems), ctx.install_fix("agy"))
+    return _check("agy.mcp", "PASS", detail + f" (from {AGY_PLUGIN}/mcp_config.json)")
+
+
+def check_agy_hooks(ctx: Ctx) -> dict:
+    """The plugin manifest is there and hooks.json is <tools>/hooks/agy/hooks.json rendered for this repo."""
+    plugin = ctx.repo / AGY_PLUGIN
+    template = ctx.tools / "hooks" / "agy" / "hooks.json"
+    if not template.is_file():
+        return _check("agy.hooks", "FAIL", "<tools>/hooks/agy/hooks.json is missing", ctx.restore_tools_fix("hooks/agy/hooks.json"))
+    if not (plugin / "plugin.json").is_file():
+        return _check("agy.hooks", "FAIL", f"{AGY_PLUGIN}/plugin.json is missing: agy does not load the plugin", ctx.install_fix("agy"))
+    dst = plugin / "hooks.json"
+    if not dst.is_file():
+        return _check("agy.hooks", "FAIL", f"{AGY_PLUGIN}/hooks.json is missing", ctx.install_fix("agy"))
+    text = template.read_text(encoding="utf-8")
+    installed = dst.read_text(encoding="utf-8", errors="replace")
+    tools_forms = sorted({os.path.abspath(ctx.tools), ctx.tools_real})
+    repo_forms = sorted({os.path.abspath(ctx.repo), ctx.repo_real})
+    if any(installed == text.replace(TOOLS_TOKEN, t).replace(REPO_TOKEN, r) for t in tools_forms for r in repo_forms):
+        return _check("agy.hooks", "PASS", f"{AGY_PLUGIN}/hooks.json matches <tools>/hooks/agy/hooks.json")
+    return _check("agy.hooks", "FAIL", f"{AGY_PLUGIN}/hooks.json differs from <tools>/hooks/agy/hooks.json rendered for this repo",
+                  ctx.install_fix("agy"))
 
 
 def check_claude_hooks(ctx: Ctx) -> dict:
@@ -401,7 +437,9 @@ def check_hooks_fire(ctx: Ctx) -> dict:
 
 
 def check_git_exclude(ctx: Ctx) -> dict:
-    fix = 'echo .mcp.json >> "$(git -C <repo> rev-parse --path-format=absolute --git-common-dir)/info/exclude"'
+    # agy keeps its absolute local paths inside the plugin folder, not in .mcp.json
+    entry = AGY_PLUGIN if ctx.runtime == "agy" else ".mcp.json"
+    fix = f'echo {entry} >> "$(git -C <repo> rev-parse --path-format=absolute --git-common-dir)/info/exclude"'
     if not ctx.is_git:
         return _check("git.exclude", "SKIP", "no git repository (see repo.git)", fix)
     common = _git(ctx.repo, "rev-parse", "--git-common-dir").stdout.strip()
@@ -410,9 +448,9 @@ def check_git_exclude(ctx: Ctx) -> dict:
         lines = {l.strip() for l in (common_path / "info" / "exclude").read_text(encoding="utf-8").splitlines()}
     except OSError:
         lines = set()
-    if not lines & {".mcp.json", "/.mcp.json"}:
-        return _check("git.exclude", "FAIL", ".mcp.json (absolute local paths) is not in info/exclude", fix)
-    return _check("git.exclude", "PASS", ".mcp.json is in info/exclude")
+    if not lines & {entry, "/" + entry}:
+        return _check("git.exclude", "FAIL", f"{entry} (absolute local paths) is not in info/exclude", fix)
+    return _check("git.exclude", "PASS", f"{entry} is in info/exclude")
 
 
 def check_pi_extension(ctx: Ctx) -> dict:
@@ -543,7 +581,7 @@ def _is_personal(rel: str, name: str) -> bool:
 
 def check_personal_absent(ctx: Ctx) -> dict:
     found = []
-    for top in (".claude", ".pi"):
+    for top in (".claude", ".pi", ".agents"):
         root = ctx.repo / top
         if not root.is_dir():
             continue
@@ -560,7 +598,7 @@ def check_personal_absent(ctx: Ctx) -> dict:
     if found:
         return _check("personal.absent", "FAIL", "personal assets installed: " + ", ".join(found),
                       "rm -r -- " + " ".join(f"<repo>/{p}" for p in found))
-    return _check("personal.absent", "PASS", "no personal asset under .claude/ or .pi/")
+    return _check("personal.absent", "PASS", "no personal asset under .claude/, .pi/ or .agents/")
 
 
 # ---------------------------------------------------------------- report
@@ -582,6 +620,10 @@ def build_report(repo: Path, tools: Path, runtime: str) -> dict:
         checks += [_check_agents(ctx, "pi.agents", ".pi/agents", False, "pi"),
                    _check_skills(ctx, "pi.skills", ".pi/skills", "pi"),
                    check_pi_mcp(ctx), check_pi_extension(ctx)]
+    if "agy" in runtimes:
+        checks += [_check_agents(ctx, "agy.agents", f"{AGY_PLUGIN}/agents", False, "agy"),
+                   _check_skills(ctx, "agy.skills", f"{AGY_PLUGIN}/skills", "agy"),
+                   check_agy_mcp(ctx), check_agy_hooks(ctx)]
     checks.sort(key=lambda c: c["id"])
     required = sorted(set(REQUIRED_ALWAYS).union(*(REQUIRED_BY_RUNTIME[r] for r in runtimes)))
     by_id = {c["id"]: c for c in checks}
@@ -727,6 +769,13 @@ def _absent_pi_mcp(repo: Path, runtime: str) -> dict:
     return _check("pi.mcp", "PASS", "no metodo override in .pi/mcp.json; " + shared["detail"])
 
 
+def _absent_agy_files(repo: Path, check_id: str, names: tuple[str, ...]) -> dict:
+    left = [f"{AGY_PLUGIN}/{n}" for n in names if os.path.lexists(repo / AGY_PLUGIN / n)]
+    if left:
+        return _check(check_id, "FAIL", "kit plugin files remain: " + ", ".join(left), _uninstall_fix("agy"))
+    return _check(check_id, "PASS", f"no {', '.join(names)} under {AGY_PLUGIN}/")
+
+
 def build_absent_report(repo: Path, runtime: str) -> dict:
     head = _git(repo, "rev-parse", "--verify", "--quiet", "HEAD")
     repo_sha = head.stdout.strip() if head.returncode == 0 and head.stdout.strip() else None
@@ -741,6 +790,11 @@ def build_absent_report(repo: Path, runtime: str) -> dict:
         checks += [_absent_agents(repo, "pi.agents", ".pi/agents", False, "pi"),
                    _absent_skills(repo, "pi.skills", ".pi/skills", "pi"),
                    _absent_pi_extension(repo), _absent_pi_mcp(repo, "all" if runtime == "all" else "pi")]
+    if "agy" in runtimes:
+        checks += [_absent_agents(repo, "agy.agents", f"{AGY_PLUGIN}/agents", False, "agy"),
+                   _absent_skills(repo, "agy.skills", f"{AGY_PLUGIN}/skills", "agy"),
+                   _absent_agy_files(repo, "agy.hooks", ("plugin.json", "hooks.json", "rules/AGENTS.md")),
+                   _absent_agy_files(repo, "agy.mcp", ("mcp_config.json",))]
     checks.sort(key=lambda c: c["id"])
     summary = {s: sum(1 for c in checks if c["status"] == s) for s in STATUSES}
     return {

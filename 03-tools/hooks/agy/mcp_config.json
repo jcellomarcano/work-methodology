@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "metodo": {
+      "command": "python3",
+      "args": ["__TOOLS_DEFAULT__/mcp/server.py"],
+      "env": {"METODO_TOOLS": "__TOOLS_DEFAULT__", "METODO_REPO": "__REPO_DEFAULT__"}
+    }
+  }
+}

@@ -4,7 +4,7 @@
 # every FAIL. Thin wrapper over lib/doctor.py: writes the JSON report and
 # prints a short human table.
 #
-#   bin/doctor.sh <repo> [--tools <tools-root>] [--runtime claude|pi|all] [--out <file>] [--absent]
+#   bin/doctor.sh <repo> [--tools <tools-root>] [--runtime claude|pi|agy|all] [--out <file>] [--absent]
 #
 # --out     default <tools-root>/out/doctor/<repo_sha>.json (no-sha.json when the
 #           repo has no commit; <repo_sha>.absent.json with --absent). The report
@@ -16,7 +16,7 @@
 set -euo pipefail
 
 if [ $# -lt 1 ]; then
-  echo "usage: $0 <repo> [--tools <tools-root>] [--runtime claude|pi|all] [--out <file>] [--absent]" >&2
+  echo "usage: $0 <repo> [--tools <tools-root>] [--runtime claude|pi|agy|all] [--out <file>] [--absent]" >&2
   exit 2
 fi
 

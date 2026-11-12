@@ -12,13 +12,17 @@ command was `verified`). This module only interprets the rules:
   version      argv whose output carries a version >= min
   config_flag  a dotted key of <tools>/config/project.json that must be true
   mcp_server   a server key in the repo-local MCP files; the global files
-               (~/.claude.json, ~/.pi/agent/mcp.json) are opened ONLY with
+               (~/.claude.json, ~/.pi/agent/mcp.json, and for agy
+               ~/.gemini/config/mcp_config.json) are opened ONLY with
                --read-global-config, read-only, to test that one key: their
-               contents are never printed or stored
+               contents are never printed or stored. Each file list may be
+               {runtime: [files]}: only the files of the runtimes asked for
+               are looked at, since agy reads neither .mcp.json nor the
+               other runtimes' global configs
   status       a read-only argv whose first output line is appended to `why`
 
 Usage:
-    lib/suggest.py <repo> [--tools <tools-root>] [--runtime claude|pi|all] [--read-global-config]
+    lib/suggest.py <repo> [--tools <tools-root>] [--runtime claude|pi|agy|all] [--read-global-config]
 
 Output (stdout, sorted keys): [{id, status: present|missing|unknown, why, command|null}].
 `command` is null only when the helper is present; it keeps the placeholders
@@ -37,7 +41,7 @@ from pathlib import Path
 
 TOOLS_ROOT = Path(__file__).resolve().parent.parent
 DATA = TOOLS_ROOT / "config" / "suggestions.json"
-RUNTIMES = ("claude", "pi", "all")
+RUNTIMES = ("claude", "pi", "agy", "all")
 TIMEOUT = 20
 
 
@@ -47,6 +51,7 @@ def load_entries(path: Path = DATA) -> list[dict]:
 
 
 def _runtimes(runtime: str) -> tuple[str, ...]:
+    """agy is opt-in: `all` is claude and pi."""
     return ("claude", "pi") if runtime == "all" else (runtime,)
 
 
@@ -96,8 +101,19 @@ def _dotted(config: dict, key: str):
     return value
 
 
-def _check_mcp(rule: dict, repo: Path, read_global: bool, home: str) -> tuple[str, str]:
+def _files(value, runtime: str) -> list[str]:
+    """A file list, or {runtime: list}: the union for the runtimes asked, in order."""
+    if not isinstance(value, dict):
+        return list(value or [])
+    out: list[str] = []
+    for r in _runtimes(runtime):
+        out += [f for f in value.get(r, []) if f not in out]
+    return out
+
+
+def _check_mcp(rule: dict, repo: Path, read_global: bool, home: str, runtime: str = "all") -> tuple[str, str]:
     key = rule["key"]
+    rule = {**rule, "repo": _files(rule.get("repo"), runtime), "global": _files(rule.get("global"), runtime)}
     unreadable = []
     for rel in rule.get("repo", []):
         try:
@@ -106,8 +122,10 @@ def _check_mcp(rule: dict, repo: Path, read_global: bool, home: str) -> tuple[st
         except (OSError, ValueError):
             unreadable.append(rel)
     local = " or ".join(rule.get("repo", [])) or "the repo"
+    # a runtime may read no repo-local MCP file at all (agy)
+    in_repo = f"the repo's {local}" if rule.get("repo") else "the repo (this runtime reads no repo-local MCP file)"
     if not read_global:
-        return "unknown", (f"no {key} server in the repo's {local}; global configs not read "
+        return "unknown", (f"no {key} server in {in_repo}; global configs not read "
                            f"(pass --read-global-config to check {', '.join(rule.get('global', []))})")
     for shown in rule.get("global", []):
         path = Path(home + shown[1:]) if shown.startswith("~/") else Path(shown)
@@ -175,7 +193,7 @@ def evaluate(entry: dict, repo: Path, tools: Path | None, runtime: str, read_glo
             need_config = True
 
     if detect.get("mcp_server"):
-        state, reason = _check_mcp(detect["mcp_server"], repo, read_global, home)
+        state, reason = _check_mcp(detect["mcp_server"], repo, read_global, home, runtime)
         if state != "present":
             reasons.append(reason)
             need_runtime = True
@@ -226,7 +244,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--tools", default=None, help="tools root whose config/project.json is read")
     parser.add_argument("--runtime", choices=RUNTIMES, default="all")
     parser.add_argument("--read-global-config", action="store_true",
-                        help="also test ~/.claude.json and ~/.pi/agent/mcp.json for an MCP server key (read-only)")
+                        help="also test the runtime's global MCP config (~/.claude.json, ~/.pi/agent/mcp.json, "
+                             "~/.gemini/config/mcp_config.json for agy) for a server key (read-only)")
     args = parser.parse_args(argv)
     if not os.path.isdir(args.repo):
         print(f"suggest: not a directory: {args.repo}", file=sys.stderr)
