@@ -52,6 +52,11 @@ init writes a detected or answered value, the owner confirms it.
 - [ ] [init] `bin/fetch-tools.sh` (jars pinned by sha256; no package managers); skip with `--no-fetch`.
 - [ ] [init] First baseline: `bin/metrics.sh <repo> --save` on a clean tree (refuses a dirty one); skip with
       `--no-baseline`. On a dirty tree or a non-Gradle repo it stays [human].
+- [ ] [init] Measurement (step `bench`): `bin/bench.sh adopt` records the install time (the Measured
+      before/after boundary) and `collect` measures the repo's past Claude Code sessions; a SessionEnd hook
+      queues every new one. `--no-bench` skips the step and keeps the hook; `bench.enabled: false` in
+      `config/project.json` stops both; `--runtime pi` or `agy` skips the step, because the measurement is
+      Claude Code only. Later: `bin/bench.sh status|report <repo>`.
 - [ ] [init] Calibrate the duplication threshold once (`duplication_cpd.py --calibrate`), when PMD is fetched
       and `duplication-targets.json` lists candidates; otherwise [human].
 - [ ] [init] `bin/cartography.sh <repo>`: the first map; [human] review the boundary config it proposes.

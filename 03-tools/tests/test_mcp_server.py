@@ -78,6 +78,33 @@ class CatalogShapeTests(unittest.TestCase):
                 if "enum" in prop:
                     self.assertTrue(prop["enum"], tool.name)
 
+    def test_bench_report_is_a_job_over_bench_sh_with_the_report_json_as_summary(self):
+        # benchmark-port S8
+        spec = catalog.BY_NAME["bench_report"]
+        self.assertEqual(spec.mode, "job")
+        self.assertEqual(spec.input_schema["required"], [])
+        self.assertEqual(set(spec.input_schema["properties"]), {"repo"})
+        ctx = registry.Ctx(tools_root=TOOLS_ROOT, repo=None, project_config={})
+        repo = tempfile.mkdtemp(prefix="mcp-bench-")
+        self.addCleanup(shutil.rmtree, repo, True)
+        subprocess.run(["git", "init", "-q", repo], check=True)
+        argv = spec.argv({"repo": repo}, ctx)
+        self.assertEqual(argv[:3], ["bash", str(TOOLS_ROOT / "bin" / "bench.sh"), "report"])
+        self.assertEqual(Path(argv[3]).resolve(), Path(repo).resolve())
+        self.assertEqual(argv[4:], ["--tools", str(TOOLS_ROOT)])
+        self.assertEqual(spec.summary({"repo": repo}, ctx, "rid"),
+                         [TOOLS_ROOT / "out" / "bench" / "report" / "phase1-baseline.json"])
+
+    def test_the_tools_listed_before_bench_report_keep_their_names_and_order(self):
+        # benchmark-port S10: the new tool is the only change to the list
+        before = ("change_card_validate change_card_extract shape_metrics duplication dep_boundaries domain_invariants "
+                  "cartography clean_pass metrics_delta benchmark_release role_contract_validate output_validate "
+                  "output_write handoff_write comment_gate_measure comment_gate_verify brief_check docs_lint reply_lint "
+                  "pr_scope review_comment_lint test_sectors verify_sectors verify_commit job_status receipt_start "
+                  "receipt_status receipt_capture receipt_finalize receipt_acknowledge route done_check "
+                  "receipt_validate").split()
+        self.assertEqual([t.name for t in catalog.TOOLS if t.name != "bench_report"], before)
+
     def test_no_print_in_mcp_package(self):
         for path in (TOOLS_ROOT / "mcp").glob("*.py"):
             if path.name == "server.py":

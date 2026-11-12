@@ -13,13 +13,17 @@ over the repo they analyze: they never write or `git add` there). Python
   `verify-commit.sh`, `verify-sectors.sh`, `benchmark-release.sh`,
   `install.sh` (picks the runtimes), `install-claude.sh`, `install-pi.sh`,
   `install-agy.sh` (both read the skill list out of `install-claude.sh`),
-  `sync-instance.sh`, `adopt.sh`.
+  `sync-instance.sh`, `adopt.sh`, `bench.sh` (the benchmark inside an
+  instance: this repo's Claude Code sessions, measured).
 - `mcp/`: `metodo` MCP server (JSON-RPC over stdio, stdlib): `catalog.py` is
   the tool table; each one wraps a script from `lib/` or `bin/`.
 - `hooks/`: Claude Code hooks (path, gate and launch guards, budget, output
-  validation, session state, ledger); `hooks.settings.json` is what the
-  installer merges into `.claude/settings.local.json`. `hooks/pi/` and
-  `hooks/agy/` adapt the same scripts to pi and agy.
+  validation, session state, ledger, and `bench_queue.py`, which queues each
+  finished session for the benchmark on SessionEnd); `hooks.settings.json` is
+  what the installer merges into `.claude/settings.local.json`. `hooks/pi/`
+  and `hooks/agy/` adapt the same scripts to pi and agy; neither runs the
+  SessionEnd entry (the pi extension does not carry it, the agy bridge lists
+  it as exempt): the measurement reads Claude Code transcripts only.
 - `lib/`: one module per tool; `baseline.py` (I/O), `repo_scan.py` and
   `toolenv.py` are the common base; `worktree.sh` is the only lib in bash.
   `base_ref.py` is the one resolver of the repo's base ref (explicit, config
@@ -43,12 +47,23 @@ over the repo they analyze: they never write or `git add` there). Python
 
 ```bash
 bin/init.sh <repo> [--instance D] [--audit D] [--runtime claude|pi|agy|all] [--answers <json|file>]
-            [--engram-project NAME] [--no-fetch] [--no-baseline] [--no-smoke]
+            [--engram-project NAME] [--no-fetch] [--no-baseline] [--no-bench] [--no-smoke]
             [--read-global-config] [--dry-run]  # report: <instance>/out/init/<repo_sha>.json
+                                         # step `bench`, after `baseline`: `bench.sh adopt`, then `collect`;
+                                         # --no-bench skips that step only, the SessionEnd hook stays; on
+                                         # --runtime pi or agy the step is skipped (Claude Code only)
+bin/bench.sh collect|report|status|adopt <repo> [--tools D]   # measurement installed with the kit: rows in
+                                         # <instance>/out/bench/; a SessionEnd hook queues each session (Claude
+                                         # Code only); only bench.enabled: false in config/project.json stops it
+                                         # `report` is also the MCP tool bench_report (a job)
+bin/bench.sh ab <repo> <run|judge|report> [args] [--tools D]   # the A/B runner of <instance>/bench/lib
 bin/init.sh <repo> --uninstall [--instance D] [--audit D] [--purge] [--runtime claude|pi|agy|all] [--dry-run]
                                          # unplug: report <instance>/out/uninstall/<repo_sha>.json; instance and
                                          # audit stay; --purge deletes them only if untouched; exit 1 = kit left
-bin/doctor.sh <repo> [--tools D] [--runtime claude|pi|agy|all] [--out F]   # FAIL names its fix
+bin/doctor.sh <repo> [--tools D] [--runtime claude|pi|agy|all] [--out F]   # FAIL names its fix; bench.wired
+                                         # (PASS or WARN; not required) and bench.used (this repo's counts:
+                                         # sessions, hooks, agents, mcp, skills, engram) are SKIP on pi and agy,
+                                         # where nothing is measured
 bin/doctor.sh <repo> --absent [--runtime claude|pi|agy|all]   # after --uninstall: PASS = nothing left, kit_absent
 bin/smoke-loop.sh <repo> [--tools D] [--keep] [--out F]   # card -> receipt -> finalize, throwaway clone
 bin/kit-status.sh --check | --write [--allow-failing]   # README status block: --check is cheap (exit 1 =

@@ -22,7 +22,7 @@ allowed-tools: [Read, Bash]
 
 1. **Plan.** Run `bin/init.sh <repo> --dry-run` (writes nothing) and show the planned steps and any `preflight warnings` as printed. Exit 2: relay the message and stop.
 2. **Interview.** At least four rounds of questions (`00-principles/methodology.md` §4), collecting only what `--answers` accepts: `property_order`, `critical_properties`, `critical_paths`, `ticket_keys` (lists of strings) and `language` (a string). Propose detected values first, quoted as printed by `python3 lib/detect_repo.py <repo>` (read-only); the hierarchy, critical properties and critical paths are not detected, so ask. A key left out stays with detection and returns as a pending human step. End by asking whether they want more questions or to start.
-3. **Ask before writing.** Show the exact command with the flags agreed and wait for the owner's OK. Then run `bin/init.sh <repo> --answers '<json>' [--instance <dir>] [--audit <dir>] [--runtime claude|pi|all] [--engram-project NAME] [--no-fetch] [--no-baseline] [--no-smoke] [--read-global-config]`. `--answers` also takes a JSON file.
+3. **Ask before writing.** Show the exact command and wait for the owner's OK. Then run `bin/init.sh <repo> --answers '<json>' [--instance <dir>] [--audit <dir>] [--runtime claude|pi|agy|all] [--engram-project NAME] [--no-fetch] [--no-baseline] [--no-bench] [--no-smoke] [--read-global-config]`. `--answers` also takes a JSON file.
 4. **Relay the report.** Read `<instance>/out/init/<repo_sha>.json` (the stderr summary prints its path) and relay, verbatim:
    - every entry of `steps` whose `status` is not `done`, with its `detail` and `fix`;
    - `pending_human_steps` grouped by `section` (`1. Declare` … `5. Start`), each with its `file`;

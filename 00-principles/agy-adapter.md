@@ -41,7 +41,7 @@ Every entry of that file has a row here or a stated exemption [Tested, `test_agy
 | Stop in the owner's conversation | `done_gate.py` | the kit's Stop; the last reply is read from the transcript; `hooks.json` gives Stop 35 s because the done gate is a 30 s hook |
 | Stop inside a subagent | `validate_subagent_output.py`, then `done_gate.py` | the kit's SubagentStop, which agy does not have |
 | SessionStart in the owner's conversation | `session_start_status.py` | source `startup`; the status reached the model as a system message [Measured] |
-| exempt | `tool_output_filter.py` never runs | no measured field carries or replaces a command's output |
+| exempt | `tool_output_filter.py` and `bench_queue.py` never run | no measured field carries or replaces a command's output; agy has no SessionEnd event, and the benchmark reads Claude Code transcripts, which an agy session does not write |
 
 Decisions [Measured, three spike runs on a scratch repo]: an empty stdout is neutral; `{}` denies (a
 decision is required); a nonzero exit fails the tool; `allow` would skip agy's own permissions. So on a tool
@@ -62,7 +62,7 @@ that does not parse, is still a subagent (`agy-subagent`: subagent denies apply,
 |---|---|
 | The kit's warn lines do not reach the model | no output that reaches the model without a decision was measured (`{}` denies) [Unknown], so `METODO-WARN` lines and the done gate's warn-first `DONE-GATE:` block stay in the ledger only; the model sees a deny, an owner prompt, a BLOCK-mode send-back and the start status, nothing else |
 | No goal anchor on compact or resume | agy's SessionStart stdin names no source, so every start is sent as `startup` |
-| No tool-output filter, no SessionEnd event | the exemption above; agy has no SessionEnd [Measured] |
+| No tool-output filter, no session measurement | the two exemptions above; agy has no SessionEnd [Measured], so its sessions are never queued for the benchmark |
 | A live subagent write deny is not reachable on agy 1.4.7 | the custom subagent got read tools and `call_mcp_tool`, no `edit_file` [Measured]; the deny on `.agents/` and build files is [Tested] through the bridge only |
 | The launch gate inside a subagent is [Tested] only | whether an agy subagent has `invoke_subagent` at all is [Unknown] |
 | Headless MCP calls are denied | under `agy -p` agy's own permission denied the kit's `call_mcp_tool` [Measured]; `--mode auto` was unavailable for the measuring account [Measured]; see section 4 |

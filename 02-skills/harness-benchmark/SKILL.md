@@ -10,7 +10,7 @@ triggers:
   - compare review setups
   - compare models or effort
   - harness-benchmark
-allowed-tools: [Read, Bash]
+allowed-tools: [Read, Bash, mcp__metodo__bench_report, mcp__metodo__job_status]
 ---
 
 **IRON LAW**: never compare setups from one run or from impressions. Every number keeps its label
@@ -49,6 +49,18 @@ Vanilla install: copy this folder to `~/.claude/skills/harness-benchmark/` (or a
 4. Relay the report's "signal vs conclusion" line verbatim, with the n beside every comparison.
 
 Optional reading, only when the repo has it: `08-benchmark/protocols/`. The skill works without it.
+
+## In a repo with a kit instance
+
+Only there: `BENCH=<instance>/bin/bench.sh`, the instance being `METODO_TOOLS` in the repo's `.mcp.json`.
+
+- `bash "$BENCH" status <repo>`: adoption record, sessions measured, kit sessions, queue; measures nothing.
+- `bash "$BENCH" collect <repo>`: one line `{failed, measured, queue_left, skipped}`; relay `failed`.
+- `bash "$BENCH" report <repo>`, or `mcp__metodo__bench_report` and `mcp__metodo__job_status` until
+  `done`: its summary is `<instance>/out/bench/report/phase1-baseline.json`.
+
+Scope: Claude Code sessions only. `init.sh --no-bench` skips the install-time record and history
+collect but keeps the SessionEnd hook; only `bench.enabled: false` in the instance config stops it.
 
 ## What the model may add
 

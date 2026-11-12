@@ -24,7 +24,7 @@ agy (Google Antigravity CLI) is a third, opt-in adapter with its own matrix, lim
 | Agents | `.claude/agents/generic-*.md` with the Claude frontmatter [Measured] | `.pi/agents/generic-*.md`, tools mapped to pi built-ins [Measured, rendered and installed; no role run end to end] | same, side by side with `~/.pi/agent/agents/` [Unverified] |
 | Skills | `.claude/skills/<name>/` [Measured] | `.pi/skills/<name>/`, Agent Skills standard [Measured, installed; `allowed-tools` is ignored by pi] | same [Unverified] |
 | MCP tools | `.mcp.json`, names `mcp__metodo__*` [Measured] | same `.mcp.json` plus `toolPrefix: "mcp"` in `.pi/mcp.json` [Measured, `mcp__metodo__docs_lint` called and returned] | same [Unverified] |
-| Hooks and guards | nine hooks in `.claude/settings.local.json` (Stop and SubagentStop run only `done_gate.py`; reply lint off since D3) [Tested] | `.pi/extensions/metodo-hooks.ts` runs the same Python with the same matchers (`HOOK_MATRIX`, checked against `hooks.settings.json`) [Measured: a write to `build.gradle` was blocked and ledgered; Harness: matrix parity] | kit extension only; gentle-ai's hooks live in `~/.claude/settings.json` and are untouched [Unverified] |
+| Hooks and guards | ten hooks in `.claude/settings.local.json` (Stop and SubagentStop run only `done_gate.py`; reply lint off since D3; SessionEnd runs `bench_queue.py`, which queues the session for the benchmark, a Claude Code only measurement) [Tested] | `.pi/extensions/metodo-hooks.ts` runs the same Python with the same matchers (`HOOK_MATRIX`, checked against `hooks.settings.json`) [Measured: a write to `build.gradle` was blocked and ledgered; Harness: matrix parity]; the extension does not carry the SessionEnd entry, so a pi session is never queued or measured | kit extension only; gentle-ai's hooks live in `~/.claude/settings.json` and are untouched [Unverified] |
 | Receipt gate | `mcp__metodo__receipt_start/finalize/acknowledge` reach `guard_gates.py` [Tested, `test_hooks.py`] | same three names, plus the generic `mcp` proxy when an input string names a receipt tool; a subagent is denied [Harness; Unverified on a live pi] | same as pi [Unverified] |
 | Launch gate | `guard_spawn.py` on `Task\|Agent`: a kit role launching outside `may_spawn` is denied; a launch without a goal contract warns or blocks [Tested, `test_hooks.py`] | same script and matcher in `HOOK_MATRIX` [Harness: matrix parity; which pi tool launches a subagent is Unverified] | same as pi [Unverified] |
 | Subagent budget | `budget.py` denies the call past `max_tool_calls` [Measured] | same script on every tool call, one counter per subagent process; needs the role (section 2.1), else uncapped [Harness; Unverified on a live pi] | same as pi [Unverified] |
@@ -64,7 +64,7 @@ renders the roles with `render_agents.py`, copies the same skill list (read out 
 the two cannot drift), writes the shared `.mcp.json` with `mcp_config.py`, adds the `.pi/mcp.json` prefix
 override, installs the guards extension, and appends everything to `.git/info/exclude`.
 
-`bin/init.sh <repo>` wraps `install.sh` with the instance, adaptation, baseline, doctor and smoke.
+`bin/init.sh <repo>` wraps `install.sh` with the instance, adaptation, baseline, bench step, doctor and smoke.
 Unplug with `bin/init.sh <repo> --uninstall` (or `install.sh <repo> --uninstall`): only files byte-identical
 to the kit's render go, a modified one stays; `doctor.sh <repo> --absent` proves nothing is left.
 

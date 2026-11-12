@@ -23,7 +23,8 @@ Antigravity, OpenCode dossiers; LO = `odd/research/model-router/local.md`; RM = 
 | `metodo` MCP server | ✅ `.mcp.json` (RA §2) | ✅ `.mcp.json` + `.pi/mcp.json` (RA §2) | 🟡 `.codex/config.toml` (CX §2.1) | ✅ the plugin's `mcp_config.json`, named `metodo_metodo`; 🟡 an allow rule for headless runs (AA §4) | 🟡 `opencode.json`; tools named `metodo_<tool>` (OC §2.1) |
 | Role agents with model + effort | ✅ `.claude/agents/`, model pinned (RA §2) | ✅ `.pi/agents/`; model and effort per launch (RA §2, RM §6) | 🟡 `.codex/agents/*.toml` (CX §2.3) | ✅ the plugin's `agents/`; model tier only, effort per process (AA §1, AG §2) | 🟡 `.opencode/agents/*.md`, `model` + `variant` (OC §2.3) |
 | Router roster at launch | ✅ `mcp__metodo__route` (RM §6) | ✅ same tool; `pi --model` (RM §6) | 🟡 one `codex exec` per role (CX §2.4) | 🟡 one `agy -p` per role (AG §3) | 🟡 `opencode run` per role (OC §2.6) |
-| Guard hooks | ✅ seven hooks (RA §2) | ✅ `.pi/extensions/metodo-hooks.ts` (RA §2) | 🟡 gates and Bash log; path guard ❌ (CX §2.5) | ✅ the same scripts through `hooks/agy/bridge.py`; warn lines stay in the ledger, tool-output filter ❌ (AA §2, §3) | 🟡 `permission.edit` denies; Python guards ❌ (OC §2.4, §2.5) |
+| Guard hooks | ✅ ten hooks (RA §2) | ✅ `.pi/extensions/metodo-hooks.ts` (RA §2) | 🟡 gates and Bash log; path guard ❌ (CX §2.5) | ✅ the same scripts through `hooks/agy/bridge.py`; warn lines stay in the ledger, tool-output filter ❌ (AA §2, §3) | 🟡 `permission.edit` denies; Python guards ❌ (OC §2.4, §2.5) |
+| Session benchmark | ✅ SessionEnd queue, `bench.sh`, `bench_report` (RA §2) | ❌ the extension does not carry the entry (RA §2) | ❌ delete the entry (step 7 below) | ❌ exempt in the bridge (AA §2) | ❌ no entry; its transcripts are not read |
 | Per-subagent budget | ✅ `budget.py` (RA §2) | ✅ one counter per subagent (RA §2) | ❌ no per-agent cap known (CX §1) | ✅ `budget.py`, with the role the bridge resolves (AA §2) | 🟡 `steps` caps turns, not tool calls (OC §1) |
 | Output check on close | ✅ blocks once (RA §2) | ✅ recorded, cannot block (RA §2) | 🟡 `SubagentStop` entry, unverified (CX §2.5) | ✅ on Stop inside the subagent; a live send-back was never measured (AA §2, §3) | ❌ no blocking check (OC §1) |
 | Local models | ❌ unsupported by Anthropic; avoid (LO §3, §4) | 🟡 `models.json` provider (LO §3) | 🟡 `--oss` (CX §3) | ❌ App/CLI; Python SDK only (AG §4) | 🟡 custom provider (OC §3) |
@@ -76,8 +77,11 @@ Add every path you create to `<repo>/.git/info/exclude`, as the installers do (R
    the router escalate [Documented, CX §2.4]. The kit's schemas as `--output-schema`: [Unverified].
 7. **Guards**: `sed "s|__TOOLS_DEFAULT__|<tools>|g" <kit>/03-tools/hooks/hooks.settings.json >
    <repo>/.codex/hooks.json`, add a `SubagentStop` entry running `validate_subagent_output.py`, trust them in
-   `/hooks` [Documented shape; Unverified file]. Add `.codex/rules/metodo.rules` with `prefix_rule(pattern =
-   ["git", "push"], decision = "forbidden")` and the same for `["gh", "pr"]` [Documented, CX §2.5].
+   `/hooks` [Documented shape; Unverified file]. Delete the `SessionEnd` entry from the rendered file: its
+   script, `bench_queue.py`, queues the session for the benchmark, and the collector reads every queued file as
+   a Claude Code transcript and counts a queued session with no file as `failed`; Codex sessions are not
+   measured. Add `.codex/rules/metodo.rules` with `prefix_rule(pattern = ["git", "push"], decision =
+   "forbidden")` and the same for `["gh", "pr"]` [Documented, CX §2.5].
 
 **What is NOT enforced on Codex.**
 - The path guard lets every edit through: `guard_paths.py` reads `tool_input.file_path`
@@ -123,7 +127,8 @@ What stays by hand:
 - The kit's warn lines never reach the model: no output that reaches it without a decision was measured, so
   `METODO-WARN` and the done gate's warn-first block stay in the ledger. A deny, an owner prompt and a
   send-back are what the model sees.
-- No tool-output filter, no goal anchor on compact or resume, no SessionEnd event.
+- No tool-output filter, no goal anchor on compact or resume, no SessionEnd event: the bridge lists the
+  benchmark's `bench_queue.py` entry as exempt, so an agy session is never queued or measured (AA §2).
 - A live subagent write deny was not reachable on agy 1.4.7: the subagent had no `edit_file` [Measured, 1.4.7].
   Whether a subagent can launch another is [Unknown], so the kit's depth 1 is proven through the bridge's tests
   only (agy allows 10 levels of nesting [Documented, A8]).
