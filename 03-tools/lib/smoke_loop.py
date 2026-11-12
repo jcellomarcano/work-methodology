@@ -160,7 +160,7 @@ def _concretize(glob: str) -> str | None:
 
 
 def _risky(path: str, config: dict) -> bool:
-    shared = [p for p in rcv.always_forbidden_patterns(config) if ".claude" not in p]
+    shared = [p for p in rcv.always_forbidden_patterns(config) if p not in rcv.ALWAYS_FORBIDDEN_CLAUDE_GLOBS]
     critical = baseline.critical_paths(config)
     full = list((config.get("test_sectors") or {}).get("full_required_globs") or [])
     return (rdd_risk.matches_any(path, shared + full + list(rcv.ALWAYS_FORBIDDEN_CLAUDE_GLOBS))

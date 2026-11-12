@@ -66,6 +66,13 @@ class SelectTests(unittest.TestCase):
         self.assertTrue(result["full_required"])
         self.assertIn({"path": "settings.gradle", "rule": "shared_build_files"}, result["full_required_reasons"])
 
+    def test_agent_config_paths_are_not_shared_build_files(self):
+        # .claude/ and .agents/ are forbidden to subagents, not build files (.kt: .md would be exempt)
+        for path in (".agents/rules/team.kt", ".claude/agents/x.kt"):
+            with self.subTest(path=path):
+                result = ts.select(_changed(path), CONFIG)
+                self.assertNotIn({"path": path, "rule": "shared_build_files"}, result["full_required_reasons"])
+
     def test_full_globs_and_unmapped_force_full(self):
         for path in ("app/libs/x.aar", "app/proguard-rules.pro", "mystery/Z.kt"):
             result = ts.select(_changed(path), CONFIG)

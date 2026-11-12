@@ -73,7 +73,7 @@ def derive(inputs: dict, config: dict) -> dict:
     what_it_risks = inputs.get("what_it_risks")
     changed_lines = int(inputs.get("added") or 0) + int(inputs.get("removed") or 0)
     has_card = bool(inputs.get("has_change_card"))
-    shared_build = [p for p in rcv.always_forbidden_patterns(config) if ".claude" not in p]
+    shared_build = [p for p in rcv.always_forbidden_patterns(config) if p not in rcv.ALWAYS_FORBIDDEN_CLAUDE_GLOBS]
     critical_paths = baseline.critical_paths(config)
     reasons: list[str] = []
     owner_gate = False

@@ -6,7 +6,7 @@ dirty working tree) against <agent>.contract.json: FAIL if it touches
 anything in `forbidden_paths`, or if the contract/--scope-glob declare a
 `may_write` and the change falls outside that list. The project's shared
 build files (config/project.json: shared_build_files) and any path under
-`.claude/` are ALWAYS forbidden, whether the contract says so or not: no
+`.claude/` or `.agents/` are ALWAYS forbidden, whether the contract says so or not: no
 role edits them, not even the most permissive one. Without
 config/project.json available, the Gradle default glob set of
 lib/build_files.py is used so the validator still works outside an adapted
@@ -41,7 +41,8 @@ DEFAULT_PROJECT_CONFIG = TOOLS_ROOT / "config" / "project.json"
 # shared_build_files): every Gradle build file, as globs, so the validator
 # is never left with no default lock at all.
 DEFAULT_SHARED_BUILD_FILES = build_files.DEFAULT_SHARED_BUILD_FILES
-ALWAYS_FORBIDDEN_CLAUDE_GLOBS = (".claude/**", "**/.claude/**")
+# Agent runtime config: .claude/ (Claude Code) and .agents/ (agy).
+ALWAYS_FORBIDDEN_CLAUDE_GLOBS = (".claude/**", "**/.claude/**", ".agents/**", "**/.agents/**")
 
 
 def load_project_config(path: Path | None) -> dict:
@@ -53,7 +54,7 @@ def load_project_config(path: Path | None) -> dict:
 
 def always_forbidden_patterns(project_config: dict | None = None) -> list[str]:
     """shared_build_files from config/project.json (or the Gradle default
-    if there is no config, or the field is empty) + the .claude/ globs,
+    if there is no config, or the field is empty) + the .claude/ and .agents/ globs,
     always, no matter what the role contract says."""
     return build_files.shared_build_files(project_config) + list(ALWAYS_FORBIDDEN_CLAUDE_GLOBS)
 

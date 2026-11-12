@@ -112,6 +112,25 @@ class GuardPathsTests(HookFixture):
         out, _ = self.run_hook("guard_paths.py", self._edit(".claude/agents/x.md", agent_type="generic-proposer", agent_id="a1"))
         self.assertEqual(self.decision(out), "deny")
 
+    def test_subagent_on_agy_dir_is_denied_even_with_rdd_off(self):
+        # .agents/ is the agy workspace folder (plugin, hooks, rules): absolute, like .claude/
+        self.set_config(enabled=False)
+        for path in (".agents/plugins/metodo/hooks.json", "app/.agents/rules/team.md"):
+            with self.subTest(path=path):
+                out, _ = self.run_hook("guard_paths.py", self._edit(path, agent_type="generic-proposer", agent_id="a1"))
+                self.assertEqual(self.decision(out), "deny")
+                self.assertEqual(self.ledger()[-1]["kind"], "forbidden-path")
+                self.assertEqual(self.ledger()[-1]["path"], path)
+
+    def test_main_session_on_runtime_dirs_is_silent(self):
+        # the owner's own agent config is the owner's: no gate, no ledger line, same as before for .claude
+        for path in (".claude/agents/x.md", ".agents/plugins/metodo/hooks.json"):
+            with self.subTest(path=path):
+                out, proc = self.run_hook("guard_paths.py", self._edit(path))
+                self.assertEqual(out, {})
+                self.assertEqual(proc.stdout, "")
+        self.assertEqual(self.ledger(), [])
+
     def test_main_session_on_build_file_asks(self):
         out, _ = self.run_hook("guard_paths.py", self._edit("settings.gradle"))
         self.assertEqual(self.decision(out), "ask")

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """PreToolUse Edit|Write|MultiEdit. Absolute (always, even with RDD off): a
-subagent never touches shared build files or .claude/**; the main session
-gets `ask` on a build file. Non-absolute (warn|block mode): a subagent
-outside its may_write or the open receipt's scope.
+subagent never touches shared build files, .claude/** or .agents/**; the main
+session gets `ask` on a build file and no gate on its own agent config.
+Non-absolute (warn|block mode): a subagent outside its may_write or the open
+receipt's scope.
 
 Main-session writer warn (T7, S2 of odd/tasks/delegation-context.md): a
 main-session edit of a source path inside the repo (not exempt_globs,
@@ -143,9 +144,9 @@ def main() -> int:
     if hit is not None:
         if subagent:
             c.ledger(inp, HOOK, "forbidden-path", "deny", "block", f"matches {hit}", path=rel)
-            c.emit_pretool("deny", f"{rel} is a shared build file or .claude path: agents never edit it (methodology.md paragraph 4). Report it in your output instead.")
+            c.emit_pretool("deny", f"{rel} is a shared build file or agent-config path: agents never edit it (methodology.md paragraph 4). Report it in your output instead.")
             return 0
-        if ".claude" not in hit:
+        if hit not in c.CLAUDE_GLOBS:
             c.ledger(inp, HOOK, "forbidden-path", "ask", "block", f"matches {hit}", path=rel)
             c.emit_pretool("ask", f"{rel} is a shared build file: owner gate.")
             return 0

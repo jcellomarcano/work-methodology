@@ -38,6 +38,15 @@ class DecisionTableTests(unittest.TestCase):
         self.assertTrue(result["owner_gate"])
         self.assertEqual(result["consent"], "pending")
 
+    def test_agent_config_paths_are_not_shared_build_files(self):
+        # .claude/ and .agents/ are forbidden to subagents, not build files: no tier bump, no owner gate from them
+        for path in (".agents/rules/team.kt", ".agents/skills/x/SKILL.kt", ".claude/agents/x.kt"):
+            with self.subTest(path=path):
+                result = rdd_risk.derive(_inputs([path], what_it_risks="none"), CONFIG)
+                self.assertFalse(any("shared_build_files" in r for r in result["reasons"]), result["reasons"])
+                self.assertFalse(result["owner_gate"])
+                self.assertNotEqual(result["tier"], "high")
+
     def test_critical_path_is_high_even_with_cosmetic_card(self):
         # negative control: the change card says UX/none, the path wins
         result = rdd_risk.derive(_inputs(["booking/api/Foo.kt"], what_it_risks="none"), CONFIG)

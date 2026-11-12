@@ -90,7 +90,7 @@ def select(changed: list[dict], config: dict, projects: set[str] | None = None) 
     ts = config.get("test_sectors") or {}
     sectors = ts.get("sectors") or []
     full_globs = list(ts.get("full_required_globs") or DEFAULT_FULL_GLOBS)
-    shared_build = [p for p in rcv.always_forbidden_patterns(config) if ".claude" not in p]
+    shared_build = [p for p in rcv.always_forbidden_patterns(config) if p not in rcv.ALWAYS_FORBIDDEN_CLAUDE_GLOBS]
     exempt = list(rdd_risk.rdd_config(config)["exempt_globs"])
     gate = ts.get("credential_gate") or {}
 

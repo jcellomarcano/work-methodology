@@ -59,7 +59,8 @@ except ImportError:  # a partial instance copy: the absolute build-file deny mus
                                          shared_build_files=_shared_build_files)
 
 DEFAULT_SHARED_BUILD_FILES = build_files.DEFAULT_SHARED_BUILD_FILES
-CLAUDE_GLOBS = (".claude/**", "**/.claude/**")
+# Agent runtime config the kit installs: .claude/ (Claude Code) and .agents/ (agy).
+CLAUDE_GLOBS = (".claude/**", "**/.claude/**", ".agents/**", "**/.agents/**")
 
 
 _INPUT: dict = {}  # this process's hook input (one hook per process), for hook_mode's profile
@@ -221,7 +222,7 @@ def shared_build_patterns(config: dict) -> list[str]:
 
 
 def shared_build_hit(path: str, config: dict) -> str | None:
-    """The shared-build or .claude pattern `path` matches, through the one
+    """The shared-build or agent-config (.claude, .agents) pattern `path` matches, through the one
     matcher every consumer uses (lib/build_files.py)."""
     return build_files.first_match(path, shared_build_patterns(config))
 

@@ -108,6 +108,27 @@ class AlwaysForbiddenPatternsTests(unittest.TestCase):
         self.assertNotIn("settings.gradle", patterns)
         self.assertIn("**/.claude/**", patterns)
 
+    def test_agy_workspace_dir_is_always_forbidden(self):
+        patterns = rcv.always_forbidden_patterns(None)
+        self.assertIn(".agents/**", patterns)
+        self.assertIn("**/.agents/**", patterns)
+        for path in (".agents/plugins/metodo/hooks.json", "app/.agents/rules/team.md"):
+            with self.subTest(path=path):
+                result = rcv.evaluate(PERMISSIVE_CONTRACT, [path], [], patterns)
+                self.assertEqual(result["verdict"], "FAIL")
+                self.assertEqual([h["path"] for h in result["forbidden_hits"]], [path])
+
+    def test_claude_dir_stays_always_forbidden(self):
+        # existing behavior the agy globs sit next to
+        result = rcv.evaluate(PERMISSIVE_CONTRACT, [".claude/settings.json"], [], rcv.always_forbidden_patterns(None))
+        self.assertEqual(result["verdict"], "FAIL")
+        self.assertEqual(result["forbidden_hits"][0]["path"], ".claude/settings.json")
+
+    def test_a_folder_that_only_resembles_the_agy_dir_is_not_forbidden(self):
+        # negative control: the glob is the .agents/ folder, not any name containing "agents"
+        result = rcv.evaluate(PERMISSIVE_CONTRACT, ["agents/x.kt", "app/my.agents.kt"], [], rcv.always_forbidden_patterns(None))
+        self.assertEqual(result["verdict"], "PASS")
+
 
 class ChangedPathsFromRangeTests(unittest.TestCase):
     def test_lists_files_changed_between_two_commits(self):
