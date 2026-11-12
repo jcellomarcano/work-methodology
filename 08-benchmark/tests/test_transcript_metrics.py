@@ -218,11 +218,13 @@ class TranscriptMetricsTests(unittest.TestCase):
         self.assertEqual(payload["sessions"][0]["project"], "proj")
 
     def test_previous_output_is_unchanged(self):
-        # analyze_session on this fixture, captured before the queued and model x effort keys landed
+        # analyze_session on this fixture, captured before the queued, model x effort and
+        # context_metrics keys landed; each of them is additive and has its own tests
         actual = json.loads(json.dumps(self.session))
         for key in ("queued_count", "queued_chars_total"):
             actual["human_prompts"].pop(key, None)
         actual.pop("model_effort", None)
+        actual.pop("context_metrics", None)
         self.assertEqual(actual, PREVIOUS_OUTPUT)
 
     def test_model_effort_mix_per_request(self):

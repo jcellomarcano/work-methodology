@@ -442,8 +442,13 @@ class ExistingFieldsUnchanged(unittest.TestCase):
             proj = build_fixture(pathlib.Path(d))
             session = tm.analyze_session(proj / f"{OLD_SID}.jsonl")
         self.assertIn("context_metrics", session)
-        old = {k: v for k, v in session.items() if k != "context_metrics"}
-        self.assertEqual(json.loads(json.dumps(old, sort_keys=True)), golden)
+        # keys added after the golden was captured, each pinned by its own tests
+        added = ("context_metrics", "model_effort")
+        old = json.loads(json.dumps({k: v for k, v in session.items() if k not in added}, sort_keys=True))
+        for key in ("queued_count", "queued_chars_total"):
+            self.assertIn(key, old["human_prompts"])
+            del old["human_prompts"][key]
+        self.assertEqual(old, golden)
 
 
 class PrivacyAndDeterminism(Base):
