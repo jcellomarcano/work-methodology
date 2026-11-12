@@ -11,8 +11,12 @@ the reader's path lives on whoever runs this machine, never in the repo, so
 `docs_root` is the only thing allowed to carry `~` (expanded on the fly)
 and the `caps` keys are just the file name (relative, may carry
 subfolders). The report uses those same relative names, never the
-resolved absolute path. `--root DIR` replaces `docs_root`, so a checkout
-lints itself: run from the repo root with `--root .`.
+resolved absolute path. A relative `docs_root` is read from the config
+file's own directory, never from the caller's: the kit's caps file says
+`../..`, so with no `--root` it lints the checkout it sits in, from any
+worktree or clone. `--root DIR` replaces `docs_root` (a relative DIR is
+the caller's, as any path argument): `--root .` from a repo root lints
+that repo.
 
 The token config is {"method": "ceil(chars/4)", "token_caps": {"name.md":
 cap}, "field_caps": [{"glob": G, "field": F, "cap": N} | {"glob": G,
@@ -54,6 +58,14 @@ except ImportError:  # run as a script: lib/ itself is on sys.path
 METHOD = "ceil(chars/4)"
 PARTS = ("body", "frontmatter")
 BLOCK_SCALAR = re.compile(r"^[>|][1-9]?[+-]?[1-9]?$")
+
+
+def resolve_root(docs_root: str, config_path: Path) -> Path:
+    """`~` expands and an absolute root stays as written; a relative root is
+    read from the config file's directory, so a caps file that travels with
+    its tree lints that tree."""
+    root = Path(docs_root).expanduser()
+    return root if root.is_absolute() else (Path(config_path).resolve().parent / root).resolve()
 
 
 def check(docs_root: Path, caps: dict) -> dict:
@@ -210,11 +222,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("config", help="path to docs-caps.json")
     parser.add_argument("--tokens", help="path to token-caps.json; adds token caps to the report")
-    parser.add_argument("--root", help="directory to lint; overrides the config's docs_root")
+    parser.add_argument("--root", help="directory to lint; overrides the config's docs_root "
+                                           "(which, when relative, is read from the config file's directory)")
     args = parser.parse_args(argv)
 
     config = json.loads(Path(args.config).read_text(encoding="utf-8"))
-    root = Path(args.root).expanduser() if args.root else config["docs_root"]
+    root = Path(args.root).expanduser() if args.root else resolve_root(config["docs_root"], Path(args.config))
     result = check(root, config["caps"])
     if args.tokens:
         try:

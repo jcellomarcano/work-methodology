@@ -558,5 +558,73 @@ class KitTokenCapsTests(unittest.TestCase):
         self.assertGreaterEqual(len(result["ok"]), 4 + 11 + 16 + 16)
 
 
+class RelativeRootTests(unittest.TestCase):
+    """With no --root, a relative docs_root is read from the caps file's own
+    directory, so a caps file that travels with its tree lints that tree,
+    whatever directory the command runs from."""
+
+    def _kit(self, tmp: str) -> tuple[Path, Path]:
+        kit = Path(tmp) / "kit"
+        _write(kit / "over.md", "x\n" * 5)
+        config = _write(kit / "03-tools" / "config" / "docs-caps.json",
+                        json.dumps({"docs_root": "../..", "caps": {"over.md": 1}}))
+        elsewhere = Path(tmp) / "elsewhere"
+        # a same-named doc under the caller's directory must not be the one measured
+        _write(elsewhere / "over.md", "x\n")
+        return config, elsewhere
+
+    def _run_from(self, cwd: Path, argv: list[str]) -> tuple[int, dict]:
+        before = os.getcwd()
+        os.chdir(cwd)
+        try:
+            code, out, _ = _main_err(argv)
+        finally:
+            os.chdir(before)
+        return code, json.loads(out)
+
+    def test_a_relative_docs_root_resolves_against_the_config_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config, elsewhere = self._kit(tmp)
+            code, report = self._run_from(elsewhere, [str(config)])
+            self.assertEqual(report["missing"], [])
+            self.assertEqual(report["offenders"], [{"actual": 5, "limit": 1, "path": "over.md"}])
+            self.assertEqual(code, 1)
+
+    def test_the_token_caps_follow_the_same_resolved_root(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config, elsewhere = self._kit(tmp)
+            tokens = _write(Path(tmp) / "token-caps.json",
+                            json.dumps({"method": "ceil(chars/4)", "token_caps": {"over.md": 1}}))
+            code, report = self._run_from(elsewhere, [str(config), "--tokens", str(tokens)])
+            self.assertEqual(report["missing"], [])
+            self.assertEqual(sorted((o["unit"], o["actual"]) for o in report["offenders"]), [("lines", 5), ("tokens", 3)])
+            self.assertEqual(code, 1)
+
+    def test_root_still_wins_and_stays_relative_to_the_caller(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config, elsewhere = self._kit(tmp)
+            code, report = self._run_from(elsewhere, [str(config), "--root", "."])
+            self.assertEqual(report["ok"], [{"actual": 1, "limit": 1, "path": "over.md"}])
+            self.assertEqual(code, 0)
+
+    def test_an_absolute_or_home_docs_root_is_unchanged(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(docs_lint.resolve_root(tmp, Path("/somewhere/config.json")), Path(tmp))
+            self.assertEqual(docs_lint.resolve_root("~/audit", Path("/somewhere/config.json")),
+                             Path("~/audit").expanduser())
+
+    @unittest.skipUnless((KIT_ROOT / "01-roles").is_dir(), "kit only: an instance keeps the caps file it already decided")
+    def test_the_kit_caps_file_names_no_machine_path_and_lints_its_own_checkout(self):
+        caps_path = TOOLS_ROOT / "config" / "docs-caps.json"
+        config = json.loads(caps_path.read_text(encoding="utf-8"))
+        self.assertEqual(config["docs_root"], "../..")
+        self.assertEqual(docs_lint.resolve_root(config["docs_root"], caps_path), KIT_ROOT.resolve())
+        with tempfile.TemporaryDirectory() as elsewhere:
+            _, report = self._run_from(Path(elsewhere), [str(caps_path)])
+        # every capped document is found: the run read this checkout, not the caller's directory
+        self.assertEqual(report["missing"], [])
+        self.assertEqual(len(report["ok"]) + len(report["offenders"]), len(config["caps"]))
+
+
 if __name__ == "__main__":
     unittest.main()

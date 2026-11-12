@@ -37,5 +37,5 @@
     "docs/08-harnesses.md": 240,
     "README.md": 320
   },
-  "docs_root": "~/work-methodology"
+  "docs_root": "../.."
 }
