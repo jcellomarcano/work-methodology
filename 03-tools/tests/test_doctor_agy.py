@@ -206,18 +206,20 @@ class AgyDoctorTests(unittest.TestCase):
         found = self.assert_breaks(repo, "personal.absent")
         self.assertIn(".agents/plugins/metodo/skills/output-lint.personal.json", found["detail"])
 
-    def test_untracked_agents_folder_does_not_make_the_repo_dirty(self):
-        # .agents/ is agy's agent-config folder, as .claude/ is Claude Code's
+    def test_the_dirty_rule_is_the_same_as_before_on_every_runtime(self):
+        """The installed plugin is git-excluded, so it never shows as dirty; the owner's own
+        untracked content under .agents/ counts as it always did, whatever the runtime."""
         repo = self.copy_fixture("own-agents")
-        _, report = self.run_doctor(repo)
-        self.assertIs(report["repo_dirty"], False)
+        for runtime in ("agy", "claude", "pi", "all"):
+            with self.subTest(state="installed", runtime=runtime):
+                _, report = self.run_doctor(repo, runtime=runtime)
+                self.assertIs(report["repo_dirty"], False)
         (repo / ".agents" / "skills" / "own").mkdir(parents=True)
         (repo / ".agents" / "skills" / "own" / "SKILL.md").write_text("x\n", encoding="utf-8")
-        _, report = self.run_doctor(repo)
-        self.assertIs(report["repo_dirty"], False)
-        (repo / "notes.txt").write_text("x\n", encoding="utf-8")
-        _, report = self.run_doctor(repo)
-        self.assertIs(report["repo_dirty"], True)
+        for runtime in ("agy", "claude", "pi", "all"):
+            with self.subTest(state="owner content", runtime=runtime):
+                _, report = self.run_doctor(repo, runtime=runtime)
+                self.assertIs(report["repo_dirty"], True)
 
     def test_absent_after_uninstall_passes_and_a_leftover_fails(self):
         repo = self.copy_fixture("uninstalled")

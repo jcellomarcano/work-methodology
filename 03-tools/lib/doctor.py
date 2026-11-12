@@ -69,8 +69,6 @@ REQUIRED_BY_RUNTIME = {
     "pi": ("pi.agents", "pi.skills", "pi.mcp", "pi.extension"),
     "agy": ("agy.agents", "agy.contracts", "agy.skills", "agy.mcp", "agy.hooks"),
 }
-# Agent-config folders: untracked content there does not make the repo dirty.
-AGENT_CONFIG_DIRS = (".claude", ".agents")
 # bin/install-agy.sh puts the whole kit in one agy workspace plugin.
 AGY_PLUGIN = ".agents/plugins/metodo"
 
@@ -99,16 +97,15 @@ def _real(path: os.PathLike | str) -> str:
 
 
 def _is_dirty(repo: Path) -> bool:
-    """lib/baseline.is_repo_dirty's rule, plus agy's folder: anything reported
-    by `git status --porcelain` outside the agent-config folders .claude/
-    (agent worktrees) and .agents/ (agy's workspace folder) counts."""
+    """Same rule as lib/baseline.is_repo_dirty: anything reported by
+    `git status --porcelain` outside .claude/ (agent worktrees) counts."""
     out = _git(repo, "status", "--porcelain")
     for line in out.stdout.splitlines():
         if not line.strip():
             continue
         path = line[3:] if len(line) > 3 else line.strip()
         path = path.split(" -> ")[-1].strip().strip('"')
-        if any(path == top or path.startswith(top + "/") or f"/{top}/" in path for top in AGENT_CONFIG_DIRS):
+        if path == ".claude" or path.startswith(".claude/") or "/.claude/" in path:
             continue
         return True
     return False
