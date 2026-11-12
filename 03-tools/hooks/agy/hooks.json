@@ -1,0 +1,42 @@
+{
+  "metodo": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "timeout": 15,
+        "command": ": metodo-hook; H=\"${METODO_TOOLS:-__TOOLS_DEFAULT__}/hooks\"; [ -f \"$H/agy/bridge.py\" ] || exit 0; METODO_REPO=\"${METODO_REPO:-__REPO_DEFAULT__}\" exec python3 \"$H/agy/bridge.py\" SessionStart"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 35,
+            "command": ": metodo-hook; H=\"${METODO_TOOLS:-__TOOLS_DEFAULT__}/hooks\"; [ -f \"$H/agy/bridge.py\" ] || exit 0; METODO_REPO=\"${METODO_REPO:-__REPO_DEFAULT__}\" exec python3 \"$H/agy/bridge.py\" PreToolUse"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 25,
+            "command": ": metodo-hook; H=\"${METODO_TOOLS:-__TOOLS_DEFAULT__}/hooks\"; [ -f \"$H/agy/bridge.py\" ] || exit 0; METODO_REPO=\"${METODO_REPO:-__REPO_DEFAULT__}\" exec python3 \"$H/agy/bridge.py\" PostToolUse"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "timeout": 35,
+        "command": ": metodo-hook; H=\"${METODO_TOOLS:-__TOOLS_DEFAULT__}/hooks\"; [ -f \"$H/agy/bridge.py\" ] || exit 0; METODO_REPO=\"${METODO_REPO:-__REPO_DEFAULT__}\" exec python3 \"$H/agy/bridge.py\" Stop"
+      }
+    ]
+  }
+}
