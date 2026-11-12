@@ -169,10 +169,20 @@ The source is the project's committed conventions file (`CONVENTIONS.md`) and it
 The question isn't "which model is cheap" but "what kind of intelligence does this task need?". Table,
 budgets, and orchestration in `model-routing.md`. Summary: rule → script; AST → pinned tool;
 interpretation against a fixed rulebook → small model; technical reasoning → medium model; adversarial
-judgment or critical flow → large model; high impact → owner. Never a general-purpose agent: each role is
-an agent with `model`, minimal `tools`, and a JSON contract. A medium model orchestrates the routine
+judgment or critical flow → large model; high impact → owner. A medium model orchestrates the routine
 work; the highest-judgment one designs, decides, and talks to the owner. Inter-agent communication:
 `agent-protocol.md`.
+
+**Every launched agent has a goal, a specific role and a bounded context.** In a multi-agent session no
+agent starts without a goal contract (`04-templates/brief.md`): one `OBJECTIVE` with the `ACCEPTANCE`
+check that proves it; a `ROLE` that names the one thing it does, with `model`, minimal `tools` and a JSON
+contract (never general-purpose: a roster role, or an ad-hoc one with an explicit `model`); and a context
+bounded by `INPUTS` (paths), `SCOPE`, `STOP` and `BUDGET`. Two goals are two agents. The orchestrator is
+the only one without a brief: its goal is the owner's request. `brief_check.py` checks the brief and the
+`guard_spawn` hook checks the launch: it warns (a visible `METODO-WARN`), or blocks with
+`rdd.hook_modes.guard_spawn: "block"`. On a runtime with a session goal command (Claude Code `/goal`),
+`OBJECTIVE` plus `ACCEPTANCE` is the goal line, and it names its allowed files itself: the goal evaluator
+reads the transcript, not the brief.
 
 ## 10. Deliverables
 

@@ -16,7 +16,7 @@ over the repo they analyze: they never write or `git add` there). Python
   `adopt.sh`.
 - `mcp/`: `metodo` MCP server (JSON-RPC over stdio, stdlib): `catalog.py` is
   the tool table; each one wraps a script from `lib/` or `bin/`.
-- `hooks/`: Claude Code hooks (path and gate guards, budget, output
+- `hooks/`: Claude Code hooks (path, gate and launch guards, budget, output
   validation, session state, ledger); `hooks.settings.json` is what the
   installer merges into `.claude/settings.local.json`.
 - `lib/`: one module per tool; `baseline.py` (I/O), `repo_scan.py` and
@@ -81,7 +81,9 @@ python3 lib/domain_invariants.py <repo> [--config config/invariants-checks.json]
 python3 lib/role_contract_validator.py --contract <c>.contract.json --repo <r> (--range A..B | --worktree D)
 python3 lib/findings_schema_validator.py <json> --schema schemas/<name>.schema.json
 python3 lib/change_card_validator.py [--extract] <file|->
-python3 lib/brief_check.py <brief.md>    # goal-contract fields, S# references, BUDGET number; exit 1 on FAIL
+python3 lib/brief_check.py <brief.md> [--roster ../01-roles/agents]
+                                         # goal contract: fields, one specific ROLE, one-sentence OBJECTIVE, path INPUTS,
+                                         # S# references, BUDGET number, at most 60 lines; exit 1 on FAIL
 python3 lib/docs_lint.py config/docs-caps.json [--tokens config/token-caps.json] [--root DIR]
                                          # line caps; --tokens adds ceil(chars/4) caps; --root .. lints this checkout
 bin/route.sh <task.json> --as-of YYYY-MM-DD [--log [PATH]]   # roster: role, model, effort, when (JSON)
@@ -115,6 +117,8 @@ an owner `rdd.mode: block` is a floor the profile never lowers; else the profile
 of the judged tree (the pushed ref's for the push gate); without a tier `rdd.mode` decides. The
 profile never falls within a session (`out/hooks/<session>/profile.json`). Without `activation.json`
 the hook modes are exactly the old rule. Method: `odd/research/context/activation.md` §3.
+`guard_spawn` (the launch gate, `Task|Agent`) has no activation element: its mode is
+`rdd.hook_modes.guard_spawn`, else `rdd.mode`; its `may_spawn` deny is absolute, RDD on or off.
 
 ## Determinism
 

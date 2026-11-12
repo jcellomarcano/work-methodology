@@ -20,7 +20,7 @@ allowed-tools: [Read, Write, Agent, mcp__metodo__comment_gate_measure, mcp__meto
 
 1. `mcp__metodo__comment_gate_measure` with `range=A..B` (or `worktree`) and `scope_globs`; save the output as-is as `round/NNN-comments.json`.
 2. If `summary.total == 0` and `summary.markers == 0`: explicit PASS, done.
-3. Brief to `generic-comment-gate` (template `04-templates/brief.md`, eight lines): `INPUTS` = `round/000-context.md`, `round/NNN-comments.json`, and the scoped diff; `OUTPUT` = the round directory, where it writes with `mcp__metodo__output_write`; `BUDGET` = 15000 tokens, 20 calls. The agent reads; the orchestrator does not paste content.
+3. Brief to `generic-comment-gate` (template `04-templates/brief.md`, twelve fields): `INPUTS` = `round/000-context.md`, `round/NNN-comments.json`, and the scoped diff; `OUTPUT` = the round directory, where it writes with `mcp__metodo__output_write`; `BUDGET` = 15000 tokens, 20 calls. The agent reads; the orchestrator does not paste content.
 4. Verdict routing: `UNNECESSARY` (delete) and `NECESSARY` / `KDOC-INTERFACE` with `proposed_text` go to `generic-mechanic` with its exact `file:line`; `MAKE-SELF-EXPLANATORY` goes to `generic-judge`, because it touches statements and is not trivial.
 5. `mcp__metodo__comment_gate_verify` with `verify_range=B..HEAD` and `range=A..B` over the mechanic's result (B = the proposer's tip): only changed comment lines and no `NEEDS-COMMENT` in the A..HEAD files; `verdict: PASS` or the round does not close.
 

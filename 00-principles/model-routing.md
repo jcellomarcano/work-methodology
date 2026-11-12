@@ -16,10 +16,10 @@ kind of intelligence does this task need?".
 
 ## Rules
 
-- Never a general-purpose agent: each role is an agent with `model`, minimal `tools`, a place in the
-  loop, and a JSON contract (`forbidden_paths`, `may_spawn: []`, `max_context_tokens`). If a role doesn't
-  exist yet, use a generic agent with an explicit `model` and a template brief, and the minutes declare
-  it.
+- Never a general-purpose agent: each role is an agent with `model`, minimal `tools`, a place in the loop,
+  and a JSON contract (`forbidden_paths`, `may_spawn: []`, `max_context_tokens`). Every launch carries a
+  goal contract (`agent-protocol.md` §1): one goal, one role, a bounded context. A role that doesn't exist
+  yet launches ad hoc, named for the one thing it does, with an explicit `model`; the minutes declare it.
 - An agent returns JSON or a table, never dumps. Exceeding its cap is a protocol finding.
 - **Adversary cost gate**: adversaries go to the large model when `For what` or `What it risks` is one of
   the project's critical properties, or when the diff touches the declared critical paths; only when both

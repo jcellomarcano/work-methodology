@@ -19,7 +19,7 @@ The reply already at `PASS` from `output_lint.py` (this skill does not replace `
 
 ## Steps
 
-1. Brief to `generic-human-reviewer` with the `04-templates/brief.md` template (eight lines): `INPUTS` = the reply and `07-communication/rules.md`; `CONSTRAINTS` = rules COM-07, COM-12, COM-13, COM-16, COM-17 and the declared reader; `OUTPUT` = the round directory, where the reviewer writes with `mcp__metodo__output_write` (schema `human-reviewer-output`); `BUDGET` = 15000 tokens, 10 calls.
+1. Brief to `generic-human-reviewer` with the `04-templates/brief.md` template (twelve fields): `INPUTS` = the reply and `07-communication/rules.md`; `CONSTRAINTS` = rules COM-07, COM-12, COM-13, COM-16, COM-17 and the declared reader; `OUTPUT` = the round directory, where the reviewer writes with `mcp__metodo__output_write` (schema `human-reviewer-output`); `BUDGET` = 15000 tokens, 10 calls.
 2. Read the verdict. An explicit `PASS` with zero findings is a legitimate outcome.
 3. Every finding goes back to the reply's author (the model that wrote it, or the mechanic if it is trivial) with its `fix_hint`; the reviewer never applies the fix.
 4. After fixing, repeat `human-reply` (the lint) and, if the fix touched an analogy, this skill once more. Two passes at most.

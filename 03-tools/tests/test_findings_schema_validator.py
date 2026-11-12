@@ -175,7 +175,8 @@ class TruncatedIncompleteTests(unittest.TestCase):
         # document carries it anyway, it must not trigger INCOMPLETE.
         schema = _load_schema("brief.schema.json")
         doc = {
-            "ROLE": "proposer", "OBJECTIVE": "x", "INPUTS": [], "CONSTRAINTS": [],
+            "ROLE": "proposer", "OBJECTIVE": "x", "SPECS": [], "ACCEPTANCE": "x", "INPUTS": [], "SCOPE": [],
+            "ALREADY READ": [], "CONSTRAINTS": [],
             "OUTPUT": "x", "STOP": "x", "BUDGET": {"max_context_tokens": 1, "max_tool_calls": 1},
             "EVIDENCE": "x", "truncated": True,
         }
@@ -208,7 +209,8 @@ class OtherRealSchemasTests(unittest.TestCase):
 
     def test_brief_schema_valid_document(self):
         doc = {
-            "ROLE": "proposer", "OBJECTIVE": "entregar P1", "INPUTS": ["README.md"],
+            "ROLE": "proposer", "OBJECTIVE": "entregar P1", "SPECS": ["odd/tasks/p1.md#S1"],
+            "ACCEPTANCE": "python3 -m unittest", "INPUTS": ["README.md"], "SCOPE": ["lib/**"], "ALREADY READ": [],
             "CONSTRAINTS": ["Python 3.11 stdlib"], "OUTPUT": "JSON final",
             "STOP": "tests verdes", "BUDGET": {"max_context_tokens": 100000, "max_tool_calls": 200},
             "EVIDENCE": "logs de ejecución",
@@ -218,13 +220,25 @@ class OtherRealSchemasTests(unittest.TestCase):
 
     def test_brief_schema_missing_budget_subfield_fails(self):
         doc = {
-            "ROLE": "proposer", "OBJECTIVE": "x", "INPUTS": [], "CONSTRAINTS": [],
+            "ROLE": "proposer", "OBJECTIVE": "x", "SPECS": [], "ACCEPTANCE": "x", "INPUTS": [], "SCOPE": [],
+            "ALREADY READ": [], "CONSTRAINTS": [],
             "OUTPUT": "x", "STOP": "x", "BUDGET": {"max_context_tokens": 1},
             "EVIDENCE": "x",
         }
         result = fsv.validate(doc, _load_schema("brief.schema.json"))
         self.assertEqual(result["verdict"], "FAIL")
         self.assertTrue(any("max_tool_calls" in e for e in result["errors"]))
+
+    def test_brief_schema_without_the_goal_fields_fails(self):
+        doc = {
+            "ROLE": "proposer", "OBJECTIVE": "x", "INPUTS": [], "CONSTRAINTS": [],
+            "OUTPUT": "x", "STOP": "x", "BUDGET": {"max_context_tokens": 1, "max_tool_calls": 1},
+            "EVIDENCE": "x",
+        }
+        result = fsv.validate(doc, _load_schema("brief.schema.json"))
+        self.assertEqual(result["verdict"], "FAIL")
+        for field in ("SPECS", "ACCEPTANCE", "SCOPE", "ALREADY READ"):
+            self.assertTrue(any(field in e for e in result["errors"]), field)
 
     def test_handoff_schema_valid_document(self):
         doc = {

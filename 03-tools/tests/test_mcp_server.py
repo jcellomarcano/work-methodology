@@ -150,6 +150,28 @@ class InProcessCallTests(unittest.TestCase):
     def test_unknown_tool_is_invalid_params(self):
         self.assertEqual(self._call("nope_tool", {})["error"]["code"], server.INVALID_PARAMS)
 
+    def test_brief_check_passes_the_template_and_fails_a_goalless_launch(self):
+        template = TOOLS_ROOT.parent / "04-templates" / "brief.md"
+        result = self._call("brief_check", {"brief_path": str(template)})["result"]
+        self.assertFalse(result["isError"], result["structuredContent"])
+        self.assertEqual(result["structuredContent"]["verdict"], "PASS")
+        bad = self.tmp / "brief.md"
+        bad.write_text(template.read_text(encoding="utf-8").replace("ROLE: <", "ROLE: general-purpose <", 1)
+                       .replace("ACCEPTANCE:", "ACCEPTED:", 1), encoding="utf-8")
+        failed = self._call("brief_check", {"brief_path": str(bad)})["result"]["structuredContent"]
+        self.assertEqual(failed["verdict"], "FAIL")
+        self.assertEqual(failed["missing"], ["ACCEPTANCE"])
+        unknown = self.tmp / "unknown.md"
+        unknown.write_text("\n".join("ROLE: payments-mapper" if line.startswith("ROLE:") else line
+                                     for line in template.read_text(encoding="utf-8").splitlines()), encoding="utf-8")
+        self.assertTrue(self._call("brief_check", {"brief_path": str(unknown)})["result"]["structuredContent"]["role_unknown"])
+        # the declared repo argument picks that repo's installed roster
+        agents = self.repo / ".claude" / "agents"
+        agents.mkdir(parents=True, exist_ok=True)
+        (agents / "payments-mapper.contract.json").write_text(json.dumps({"agent": "payments-mapper"}), encoding="utf-8")
+        with_repo = self._call("brief_check", {"brief_path": str(unknown), "repo": str(self.repo)})["result"]["structuredContent"]
+        self.assertFalse(with_repo["role_unknown"])
+
     def test_one_of_card_path_or_text(self):
         result = self._call("change_card_validate", {})["result"]
         self.assertTrue(result["isError"])

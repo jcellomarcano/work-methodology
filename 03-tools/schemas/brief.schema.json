@@ -1,10 +1,15 @@
 {
+  "_comment": "JSON form of the goal contract (04-templates/brief.md, agent-protocol.md section 1). The Markdown brief is checked by lib/brief_check.py; this schema is for a brief carried as JSON. The goal of the agent is OBJECTIVE plus ACCEPTANCE.",
   "type": "object",
-  "required": ["ROLE", "OBJECTIVE", "INPUTS", "CONSTRAINTS", "OUTPUT", "STOP", "BUDGET", "EVIDENCE"],
+  "required": ["ROLE", "OBJECTIVE", "SPECS", "ACCEPTANCE", "INPUTS", "SCOPE", "ALREADY READ", "CONSTRAINTS", "OUTPUT", "STOP", "BUDGET", "EVIDENCE"],
   "properties": {
     "ROLE": {"type": "string"},
     "OBJECTIVE": {"type": "string"},
+    "SPECS": {"type": "array", "items": {"type": "string"}},
+    "ACCEPTANCE": {"type": "string"},
     "INPUTS": {"type": "array", "items": {"type": "string"}},
+    "SCOPE": {"type": "array", "items": {"type": "string"}},
+    "ALREADY READ": {"type": "array", "items": {"type": "string"}},
     "CONSTRAINTS": {"type": "array", "items": {"type": "string"}},
     "OUTPUT": {"type": "string"},
     "STOP": {"type": "string"},

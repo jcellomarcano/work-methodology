@@ -822,12 +822,151 @@ class ActivationHookModeTests(HookFixture):
         self.assertEqual(self.decision(out), "deny")
 
 
+class GuardSpawnTests(HookFixture):
+    """methodology.md paragraph 9: every launched agent carries a goal, a
+    specific role and a bounded context. The launch is checked, not the
+    prose around it."""
+
+    BRIEF = """ROLE: generic-proposer
+OBJECTIVE: app/Foo.kt exposes a bar() function covered by FooTest.
+SPECS: none
+ACCEPTANCE: ./gradlew :app:test --tests FooTest
+INPUTS:
+  - app/Foo.kt
+SCOPE: app/**
+ALREADY READ: none
+CONSTRAINTS: never touch app/build.gradle
+OUTPUT: proposer-output; JSON only
+STOP: acceptance passes, a budget deny, or a blocking unknown
+BUDGET: max_context_tokens=60000; max_tool_calls=40
+EVIDENCE: cite the statement at file:line@sha; tag every claim
+"""
+
+    def _launch(self, prompt, role="generic-proposer", tool="Agent", **extra):
+        return {"tool_name": tool, "tool_input": {"subagent_type": role, "prompt": prompt}, **extra}
+
+    def test_a_launch_with_a_goal_contract_is_silent(self):
+        # negative control
+        self.set_config(enabled=True, mode="block")
+        for tool in ("Agent", "Task"):
+            out, proc = self.run_hook("guard_spawn.py", self._launch(self.BRIEF, tool=tool))
+            self.assertEqual(out, {}, tool)
+            self.assertEqual(proc.stdout, "")
+        self.assertEqual(self.ledger(), [])
+
+    def test_a_launch_without_a_goal_warns_then_denies_in_block(self):
+        prompt = "Look around the repo and fix whatever seems wrong."
+        out, _ = self.run_hook("guard_spawn.py", self._launch(prompt))
+        self.assertIn("04-templates/brief.md", self.assert_visible_warn(out, "spawn-no-goal"))
+        self.assertEqual((self.ledger()[-1]["kind"], self.ledger()[-1]["decision"]), ("spawn-no-goal", "warn"))
+        self.set_config(enabled=True, mode="block")
+        out, _ = self.run_hook("guard_spawn.py", self._launch(prompt))
+        self.assertEqual(self.decision(out), "deny")
+        reason = out["hookSpecificOutput"]["permissionDecisionReason"]
+        self.assertIn("OBJECTIVE", reason)
+        self.assertIn("ACCEPTANCE", reason)
+        self.assertEqual(self.ledger()[-1]["decision"], "deny")
+
+    def test_only_the_spawn_hook_mode_needs_to_block(self):
+        self.set_config(enabled=True, mode="warn", hook_modes={"guard_spawn": "block"})
+        out, _ = self.run_hook("guard_spawn.py", self._launch("do the thing"))
+        self.assertEqual(self.decision(out), "deny")
+
+    def test_off_and_log_modes_ledger_without_showing_anything(self):
+        for mode in ("off", "log"):
+            self.set_config(enabled=True, mode="block", hook_modes={"guard_spawn": mode})
+            out, proc = self.run_hook("guard_spawn.py", self._launch("do the thing"), session=mode)
+            self.assertEqual(proc.stdout, "", mode)
+            line = self.ledger(session=mode)[-1]
+            self.assertEqual((line["kind"], line["decision"], line["mode"]), ("spawn-no-goal", "log", mode))
+
+    def test_a_general_purpose_role_is_denied_in_block(self):
+        self.set_config(enabled=True, mode="block")
+        brief = self.BRIEF.replace("ROLE: generic-proposer", "ROLE: general-purpose")
+        out, _ = self.run_hook("guard_spawn.py", self._launch(brief, role="general-purpose"))
+        self.assertEqual(self.decision(out), "deny")
+        self.assertIn("general-purpose", out["hookSpecificOutput"]["permissionDecisionReason"])
+
+    def test_an_ad_hoc_role_needs_an_explicit_model(self):
+        self.set_config(enabled=True, mode="block")
+        brief = self.BRIEF.replace("ROLE: generic-proposer", "ROLE: gradle-cache-mapper")
+        out, _ = self.run_hook("guard_spawn.py", self._launch(brief, role="general-purpose"))
+        self.assertEqual(self.decision(out), "deny")
+        brief = self.BRIEF.replace("ROLE: generic-proposer", "ROLE: gradle-cache-mapper model=sonnet")
+        out, _ = self.run_hook("guard_spawn.py", self._launch(brief, role="general-purpose"))
+        self.assertEqual(out, {})
+
+    def test_the_brief_names_the_role_that_is_launched(self):
+        out, _ = self.run_hook("guard_spawn.py", self._launch(self.BRIEF, role="generic-challenger"))
+        self.assert_visible_warn(out, "spawn-role-mismatch")
+        self.assertEqual((self.ledger()[-1]["kind"], self.ledger()[-1]["decision"]), ("spawn-role-mismatch", "warn"))
+        self.set_config(enabled=True, mode="block")
+        out, _ = self.run_hook("guard_spawn.py", self._launch(self.BRIEF, role="generic-challenger"))
+        self.assertEqual(self.decision(out), "deny")
+        self.assertEqual((self.ledger()[-1]["kind"], self.ledger()[-1]["decision"]), ("spawn-role-mismatch", "deny"))
+
+    def test_a_subagent_never_launches_another_agent_even_with_rdd_off(self):
+        self.set_config(enabled=False)
+        out, _ = self.run_hook("guard_spawn.py", self._launch(self.BRIEF, agent_type="generic-challenger", agent_id="a1"))
+        self.assertEqual(self.decision(out), "deny")
+        self.assertEqual(self.ledger()[-1]["kind"], "spawn-not-allowed")
+
+    def test_the_absolute_deny_survives_a_partial_instance_copy(self):
+        # this tree's rule for an absolute deny: a tools root without lib/ must not fail open
+        partial = self.tmp / "partial-tools"
+        partial.mkdir()
+        self.set_config(enabled=True, mode="block")
+        env = {"METODO_TOOLS": str(partial)}
+        out, _ = self.run_hook("guard_spawn.py", self._launch(self.BRIEF, agent_type="generic-challenger", agent_id="a1"), env_extra=env)
+        self.assertEqual(self.decision(out), "deny")
+        # the brief check is not absolute: without lib/brief_check.py it fails open
+        out, proc = self.run_hook("guard_spawn.py", self._launch("do the thing"), env_extra=env)
+        self.assertEqual(proc.stdout, "")
+
+    def test_an_agent_without_a_kit_contract_is_not_a_kit_role(self):
+        # may_spawn is a contract field: no contract, no absolute deny (the brief check still applies)
+        self.set_config(enabled=False)
+        out, _ = self.run_hook("guard_spawn.py", self._launch(self.BRIEF, agent_type="Explore", agent_id="a1"))
+        self.assertEqual(out, {})
+        self.assertEqual(self.ledger(), [])
+
+    def test_may_spawn_lets_a_subagent_launch_the_listed_role(self):
+        self.set_config(enabled=True, mode="block")
+        contract = self.repo / ".claude" / "agents" / "generic-challenger.contract.json"
+        contract.write_text(json.dumps({"agent": "generic-challenger", "may_write": [], "max_tool_calls": 40,
+                                        "may_spawn": ["generic-proposer"]}), encoding="utf-8")
+        out, _ = self.run_hook("guard_spawn.py", self._launch(self.BRIEF, agent_type="generic-challenger", agent_id="a1"))
+        self.assertEqual(out, {})
+
+    def test_rdd_disabled_skips_the_brief_check_and_other_tools_are_ignored(self):
+        self.set_config(enabled=False)
+        out, _ = self.run_hook("guard_spawn.py", self._launch("do the thing"))
+        self.assertEqual(out, {})
+        self.set_config(enabled=True, mode="block")
+        out, _ = self.run_hook("guard_spawn.py", {"tool_name": "Bash", "tool_input": {"command": "ls", "prompt": "x"}})
+        self.assertEqual(out, {})
+
+    def test_same_input_same_output(self):
+        self.set_config(enabled=True, mode="block")
+        a, _ = self.run_hook("guard_spawn.py", self._launch("do the thing"))
+        b, _ = self.run_hook("guard_spawn.py", self._launch("do the thing"))
+        self.assertEqual(a, b)
+
+    def test_the_hook_is_registered_on_task_and_agent(self):
+        entries = json.loads((HOOKS / "hooks.settings.json").read_text(encoding="utf-8"))["hooks"]["PreToolUse"]
+        hits = [e for e in entries if any('"$H/guard_spawn.py"' in h["command"] for h in e["hooks"])]
+        self.assertEqual([e["matcher"] for e in hits], ["Task|Agent"])
+        self.assertIn('{ matcher: "Task|Agent", script: "guard_spawn.py" }',
+                      (HOOKS / "pi" / "metodo-hooks.ts").read_text(encoding="utf-8"))
+
+
 class LatencyTests(HookFixture):
     def test_each_hook_under_a_second(self):
         import time
         for name, payload in (("guard_paths.py", {"tool_name": "Edit", "tool_input": {"file_path": str(self.repo / "app" / "Foo.kt")}}),
                               ("guard_gates.py", {"tool_name": "Bash", "tool_input": {"command": "ls"}}),
-                              ("budget.py", {"tool_name": "Read", "tool_input": {}})):
+                              ("budget.py", {"tool_name": "Read", "tool_input": {}}),
+                              ("guard_spawn.py", {"tool_name": "Agent", "tool_input": {"subagent_type": "x", "prompt": "do it"}})):
             t0 = time.time()
             self.run_hook(name, payload)
             self.assertLess(time.time() - t0, 1.0, name)

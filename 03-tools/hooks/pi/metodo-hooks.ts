@@ -54,6 +54,7 @@ export const HOOK_MATRIX: Record<string, { matcher: string; script: string }[]> 
 	PreToolUse: [
 		{ matcher: "Edit|Write|MultiEdit", script: "guard_paths.py" },
 		{ matcher: "Bash|mcp__metodo__receipt_start|mcp__metodo__receipt_finalize|mcp__metodo__receipt_acknowledge", script: "guard_gates.py" },
+		{ matcher: "Task|Agent", script: "guard_spawn.py" },
 		{ matcher: "", script: "budget.py" },
 	],
 	PostToolUse: [

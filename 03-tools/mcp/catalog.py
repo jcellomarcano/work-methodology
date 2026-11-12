@@ -45,6 +45,13 @@ def _sh(ctx: Ctx, name: str) -> list[str]:
     return ["bash", str(ctx.tools_root / "bin" / name)]
 
 
+def _roster_dir(args: dict, ctx: Ctx) -> Path:
+    """Where the role contracts live: the repo's installed copy, else the kit's source."""
+    repo = registry.resolve_repo(args, ctx) if args.get("repo") or ctx.repo is not None else None
+    installed = Path(repo) / ".claude" / "agents" if repo is not None else None
+    return installed if installed is not None and installed.is_dir() else ctx.kit_root / "01-roles" / "agents"
+
+
 def _project_config(ctx: Ctx) -> str:
     return str(ctx.tools_root / "config" / "project.json")
 
@@ -303,6 +310,10 @@ TOOLS: tuple[ToolSpec, ...] = (
              _obj({"repo": S, "verify_range": S, "range": S}, ("verify_range",)),
              argv=lambda a, c: _py(c, "comment_gate.py") + ["--repo", _repo(a, c), "--verify", a["verify_range"]] + (["--range", a["range"]] if a.get("range") else []),
              ok_exit=frozenset({0, 1}), roles=("mechanic",)),
+    ToolSpec("brief_check", "Check a brief against the goal contract before launching an agent: one goal, a specific role, a bounded context.",
+             _obj({"brief_path": S, "repo": S}, ("brief_path",)),
+             argv=lambda a, c: _py(c, "brief_check.py") + [a["brief_path"], "--roster", str(_roster_dir(a, c))],
+             ok_exit=frozenset({0, 1}), timeout_s=30),
     ToolSpec("docs_lint", "Check every kit document against its line cap and, in a kit checkout, its token cap.",
              _obj({}), argv=lambda a, c: _py(c, "docs_lint.py") + [str(c.tools_root / "config" / "docs-caps.json")]
                                + _docs_lint_tokens(c),

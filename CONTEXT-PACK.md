@@ -1,6 +1,6 @@
 # Context pack · read this first (≤ 120 lines)
 
-You are entering a project that works under this methodology. Linked material waits until a task needs it.
+This project works under this methodology. Linked material waits until a task needs it.
 
 ## 1. What we optimize
 
@@ -57,14 +57,15 @@ without losing what makes them correct?
 | needs adversarial judgment or touches the irreversible | large model (challenger, blind spots, judge) | 60k |
 | is a high-impact decision | the owner | |
 
-Never a general-purpose agent: each role has a model, minimal tools and a JSON contract; `bin/route.sh`
-picks model and effort per launch. Exceeding the cap is a protocol finding, not an agent failure.
+Never a general-purpose agent: every launch has one goal, one specific role (model, minimal tools, JSON
+contract) and a bounded context; `bin/route.sh` picks model and effort. Exceeding the cap is a protocol
+finding, not an agent failure.
 
 ## 4. How agents are briefed and how they answer (`agent-protocol.md`)
 
 Brief: `04-templates/brief.md` (goal contract, terse English). Handoff via a numbered file; the
-script sets the sha. With the owner, use their language. The installers append this core, byte for
-byte, to every kit agent:
+script sets the sha. With the owner, use their language. Installers append this core byte for byte
+to every kit agent:
 
 <!-- subagent-core:start -->
 - The kit: a working method for AI-built software. Scripts measure; each round's role agents (cartographer,
@@ -79,7 +80,7 @@ byte, to every kit agent:
 - Never edit shared build files or `.claude/**` (any tool, Bash included); never read, copy or stage
   personal files (`*.personal.*`, `personal/`). Write artifacts in English.
 - Push, PR, merge, tags, external tickets, receipt start/finalize/acknowledge: the owner's; report
-  them, never run them. Never talk to the owner; never spawn agents.
+  them, never run them. Never talk to the owner; never spawn agents or write memory.
 <!-- subagent-core:end -->
 
 ## 5. The full loop
@@ -93,13 +94,13 @@ minutes.
 The loop opens with a **receipt** (`receipt_start`, skill `receipt-review`) tied to the candidate's
 tree, with the layer frozen: exempt (nothing), low (scripts only), medium (one challenger with one lens
 + sectors), high (the full round, with the owner's consent). `receipt_finalize` closes from the
-captures; approval never pushes or opens a PR. Scripts are called as MCP tools (`mcp__metodo__*`) and
-hooks enforce the gates.
+captures; approval never pushes or opens a PR. Scripts run as MCP tools (`mcp__metodo__*`); hooks
+enforce the gates.
 
 ## 6. If you're instantiating this in a project
 
-Run `03-tools/bin/init.sh <repo>` (or the `init-kit` skill, which interviews the owner and calls
-it): instance, adaptation, scaffolds, pinned tools, install, first baseline and map, then the wiring
-doctor (`bin/doctor.sh`) and the full-loop smoke (`bin/smoke-loop.sh`). Its report lists what is left
-to you, by `05-adopt/checklist.md` section: the property hierarchy, the invariants with their
-guarantee mechanism, boundary nodes and doc caps, owner and gates. Only then open the first change card.
+Run `03-tools/bin/init.sh <repo>` (or the `init-kit` skill, which interviews the owner): instance,
+adaptation, scaffolds, pinned tools, install, first baseline and map, then the wiring doctor
+(`bin/doctor.sh`) and the full-loop smoke (`bin/smoke-loop.sh`). Its report lists what is left to
+you by `05-adopt/checklist.md` section: the property hierarchy, the invariants with their guarantee
+mechanism, boundary nodes and doc caps, owner and gates. Only then open the first change card.
