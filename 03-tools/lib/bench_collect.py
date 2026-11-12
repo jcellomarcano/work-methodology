@@ -16,19 +16,24 @@ one source of truth serves the kit and every instance.
 Sources for collect: the queue out/bench/queue/<session_id>.json written by
 the SessionEnd hook ({"session_id", "transcript_path"}) and a sweep of the
 repo's transcript dir, named by transcript_metrics.transcript_dir (root
-${CLAUDE_PROJECTS_DIR:-~/.claude/projects}). A session is measured again only
-when its transcript is newer than its row.
+${CLAUDE_PROJECTS_DIR:-~/.claude/projects}). A queued path is measured only
+when it resolves inside that root and is <session_id>.jsonl; any other item
+is consumed and counted as failed, and its path is never opened. A session
+is measured again only when its transcript is newer than its row.
 
 Everything lands under <instance>/out/bench/: sessions/<id>.json (one row per
 session), data/sessions.json (the transcript_metrics payload shape), queue/,
 adoption.json, report/, .lock. Deterministic: same transcripts, same bytes.
 Private: rows carry counts and lengths only, never prompt or reply text, and
 neither the files nor the printed summaries carry an absolute path (report
-prints only the path of its own report).
+prints only the path of its own report). The rows do keep the payload's
+`project_dir`: the transcript directory name, which encodes the repo path.
 
 Exit: 0 ok (collect also when single sessions failed: they are counted, and
 when another collect holds the lock), 1 the phase 1 report failed, 2 usage or
-setup error. `ab` exits with the code of the forwarded command.
+setup error. A bench home that cannot be created or written is a setup error:
+one line on stderr that names the subcommand and the error class, never a
+path or a traceback. `ab` exits with the code of the forwarded command.
 """
 from __future__ import annotations
 
@@ -51,6 +56,8 @@ AB_WORDS = {"run": "ab", "judge": "judge", "report": "report"}
 USAGE = ("usage: bench.sh collect|report|status|adopt <repo> [--tools <instance>]\n"
          "       bench.sh ab <repo> <run|judge|report> [args] [--tools <instance>]")
 SYNC_HINT = "run 03-tools/bin/sync-instance.sh <instance> from the kit first"
+# The subcommands that only read and write the instance: a file system error there is a setup error (exit 2).
+FS_COMMANDS = ("collect", "report", "status", "adopt")
 
 
 class BenchError(Exception):
@@ -122,8 +129,27 @@ def _queue_files(out: Path) -> list[Path]:
 
 # ---- collect ---------------------------------------------------------------
 
+def _queued_transcript(raw: str, sid: str, root: str) -> tuple[Path | None, str | None]:
+    """The transcript a queue item may name, or why it is refused. The queue is a
+    folder anyone who can write the instance can fill, so a queued path is used
+    only when it resolves inside the transcripts root and is <session_id>.jsonl.
+    It is resolved first and never opened or looked at before it passes."""
+    try:
+        resolved = os.path.realpath(raw)
+        inside = resolved != root and os.path.commonpath([root, resolved]) == root
+    except (OSError, ValueError):  # a path no file system call accepts, for example with a null byte
+        inside = False
+    if not inside:
+        return None, "queued path outside the transcripts root"
+    path = Path(resolved)
+    if path.suffix != ".jsonl" or path.stem != sid:
+        return None, "queued path is not <session_id>.jsonl"
+    return path, None
+
+
 def _candidates(tdir: Path, out: Path, failures: list) -> tuple[dict, list]:
     """session_id -> transcript path, plus the queue items to drop once measured."""
+    root = os.path.realpath(tdir.parent)  # the transcripts root, resolved: /var is a symlink on macOS
     found = {}
     if tdir.is_dir():
         for f in sorted(tdir.glob("*.jsonl")):
@@ -140,9 +166,13 @@ def _candidates(tdir: Path, out: Path, failures: list) -> tuple[dict, list]:
             failures.append({"reason": "bad queue item", "session_id": q.stem})
             q.unlink(missing_ok=True)
             continue
-        path = Path(raw) if raw else None
+        path, refused = _queued_transcript(raw, sid, root) if raw else (None, None)
+        if refused:  # named after the queue file: the item is untrusted, its session_id may be anything
+            failures.append({"reason": refused, "session_id": q.stem})
+            q.unlink(missing_ok=True)
+            continue
         if path is not None and path.is_file():
-            found.setdefault(path.stem, path)
+            found.setdefault(sid, path)
         elif sid not in found:  # a session the sweep found needs no path from the queue
             failures.append({"reason": "transcript missing", "session_id": sid})
             q.unlink(missing_ok=True)
@@ -328,6 +358,7 @@ def main(argv=None) -> int:
     if argv and argv[0] in ("-h", "--help"):
         print(USAGE)
         return 0
+    cmd = ""
     try:
         cmd, tools, rest = parse(argv)
         instance = resolve_instance(tools)
@@ -346,6 +377,13 @@ def main(argv=None) -> int:
             ab(instance, rest[1], rest[2:])
     except BenchError as exc:
         print(str(exc), file=sys.stderr)
+        return 2
+    except OSError as exc:
+        if cmd not in FS_COMMANDS:
+            raise
+        # the class only: the message of the error names an absolute path and, for a temp file, a process id
+        print(f"bench: {cmd} stopped on a file system error ({type(exc).__name__}); "
+              "<instance>/out/bench must be a writable directory", file=sys.stderr)
         return 2
     return 0
 

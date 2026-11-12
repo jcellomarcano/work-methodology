@@ -40,6 +40,11 @@ RUNTIME_SKIP = "runtime {runtime}: the measurement is Claude Code only, so no ad
                "session is measured"
 DOCTOR_RUNTIME_SKIP = "Claude Code only: {runtime} sessions are not measured"
 COLLECT_FIX = "<instance>/bin/bench.sh collect <repo>"
+# a failed subcommand that left no `bench: ...` line of its own: the exit code is all the detail keeps
+NO_REASON = "exit {code} without a one-line reason"
+# the collector's own line for a bench home it cannot write
+FS_ERROR = "bench: {sub} stopped on a file system error (PermissionError); <instance>/out/bench must be a writable " \
+           "directory"
 
 # ---- what init and the doctor reported before this change (commit ids -> <sha>, digit runs -> N) ----
 
@@ -350,6 +355,63 @@ class BenchInitRunTests(InitBase):
         entry = self.run_step(instance, transcripts=self.transcripts)
         self.assertEqual((entry["status"], entry["fix"]), ("fail", ADOPT_FIX), entry)
         self.assertIn("bench.sh adopt failed: ", entry["detail"])
+
+    def stub_bench(self, instance: Path, failing: str) -> None:
+        """Replace the copy's bin/bench.sh with one whose `failing` subcommand dies the way an uncaught
+        error does: a traceback whose last line names a temp file after the process id."""
+        script = ("#!/usr/bin/env bash\n"
+                  'case "$1" in\n'
+                  "  status) echo '{\"enabled\": true}'; exit 0 ;;\n"
+                  f'  {failing}) echo "Traceback (most recent call last):" >&2\n'
+                  '    echo "PermissionError: [Errno 13] Permission denied: \'/abs/out/bench/.adoption.$$.tmp\'" >&2\n'
+                  "    exit 1 ;;\n"
+                  "  adopt) echo kept; exit 0 ;;\n"
+                  "esac\n")
+        (instance / "bin" / "bench.sh").write_text(script, encoding="utf-8")
+
+    def unwritable_bench_home(self, instance: Path, adoption: bool = False) -> None:
+        home = instance / "out" / "bench"
+        home.mkdir(parents=True)
+        if adoption:
+            (home / "adoption.json").write_text("{}\n", encoding="utf-8")
+        home.chmod(0o555)
+        self.addCleanup(home.chmod, 0o755)  # so the fixture can be removed
+
+    def assert_stable_detail(self, detail: str):
+        for needle in (str(self.tmp), os.path.realpath(self.tmp), ".tmp", "Errno", "Traceback"):
+            self.assertNotIn(needle, detail)
+
+    def test_a_failure_detail_is_the_same_bytes_whatever_the_failed_command_printed(self):
+        expected = {"adopt": ("fail", ADOPT_FIX, "bench.sh adopt failed: " + NO_REASON.format(code=1)),
+                    "collect": ("warn", COLLECT_FIX, "adoption on file; bench.sh collect failed: "
+                                + NO_REASON.format(code=1))}
+        for sub in ("adopt", "collect"):
+            with self.subTest(sub=sub):
+                instance = self.copy_instance()
+                self.stub_bench(instance, sub)
+                first = self.run_step(instance, transcripts=self.transcripts)
+                self.assertEqual((first["status"], first["fix"], first["detail"]), expected[sub])
+                self.assertEqual(self.run_step(instance, transcripts=self.transcripts), first)
+
+    @unittest.skipIf(os.geteuid() == 0, "root writes through a read-only directory")
+    def test_an_unwritable_bench_home_is_the_same_fail_detail_on_every_run(self):
+        instance = self.copy_instance()
+        self.unwritable_bench_home(instance)
+        first = self.run_step(instance, transcripts=self.transcripts)
+        self.assertEqual((first["status"], first["fix"]), ("fail", ADOPT_FIX), first)
+        self.assertEqual(first["detail"], "bench.sh adopt failed: " + FS_ERROR.format(sub="adopt"))
+        self.assert_stable_detail(first["detail"])
+        self.assertEqual(self.run_step(instance, transcripts=self.transcripts), first)
+
+    @unittest.skipIf(os.geteuid() == 0, "root writes through a read-only directory")
+    def test_an_unwritable_bench_home_is_the_same_warn_detail_on_every_run(self):
+        instance = self.copy_instance()
+        self.unwritable_bench_home(instance, adoption=True)
+        first = self.run_step(instance, transcripts=self.transcripts)
+        self.assertEqual((first["status"], first["fix"]), ("warn", COLLECT_FIX), first)
+        self.assertEqual(first["detail"], "adoption on file; bench.sh collect failed: " + FS_ERROR.format(sub="collect"))
+        self.assert_stable_detail(first["detail"])
+        self.assertEqual(self.run_step(instance, transcripts=self.transcripts), first)
 
     def test_a_collector_error_is_a_warn_that_names_the_reason(self):
         instance = self.copy_instance()

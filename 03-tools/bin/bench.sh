@@ -15,8 +15,9 @@
 # The instance is --tools, else $METODO_TOOLS, else this script's parent dir.
 # Transcripts come from ${CLAUDE_PROJECTS_DIR:-~/.claude/projects}. Exit: 0 ok
 # (collect also when single sessions failed: they are counted), 1 report
-# failed, 2 usage or no bench/lib in the instance; ab exits with the code of
-# the forwarded command.
+# failed, 2 usage, no bench/lib in the instance, or an <instance>/out/bench
+# that cannot be created or written (one line on stderr, no path); ab exits
+# with the code of the forwarded command.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

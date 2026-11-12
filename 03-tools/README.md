@@ -63,7 +63,8 @@ bin/init.sh <repo> --uninstall [--instance D] [--audit D] [--purge] [--runtime c
 bin/doctor.sh <repo> [--tools D] [--runtime claude|pi|agy|all] [--out F]   # FAIL names its fix; bench.wired
                                          # (PASS or WARN; not required) and bench.used (this repo's counts:
                                          # sessions, hooks, agents, mcp, skills, engram) are SKIP on pi and agy,
-                                         # where nothing is measured
+                                         # where nothing is measured; with bench.enabled: false bench.wired is also
+                                         # SKIP, and bench.used is SKIP while no row of this repo is stored
 bin/doctor.sh <repo> --absent [--runtime claude|pi|agy|all]   # after --uninstall: PASS = nothing left, kit_absent
 bin/smoke-loop.sh <repo> [--tools D] [--keep] [--out F]   # card -> receipt -> finalize, throwaway clone
 bin/kit-status.sh --check | --write [--allow-failing]   # README status block: --check is cheap (exit 1 =

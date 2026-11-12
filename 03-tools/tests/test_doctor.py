@@ -402,6 +402,28 @@ class DoctorTests(unittest.TestCase):
         self.assertEqual(used["fix"], "<tools>/bin/bench.sh collect <repo>")
         self.assertEqual(used["counts"], {"sessions": 0, "hooks": 0, "agents": 0, "mcp": 0, "skills": 0, "engram": 0})
 
+    def test_bench_used_is_skipped_when_bench_is_off_and_no_row_of_this_repo_is_stored(self):
+        zero = {"sessions": 0, "hooks": 0, "agents": 0, "mcp": 0, "skills": 0, "engram": 0}
+        off = self.bench_tools("tools-bench-used-off", config={"bench": {"enabled": False}})
+        rows = off / "out" / "bench" / "sessions"
+        rows.mkdir(parents=True)
+        other = {"session_id": "s9", "project": "other-repo", "kit": {"markers": ["hook:metodo"]}}
+        (rows / "s9.json").write_text(json.dumps(other), encoding="utf-8")
+        doctor, ctx = self.ctx(self.fixture, off)
+        # nothing is measured and no command could clear a warning: SKIP, with no fix
+        self.assertEqual(doctor.check_bench_used(ctx),
+                         {"id": "bench.used", "status": "SKIP", "fix": None, "counts": zero,
+                          "detail": "bench.enabled is false in <tools>/config/project.json: sessions are not measured, "
+                                    "and no session of this repo is stored under <tools>/out/bench/sessions/"})
+        # rows measured before the benchmark was turned off are still reported, as with the benchmark on
+        mine = {"session_id": "s1", "project": "fixture", "kit": {"markers": ["hook:metodo"]}}
+        (rows / "s1.json").write_text(json.dumps(mine), encoding="utf-8")
+        on = self.bench_tools("tools-bench-used-on")
+        shutil.copytree(rows, on / "out" / "bench" / "sessions")
+        used = doctor.check_bench_used(ctx)
+        self.assertEqual((used["status"], used["counts"]), ("PASS", dict(zero, sessions=1, hooks=1)), used)
+        self.assertEqual(used, doctor.check_bench_used(doctor.Ctx(self.fixture, on, "all")))
+
     # non-git, usage
     def test_non_git_dir_reports_repo_git_fail(self):
         plain = self.tmp / "plain"

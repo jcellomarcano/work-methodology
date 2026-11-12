@@ -24,6 +24,9 @@ SID = "11111111-2222-3333-4444-555555555555"
 SID2 = "22222222-3333-4444-5555-666666666666"
 SECRET_PROMPT = "fix the login bug with the secret word zebra"
 SECRET_REPLY = "Done, the zebra is fixed."
+# why a queue item is consumed without being measured
+OUTSIDE_ROOT = "queued path outside the transcripts root"
+NOT_THE_SESSION = "queued path is not <session_id>.jsonl"
 STRIPPED_ENV = ("METODO_TOOLS", "METODO_PROJECT_CONFIG", "CLAUDE_PROJECTS_DIR")
 # Echoes its arguments and exits 7: stands in for <instance>/bench/lib/bench_cli.py.
 CLI_STUB = "import json, sys\nprint(json.dumps(sys.argv[1:]))\nsys.exit(7)\n"
@@ -171,18 +174,68 @@ class CollectTests(BenchTestCase):
         self.assertEqual(json.loads(proc.stdout)["measured"], 1)
 
     def test_queue_item_is_measured_and_removed(self):
-        elsewhere = self.write_transcript(SID2, kit=False, where=self.tmp / "other-dir")
+        elsewhere = self.write_transcript(SID2, kit=False, where=self.transcripts / "other-project")
         item = self.queue(SID2, {"session_id": SID2, "transcript_path": str(elsewhere)})
         self.assertEqual(self.collect(), {"failed": 0, "measured": 1, "queue_left": 0, "skipped": 0})
         self.assertFalse(item.exists())
         self.assertTrue((self.out / "sessions" / f"{SID2}.json").is_file())
 
     def test_queued_transcript_that_no_longer_exists_fails_and_is_removed(self):
-        gone = self.tmp / "gone" / f"{SID2}.jsonl"
+        gone = self.transcripts / "gone" / f"{SID2}.jsonl"
         item = self.queue(SID2, {"session_id": SID2, "transcript_path": str(gone)})
         self.assertEqual(self.collect(), {"failed": 1, "measured": 0, "queue_left": 0, "skipped": 0})
         self.assertFalse(item.exists())
         self.assertEqual(self.aggregate()["failures"], [{"reason": "transcript missing", "session_id": SID2}])
+
+    def test_queue_item_given_as_a_resolved_path_is_measured(self):
+        # the system temp dir sits behind a symlink on macOS: the root and the queued path may be spelled differently
+        elsewhere = self.write_transcript(SID2, kit=False, where=self.transcripts / "other-project")
+        self.queue(SID2, {"session_id": SID2, "transcript_path": os.path.realpath(elsewhere)})
+        self.assertEqual(self.collect(), {"failed": 0, "measured": 1, "queue_left": 0, "skipped": 0})
+        self.assertTrue((self.out / "sessions" / f"{SID2}.json").is_file())
+
+    def assert_queue_item_rejected(self, name: str, payload: dict, reason: str):
+        item = self.queue(name, payload)
+        proc = self.bench("collect", str(self.repo))
+        self.assertEqual(json.loads(proc.stdout), {"failed": 1, "measured": 0, "queue_left": 0, "skipped": 0})
+        self.assertFalse(item.exists(), "the item is consumed")
+        self.assertFalse((self.out / "sessions").exists(), "no row is written")
+        agg = self.aggregate()
+        self.assertEqual(agg["failures"], [{"reason": reason, "session_id": name}])
+        self.assertEqual(agg["sessions"], [])
+        self.assert_no_absolute_paths(proc.stdout + proc.stderr + json.dumps(agg))
+
+    def test_queued_path_outside_the_transcripts_root_is_not_measured(self):
+        outside = self.write_transcript(SID2, kit=False, where=self.tmp / "other-dir")
+        self.assert_queue_item_rejected(SID2, {"session_id": SID2, "transcript_path": str(outside)}, OUTSIDE_ROOT)
+
+    def test_queued_path_to_any_other_file_of_the_machine_is_not_measured(self):
+        passwd = self.tmp / "etc" / "passwd"
+        passwd.parent.mkdir()
+        passwd.write_text("root:x:0:0\n", encoding="utf-8")
+        self.assert_queue_item_rejected("passwd", {"session_id": "passwd", "transcript_path": str(passwd)}, OUTSIDE_ROOT)
+        shutil.rmtree(self.out)
+        # a path no file system call accepts is refused the same way, not a crash
+        self.assert_queue_item_rejected(SID2, {"session_id": SID2, "transcript_path": f"{passwd}\u0000.jsonl"},
+                                        OUTSIDE_ROOT)
+
+    def test_queued_path_that_leaves_the_root_through_a_symlink_or_dots_is_not_measured(self):
+        outside = self.write_transcript(SID2, kit=False, where=self.tmp / "other-dir")
+        link = self.transcripts / "linked"
+        link.symlink_to(outside.parent, target_is_directory=True)
+        self.assert_queue_item_rejected(SID2, {"session_id": SID2, "transcript_path": str(link / outside.name)},
+                                        OUTSIDE_ROOT)
+        shutil.rmtree(self.out)
+        dotted = self.transcripts / ".." / "other-dir" / outside.name
+        self.assert_queue_item_rejected(SID2, {"session_id": SID2, "transcript_path": str(dotted)}, OUTSIDE_ROOT)
+
+    def test_queued_path_that_does_not_name_the_session_is_not_measured(self):
+        inside = self.write_transcript(SID2, kit=False, where=self.transcripts / "other-project")
+        self.assert_queue_item_rejected(SID, {"session_id": SID, "transcript_path": str(inside)}, NOT_THE_SESSION)
+        shutil.rmtree(self.out)
+        renamed = inside.with_suffix(".txt")
+        inside.rename(renamed)
+        self.assert_queue_item_rejected(SID2, {"session_id": SID2, "transcript_path": str(renamed)}, NOT_THE_SESSION)
 
     def test_queue_item_with_an_empty_path_is_served_by_the_sweep(self):
         self.write_transcript()
@@ -231,7 +284,7 @@ class CollectTests(BenchTestCase):
 
     def test_no_prompt_or_reply_text_and_no_absolute_path_in_output_or_files(self):
         self.write_transcript()
-        elsewhere = self.write_transcript(SID2, kit=False, where=self.tmp / "other-dir")
+        elsewhere = self.write_transcript(SID2, kit=False, where=self.transcripts / "other-project")
         self.queue(SID2, {"session_id": SID2, "transcript_path": str(elsewhere)})
         proc = self.bench("collect", str(self.repo))
         self.assertEqual(json.loads(proc.stdout)["measured"], 2)
@@ -387,6 +440,44 @@ class ReportTests(BenchTestCase):
         self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
         self.assertEqual(proc.stdout, "")
         self.assertIn("phase1_report failed", proc.stderr)
+
+
+@unittest.skipIf(os.geteuid() == 0, "root writes through a read-only directory")
+class UnwritableInstanceTests(BenchTestCase):
+    """A bench home that cannot be written is a setup error: one line, no traceback, no path, exit 2."""
+    FS_ERROR = "bench: {sub} stopped on a file system error ({kind}); <instance>/out/bench must be a writable directory\n"
+
+    def read_only(self, path: Path) -> None:
+        path.chmod(0o555)
+        self.addCleanup(path.chmod, 0o755)  # so the fixture can be removed
+
+    def assert_setup_error(self, kind: str) -> None:
+        self.write_transcript()
+        for sub in ("collect", "adopt", "report"):
+            with self.subTest(sub=sub):
+                proc = self.bench(sub, str(self.repo), check=False)
+                self.assertEqual(proc.stderr, self.FS_ERROR.format(sub=sub, kind=kind))
+                self.assertEqual((proc.returncode, proc.stdout), (2, ""))
+                self.assertEqual(self.bench(sub, str(self.repo), check=False).stderr, proc.stderr)
+
+    def test_a_read_only_bench_home_is_one_line_on_stderr_and_exit_2(self):
+        self.out.mkdir(parents=True)
+        self.read_only(self.out)
+        self.assert_setup_error("PermissionError")
+        self.assertEqual(list(self.out.iterdir()), [])
+
+    def test_a_bench_home_whose_parent_cannot_be_created_is_one_line_on_stderr_and_exit_2(self):
+        self.read_only(self.instance)
+        self.assert_setup_error("PermissionError")
+        self.assertFalse((self.instance / "out").exists())
+
+    def test_a_file_in_the_way_of_the_bench_home_is_one_line_on_stderr_and_exit_2(self):
+        (self.instance / "out").write_text("in the way\n", encoding="utf-8")
+        self.assert_setup_error("NotADirectoryError")
+        (self.instance / "out").unlink()
+        (self.instance / "out").mkdir()
+        self.out.write_text("in the way\n", encoding="utf-8")
+        self.assert_setup_error("FileExistsError")
 
 
 class AbAndUsageTests(BenchTestCase):

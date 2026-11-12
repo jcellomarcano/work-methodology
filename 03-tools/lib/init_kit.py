@@ -736,11 +736,22 @@ class Init:
         """The collector is reached only through the instance's own bin/bench.sh."""
         return run(["bash", self.instance / "bin" / "bench.sh", sub, self.repo, "--tools", self.instance])
 
+    @staticmethod
+    def bench_reason(proc: Proc) -> str:
+        """Why a bench.sh subcommand failed, in the same bytes on every run: the collector's own
+        one-line `bench: ...` message (a fixed sentence: no path, process id, time or count), else
+        the exit code alone. Never any other stderr line: a traceback names temp files and paths."""
+        line = proc.last_line()
+        if proc.code != 0 and line.startswith("bench: "):
+            return line
+        return f"exit {proc.code} without a one-line reason"
+
     def step_bench(self) -> None:
         """The adoption timestamp once, then the repo's existing Claude Code sessions.
         The detail names the resulting state, never a count or a time, so a second run
-        reports the same bytes. Only a failed adopt is `fail`; nothing here changes
-        the exit code or stops the steps that follow. A runtime without a Claude Code
+        reports the same bytes; a failed subcommand is named with bench_reason. Only a
+        failed adopt is `fail`; nothing here changes the exit code or stops the steps
+        that follow. A runtime without a Claude Code
         install skips first, before --no-bench and bench.enabled: nothing would clear a warning there."""
         adopt_fix, collect_fix = "<instance>/bin/bench.sh adopt <repo>", "<instance>/bin/bench.sh collect <repo>"
         if self.args.runtime in BENCH_SKIP_RUNTIMES:
@@ -761,7 +772,7 @@ class Init:
             return
         adopt = self.bench("adopt")
         if adopt.code != 0:
-            self.record("bench", "fail", f"bench.sh adopt failed: {adopt.last_line()}", adopt_fix)
+            self.record("bench", "fail", f"bench.sh adopt failed: {self.bench_reason(adopt)}", adopt_fix)
             return
         say(f"  bench adopt: {adopt.out.strip()}")
         proc = self.bench("collect")
@@ -770,7 +781,8 @@ class Init:
         except (IndexError, json.JSONDecodeError):
             summary = None
         if not isinstance(summary, dict):
-            self.record("bench", "warn", f"adoption on file; bench.sh collect failed: {proc.last_line()}", collect_fix)
+            self.record("bench", "warn", f"adoption on file; bench.sh collect failed: {self.bench_reason(proc)}",
+                        collect_fix)
             return
         say(f"  bench collect: {json.dumps(summary, sort_keys=True)}")
         if summary.get("locked"):

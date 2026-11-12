@@ -37,13 +37,16 @@ which is what 08-benchmark reads to accept a kit arm or mark it invalid-arm.
 bench.wired and bench.used are never required: a fresh install has measured
 nothing yet. Both judge the Claude Code install (claude and all) and are SKIP
 for pi and agy, where no session is measured; that reason wins over any other.
-bench.wired is also SKIP when bench.enabled is false. claude.hooks leaves the SessionEnd bench_queue.py entry to
-bench.wired, so a repo installed before that hook existed still passes.
+bench.wired is also SKIP when bench.enabled is false, and so is bench.used
+while no row of this repo is stored (rows measured before the benchmark was
+turned off are still reported). claude.hooks leaves the SessionEnd
+bench_queue.py entry to bench.wired, so on a repo installed before that hook
+existed claude.hooks still passes and bench.wired is the check that warns.
 bench.used also carries counts {sessions, hooks, agents, mcp, skills, engram}:
 the measured sessions of this repo (by directory name) under
 <tools>/out/bench/sessions/ and how many of them show each kit module in use.
-It reads those rows only, never a transcript; on SKIP it reads nothing and
-the counts are zero.
+It reads those rows only, never a transcript; on the pi and agy SKIP it reads
+nothing, and on every SKIP the counts are zero.
 """
 from __future__ import annotations
 
@@ -525,6 +528,11 @@ def check_bench_used(ctx: Ctx) -> dict:
         counts["mcp"] += "mcp:metodo" in markers
         counts["skills"] += any(m.startswith("skill:") for m in weak)
         counts["engram"] += any(isinstance(engram.get(k), int) and engram[k] > 0 for k in ("recall_calls", "save_calls"))
+    if not counts["sessions"] and not bench_enabled(ctx):  # nothing stored and nothing will be: no fix to offer
+        skipped = _check("bench.used", "SKIP", "bench.enabled is false in <tools>/config/project.json: sessions are not "
+                         "measured, and no session of this repo is stored under <tools>/out/bench/sessions/")
+        skipped["counts"] = counts
+        return skipped
     modules = ", ".join(f"{name} {counts[name]}" for name in BENCH_MODULES)
     detail = f"{counts['sessions']} sessions of this repo measured under <tools>/out/bench/sessions/; sessions using {modules}"
     check = _check("bench.used", "PASS" if counts["sessions"] else "WARN", detail, "<tools>/bin/bench.sh collect <repo>")
