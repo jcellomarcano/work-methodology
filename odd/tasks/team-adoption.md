@@ -18,7 +18,7 @@
 | ID | Specs | Route | Status | Evidence |
 |---|---|---|---|---|
 | T1 | S2 to S6 | delegated writer (owner preference: role agents do each task) | done | `a4c7bf5`; docs lint 0 offenders; path test RED first and it caught a planted path |
-| T2 | all | parent: seam check against the code, status block, close | pending | |
+| T2 | all | parent: seam check against the code, status block, close | done | status block at `b52da4f`: suite 1723 OK, 0 failures; review assessment `5e505f3..HEAD`: medium, not due (`under_budget`) |
 
 ## Log
 
