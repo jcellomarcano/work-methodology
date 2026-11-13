@@ -19,10 +19,14 @@ repo's transcript dir, named by transcript_metrics.transcript_dir (root
 ${CLAUDE_PROJECTS_DIR:-~/.claude/projects}). A queued path is measured only
 when it resolves inside that root and is <session_id>.jsonl; any other item
 is consumed and counted as failed, and its path is never opened. A session
-is measured again only when its transcript is newer than its row.
+is measured again only when its transcript is newer than its row, or when the
+row's `schema_version` is not the analyzer's (a row without one included).
+During report, a git_metrics or kit_telemetry that fails takes its extract of
+an earlier run with it, so the report shows that input as failed, not as stale.
 
 Everything lands under <instance>/out/bench/: sessions/<id>.json (one row per
-session), data/sessions.json (the transcript_metrics payload shape), queue/,
+session: the analyzer's record plus the `schema_version` that produced it),
+data/sessions.json (the transcript_metrics payload shape), queue/,
 adoption.json, report/, .lock. Deterministic: same transcripts, same bytes.
 Private: rows carry counts and lengths only, never prompt or reply text, and
 neither the files nor the printed summaries carry an absolute path (report
@@ -31,9 +35,12 @@ prints only the path of its own report). The rows do keep the payload's
 
 Exit: 0 ok (collect also when single sessions failed: they are counted, and
 when another collect holds the lock), 1 the phase 1 report failed, 2 usage or
-setup error. A bench home that cannot be created or written is a setup error:
-one line on stderr that names the subcommand and the error class, never a
-path or a traceback. `ab` exits with the code of the forwarded command.
+setup error. A file system error of collect, report, status or adopt is a
+setup error: one line on stderr that names the subcommand, the error class
+and the kind of path that failed (<instance>/out/bench only when the path is
+in it, else the transcripts root, the instance config or another path), never
+the path itself or a traceback. `ab` exits with the code of the forwarded
+command.
 """
 from __future__ import annotations
 
@@ -58,6 +65,16 @@ USAGE = ("usage: bench.sh collect|report|status|adopt <repo> [--tools <instance>
 SYNC_HINT = "run 03-tools/bin/sync-instance.sh <instance> from the kit first"
 # The subcommands that only read and write the instance: a file system error there is a setup error (exit 2).
 FS_COMMANDS = ("collect", "report", "status", "adopt")
+# What the one-line file system error says, by the kind of path that failed: never the path itself.
+FS_HINTS = {
+    "bench": "<instance>/out/bench must be a writable directory",
+    "transcripts": "the transcripts root must be a readable directory",
+    "config": "the instance config must be readable",
+    "other": "another path failed, not <instance>/out/bench, the transcripts root or the instance config",
+    "unnamed": "the error names no path",
+}
+# The report steps whose output is an extract under data/: a failed step must not leave an earlier one behind.
+EXTRACTS = {"git_metrics": "git.json", "kit_telemetry": "kit.json"}
 
 
 class BenchError(Exception):
@@ -76,6 +93,11 @@ def resolve_instance(tools: str | None) -> Path:
 
 def bench_out(instance: Path) -> Path:
     return instance / "out" / "bench"
+
+
+def config_path(instance: Path) -> Path:
+    """The config file hooks/_common.load_config reads."""
+    return Path(os.environ.get("METODO_PROJECT_CONFIG") or instance / "config" / "project.json")
 
 
 def load_transcript_metrics(instance: Path):
@@ -181,6 +203,12 @@ def _candidates(tdir: Path, out: Path, failures: list) -> tuple[dict, list]:
     return found, consumed
 
 
+def _row_version(row: Path):
+    """The analyzer version that wrote a stored row; None for an unreadable row or one from before rows carried it."""
+    record = _read_json(row)
+    return record.get("schema_version") if isinstance(record, dict) else None
+
+
 def _measure(tm, out: Path, candidates: dict, failures: list) -> tuple[int, int]:
     measured = skipped = 0
     for sid in sorted(candidates):
@@ -188,10 +216,11 @@ def _measure(tm, out: Path, candidates: dict, failures: list) -> tuple[int, int]
         row = out / "sessions" / f"{sid}.json"
         try:
             seen_ns = path.stat().st_mtime_ns
-            if row.exists() and seen_ns <= row.stat().st_mtime_ns:
+            # a row is current when the transcript is not newer and this analyzer version wrote it
+            if row.exists() and seen_ns <= row.stat().st_mtime_ns and _row_version(row) == tm.SCHEMA_VERSION:
                 skipped += 1
                 continue
-            record = tm.analyze_session(path)
+            record = dict(tm.analyze_session(path), schema_version=tm.SCHEMA_VERSION)
             _write_atomic(row, _dump(record))
             # the row carries the transcript mtime it saw: a write during analysis triggers a remeasure
             os.utime(row, ns=(seen_ns, seen_ns))
@@ -266,13 +295,15 @@ def report(instance: Path, repo: Path) -> int:
             print(f"bench: {name} failed (exit {proc.returncode})", file=sys.stderr)
             if name == "phase1_report":
                 return 1
+            # the extract of an earlier run is not this run's: the report must show the input as failed
+            (data / EXTRACTS[name]).unlink(missing_ok=True)
     print(out / "report" / "phase1-baseline.md")
     return 0
 
 
 def bench_enabled(instance: Path) -> bool:
     """config key bench.enabled; absent means on. Same file as hooks/_common.load_config."""
-    config = _read_json(Path(os.environ.get("METODO_PROJECT_CONFIG") or instance / "config" / "project.json"))
+    config = _read_json(config_path(instance))
     bench = config.get("bench") if isinstance(config, dict) else None
     if isinstance(bench, dict) and "enabled" in bench:
         return bool(bench["enabled"])
@@ -353,12 +384,47 @@ def parse(argv: list[str]) -> tuple[str, str | None, list[str]]:
     return argv[0], tools, rest
 
 
+def _within(path: str, base) -> bool:
+    """True when the resolved `path` is `base` or sits under it; `base` is resolved here (/var is a symlink on macOS)."""
+    try:
+        base = os.path.realpath(base)
+        return os.path.commonpath([base, path]) == base
+    except (OSError, ValueError):
+        return False
+
+
+def _fs_error_place(exc: OSError, instance: Path | None, repo: Path | None) -> str:
+    """The FS_HINTS key for the path a file system error names. The bench home
+    counts with <instance>/out, the one parent collect and adopt create for it."""
+    names = [n for n in (exc.filename, exc.filename2) if isinstance(n, (str, bytes, os.PathLike))]
+    if not names:
+        return "unnamed"
+    if instance is None:
+        return "other"
+    try:
+        paths = [os.path.realpath(os.fsdecode(n)) for n in names]
+    except (OSError, ValueError):
+        return "other"
+    home = bench_out(instance)
+    if any(_within(p, home) or p == os.path.realpath(home.parent) for p in paths):
+        return "bench"
+    try:
+        root = load_transcript_metrics(instance).transcript_dir(repo).parent
+    except Exception:  # noqa: BLE001 - the analyzer may be the very thing that failed: then the root is not known
+        root = None
+    if root is not None and any(_within(p, root) for p in paths):
+        return "transcripts"
+    if any(_within(p, config_path(instance)) or _within(p, instance / "config") for p in paths):
+        return "config"
+    return "other"
+
+
 def main(argv=None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     if argv and argv[0] in ("-h", "--help"):
         print(USAGE)
         return 0
-    cmd = ""
+    cmd, instance, repo = "", None, None
     try:
         cmd, tools, rest = parse(argv)
         instance = resolve_instance(tools)
@@ -381,9 +447,10 @@ def main(argv=None) -> int:
     except OSError as exc:
         if cmd not in FS_COMMANDS:
             raise
-        # the class only: the message of the error names an absolute path and, for a temp file, a process id
+        # the class and the kind of path only: the message of the error names an absolute path and,
+        # for a temp file, a process id
         print(f"bench: {cmd} stopped on a file system error ({type(exc).__name__}); "
-              "<instance>/out/bench must be a writable directory", file=sys.stderr)
+              f"{FS_HINTS[_fs_error_place(exc, instance, repo)]}", file=sys.stderr)
         return 2
     return 0
 

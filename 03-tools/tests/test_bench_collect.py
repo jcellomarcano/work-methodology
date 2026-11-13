@@ -12,6 +12,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -30,6 +31,17 @@ NOT_THE_SESSION = "queued path is not <session_id>.jsonl"
 STRIPPED_ENV = ("METODO_TOOLS", "METODO_PROJECT_CONFIG", "CLAUDE_PROJECTS_DIR")
 # Echoes its arguments and exits 7: stands in for <instance>/bench/lib/bench_cli.py.
 CLI_STUB = "import json, sys\nprint(json.dumps(sys.argv[1:]))\nsys.exit(7)\n"
+# Runs `collect <repo> --tools <instance>` with a collect that stops on a file system error naming argv[2]
+# (none when empty): the kinds of path the one-line error tells apart, on any interpreter.
+FS_ERROR_DRIVER = """
+import errno, sys
+sys.path.insert(0, sys.argv[1])
+import bench_collect
+def stop(*args, **kwargs):
+    raise PermissionError(errno.EACCES, "Permission denied", sys.argv[2] or None)
+bench_collect.collect = stop
+sys.exit(bench_collect.main(["collect", sys.argv[3], "--tools", sys.argv[4]]))
+"""
 
 
 def transcript_records(session_id: str, cwd: str, kit: bool) -> list[dict]:
@@ -118,6 +130,16 @@ class BenchTestCase(unittest.TestCase):
         for p in (str(self.tmp), os.path.realpath(self.tmp), str(self.home)):
             self.assertNotIn(p, text, where)
 
+    def analyzer_version(self, new: str | None = None) -> str:
+        """The SCHEMA_VERSION of the instance's analyzer; `new` rewrites it first, as a sync of a newer kit does."""
+        source = self.instance / "bench" / "lib" / "transcript_metrics.py"
+        text = source.read_text(encoding="utf-8")
+        if new is not None:
+            text, count = re.subn(r'^SCHEMA_VERSION = "[^"]+"', f'SCHEMA_VERSION = "{new}"', text, flags=re.M)
+            self.assertEqual(count, 1)
+            source.write_text(text, encoding="utf-8")
+        return re.search(r'^SCHEMA_VERSION = "([^"]+)"', text, re.M).group(1)
+
 
 class CollectTests(BenchTestCase):
     def test_first_collect_measures_and_writes_row_and_aggregate(self):
@@ -157,6 +179,34 @@ class CollectTests(BenchTestCase):
         later = row.stat().st_mtime + 10
         os.utime(path, (later, later))
         self.assertEqual(self.collect(), {"failed": 0, "measured": 1, "queue_left": 0, "skipped": 0})
+
+    def test_a_row_of_another_analyzer_version_is_measured_again(self):
+        self.write_transcript()
+        self.collect()
+        row = self.out / "sessions" / f"{SID}.json"
+        seen = row.stat().st_mtime_ns
+        self.analyzer_version("9.9.9")
+        # the transcript is not newer than the row: only the analyzer changed
+        self.assertEqual(self.collect(), {"failed": 0, "measured": 1, "queue_left": 0, "skipped": 0})
+        self.assertEqual(json.loads(row.read_text(encoding="utf-8"))["schema_version"], "9.9.9")
+        self.assertEqual(row.stat().st_mtime_ns, seen)
+        agg = self.aggregate()
+        self.assertEqual((agg["schema_version"], [s["schema_version"] for s in agg["sessions"]]), ("9.9.9", ["9.9.9"]))
+        # a row of the current version is skipped as before
+        self.assertEqual(self.collect(), {"failed": 0, "measured": 0, "queue_left": 0, "skipped": 1})
+
+    def test_a_row_without_a_schema_version_is_measured_again(self):
+        self.write_transcript()
+        self.collect()
+        row = self.out / "sessions" / f"{SID}.json"
+        seen = row.stat().st_mtime_ns
+        stored = json.loads(row.read_text(encoding="utf-8"))
+        stored.pop("schema_version", None)  # the row an earlier collector wrote
+        row.write_text(json.dumps(stored, indent=1, sort_keys=True, ensure_ascii=False) + "\n", encoding="utf-8")
+        os.utime(row, ns=(seen, seen))
+        self.assertEqual(self.collect(), {"failed": 0, "measured": 1, "queue_left": 0, "skipped": 0})
+        self.assertEqual(json.loads(row.read_text(encoding="utf-8"))["schema_version"], self.analyzer_version())
+        self.assertEqual(self.collect(), {"failed": 0, "measured": 0, "queue_left": 0, "skipped": 1})
 
     def test_sessions_of_another_repo_are_not_swept(self):
         self.write_transcript()
@@ -441,6 +491,32 @@ class ReportTests(BenchTestCase):
         self.assertEqual(proc.stdout, "")
         self.assertIn("phase1_report failed", proc.stderr)
 
+    def test_a_failed_extract_step_leaves_no_earlier_extract_for_the_report(self):
+        self.init_git()
+        self.write_transcript()
+        self.bench("report", str(self.repo))
+        baseline = self.out / "report" / "phase1-baseline.json"
+        for step, name in (("git_metrics", "git"), ("kit_telemetry", "kit")):
+            with self.subTest(step=step):
+                extract = self.out / "data" / f"{name}.json"
+                self.assertTrue(extract.is_file())
+                self.assertTrue(json.loads(baseline.read_text(encoding="utf-8"))[name])
+                script = self.instance / "bench" / "lib" / f"{step}.py"
+                real = script.read_text(encoding="utf-8")
+                script.write_text("raise SystemExit(3)\n", encoding="utf-8")
+                proc = self.bench("report", str(self.repo))  # the report is still written: exit 0
+                script.write_text(real, encoding="utf-8")
+                self.assertEqual(proc.stderr.splitlines()[1:], [f"bench: {step} failed (exit 3)"])
+                self.assertFalse(extract.exists(), "the extract of the earlier run is gone")
+                report = json.loads(baseline.read_text(encoding="utf-8"))
+                self.assertEqual(report["inputs"][name], {"error": "FileNotFoundError", "status": "failed"})
+                self.assertEqual(report[name], {})
+                md = (self.out / "report" / "phase1-baseline.md").read_text(encoding="utf-8")
+                self.assertIn(f"| {name}.json | failed |", md)
+                self.assertRegex(md, rf"Failed inputs: .*\b{name}\.json: failed")
+                self.bench("report", str(self.repo))  # the step works again: its extract is back
+                self.assertEqual(json.loads(baseline.read_text(encoding="utf-8"))["inputs"][name]["status"], "ok")
+
 
 @unittest.skipIf(os.geteuid() == 0, "root writes through a read-only directory")
 class UnwritableInstanceTests(BenchTestCase):
@@ -478,6 +554,51 @@ class UnwritableInstanceTests(BenchTestCase):
         (self.instance / "out").mkdir()
         self.out.write_text("in the way\n", encoding="utf-8")
         self.assert_setup_error("FileExistsError")
+
+
+class FileSystemErrorPlaceTests(BenchTestCase):
+    """The one-line file system error names <instance>/out/bench only when the failing path is in it."""
+    FS_ERROR = "bench: {sub} stopped on a file system error (PermissionError); {hint}\n"
+    BENCH_HOME = "<instance>/out/bench must be a writable directory"
+    TRANSCRIPTS = "the transcripts root must be a readable directory"
+    CONFIG = "the instance config must be readable"
+    OTHER = "another path failed, not <instance>/out/bench, the transcripts root or the instance config"
+    UNNAMED = "the error names no path"
+
+    @unittest.skipIf(os.geteuid() == 0, "root reads through an unreadable directory")
+    def test_an_unreadable_transcripts_root_is_named_as_the_transcripts_root(self):
+        self.write_transcript()
+        self.transcripts.chmod(0o000)
+        self.addCleanup(self.transcripts.chmod, 0o755)  # so the fixture can be removed
+        try:
+            self.project_dir.is_dir()
+        except PermissionError:
+            pass
+        else:
+            self.skipTest("this interpreter reads a directory it cannot reach as absent")
+        for sub in ("collect", "report"):
+            with self.subTest(sub=sub):
+                proc = self.bench(sub, str(self.repo), check=False)
+                self.assertEqual(proc.stderr, self.FS_ERROR.format(sub=sub, hint=self.TRANSCRIPTS))
+                self.assertEqual((proc.returncode, proc.stdout), (2, ""))
+
+    def test_the_error_line_names_the_kind_of_path_that_failed(self):
+        cases = (
+            (self.out / "sessions" / f"{SID}.json", self.BENCH_HOME),
+            (self.project_dir / f"{SID}.jsonl", self.TRANSCRIPTS),
+            (self.transcripts, self.TRANSCRIPTS),
+            (self.instance / "config" / "project.json", self.CONFIG),
+            (self.instance / "bench" / "lib" / "transcript_metrics.py", self.OTHER),
+            (self.repo / "file.txt", self.OTHER),
+            ("", self.UNNAMED),
+        )
+        for path, hint in cases:
+            with self.subTest(hint=hint, path=str(path)[len(str(self.tmp)):]):
+                proc = subprocess.run([sys.executable, "-B", "-c", FS_ERROR_DRIVER, str(COLLECTOR.parent), str(path),
+                                       str(self.repo), str(self.instance)],
+                                      capture_output=True, text=True, env=self.env())
+                self.assertEqual(proc.stderr, self.FS_ERROR.format(sub="collect", hint=hint))
+                self.assertEqual((proc.returncode, proc.stdout), (2, ""))
 
 
 class AbAndUsageTests(BenchTestCase):
