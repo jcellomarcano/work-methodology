@@ -30,6 +30,11 @@ from collections import Counter
 _HERE = pathlib.Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
+if __name__ == "__main__":
+    # Run directly from a skill folder: the installer copies that folder entry by entry, so leave no
+    # __pycache__ next to it. Set here, not in the entry block at the end of the file, because the
+    # sibling import below is what would be compiled (same rule as bench_cli.py).
+    sys.dont_write_bytecode = True
 
 import transcript_metrics as tm  # noqa: E402
 

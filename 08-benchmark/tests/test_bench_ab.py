@@ -1,14 +1,17 @@
 """Tests for lib/bench_ab.py with a stub `claude` and stub judges (no API spend)."""
 import contextlib
+import hashlib
 import io
 import json
 import os
 import pathlib
 import random
+import signal
 import stat
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from unittest import mock
 
@@ -481,6 +484,312 @@ class ReportTests(Sandbox):
         validity = rep["arms"]["vanilla"]["tasks"]["rev"]["judge_validity"]
         self.assertEqual(validity["label"], "Inferred")  # between-judge kappa below 0.6
         self.assertIn("kit-neutral", {r["arm"] for r in rep["excluded_runs"]})
+
+
+# ------------------------------------------------------------------ S12: A/B runner hardening
+# (odd/tasks/benchmark-port.md). Own stubs, so the fixtures of the tests above stay as they were.
+
+# A `claude` that never answers: it starts a child in its own process group, records both pids
+# and idles in short sleeps (about 6 s at most, so nothing outlives a failing test for long).
+LINGER_CLAUDE = r"""#!/usr/bin/env python3
+import json, os, subprocess, sys, time
+kid = subprocess.Popen([sys.executable, "-c", "import time\nfor _ in range(120):\n    time.sleep(0.05)\n"])
+target = os.environ["STUB_PIDS"]
+with open(target + ".tmp", "w") as fh:
+    json.dump([os.getpid(), kid.pid], fh)
+os.replace(target + ".tmp", target)
+for _ in range(120):
+    time.sleep(0.05)
+"""
+
+# A judge whose reply parses as JSON but has the wrong shape, one fault per mode.
+BAD_JUDGE = r"""#!/usr/bin/env python3
+import json, sys
+sys.stdin.read()
+replies = {"a-list": {"A": ["F1"], "B": {"per_finding": {}}, "preferred": "A"},
+           "b-string": {"A": {"per_finding": {}}, "B": "valid", "preferred": "B"},
+           "per-finding-list": {"A": {"per_finding": ["F1"]}, "B": {"per_finding": ["F1"]}, "preferred": "tie"}}
+print("```json\n" + json.dumps(replies[sys.argv[1]]) + "\n```")
+"""
+
+
+def gone(pid, within=2.0):
+    """True once the pid no longer exists (a killed orphan is reaped a moment after the signal)."""
+    deadline = time.monotonic() + within
+    while True:
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return True
+        except PermissionError:
+            return False
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.02)
+
+
+class HardeningSandbox(Sandbox):
+    PLAIN_ARM = {"prompt_template": "{task}"}
+
+    def call_err(self, fn, argv):
+        """Like call, but returns (rc, stderr): the refusal line is what these tests read."""
+        err = io.StringIO()
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+            rc = fn(argv)
+        return rc, err.getvalue()
+
+    def assert_refused(self, rc, err, prefix, fragment):
+        self.assertEqual(rc, 2, err)
+        self.assertEqual(len(err.splitlines()), 1, err)
+        self.assertTrue(err.startswith(prefix), err)
+        self.assertIn(fragment, err)
+        self.assertNotIn("Traceback", err)
+
+    def arms(self, *names, **extra):
+        return [dict(self.PLAIN_ARM, name=n, **extra.get(n.replace("-", "_"), {})) for n in names]
+
+    def seed_with_first(self, arm_names, first):
+        """A seed whose shuffled plan starts with `first`, so a failing run has a run after it."""
+        plan = {"tasks": [{"id": "c"}], "arms": [{"name": n} for n in arm_names], "k": 1}
+        return next(s for s in range(64) if bench_ab.plan_runs(dict(plan, seed=s))[0]["arm"] == first)
+
+    def report(self, run_dir):
+        rc, _ = self.call(bench_ab.main_report, ["--run", str(run_dir)])
+        self.assertEqual(rc, 0)
+        return json.loads((run_dir / "report.json").read_text())
+
+
+class ConfigValidationTests(HardeningSandbox):
+    """S12 (a): a config fault is one `bench ab:` line and exit 2, before any run or any file."""
+
+    ONE_TASK = [{"id": "c", "kind": "change", "prompt": "x"}]
+
+    def refuse_ab(self, cfg_path, fragment):
+        out = self.root / "out"
+        rc, err = self.call_err(bench_ab.main_ab, ["--config", str(cfg_path), "--out", str(out)])
+        self.assert_refused(rc, err, "bench ab: ", fragment)
+        self.assertFalse(out.exists())
+        self.assertEqual(self.stub_calls(), [])
+
+    def test_invalid_evidence_regex_is_refused_before_any_run(self):
+        cfg = self.config(tasks=self.ONE_TASK, arms=self.arms("kit", kit={"evidence": "("}))
+        self.refuse_ab(cfg, "arm 'kit': evidence is not a valid regular expression")
+
+    def test_missing_or_unreadable_prompt_file_is_refused(self):
+        (self.root / "a-directory").mkdir()
+        for name in ("nope.txt", "a-directory"):
+            with self.subTest(prompt_file=name):
+                cfg = self.config(tasks=[{"id": "c", "kind": "change", "prompt_file": name}], arms=self.arms("kit"))
+                self.refuse_ab(cfg, f"task 'c': cannot read prompt_file {name!r}")
+
+    def test_non_integer_k_max_turns_and_bootstrap_resamples_are_refused(self):
+        for key, value in (("k", "three"), ("k", 2.5), ("max_turns", "many"), ("bootstrap_resamples", "lots")):
+            with self.subTest(key=key, value=value):
+                cfg = self.config(tasks=self.ONE_TASK, arms=self.arms("kit"), **{key: value})
+                self.refuse_ab(cfg, f"{key} must be an integer, got {value!r}")
+
+    def test_top_level_value_that_is_not_an_object_is_refused(self):
+        path = self.root / "ab.json"
+        path.write_text("[1, 2]")
+        self.refuse_ab(path, "config must be a JSON object, got list")
+
+    def test_judge_refuses_a_run_dir_without_its_files_or_with_unreadable_ones(self):
+        rc, err = self.call_err(bench_ab.main_judge, ["--run", str(self.root / "nope")])
+        self.assert_refused(rc, err, "bench judge: ", "the run dir needs runs.jsonl and config.json")
+        broken = self.root / "broken"
+        broken.mkdir()
+        (broken / "config.json").write_text("{")
+        (broken / "runs.jsonl").write_text("")
+        rc, err = self.call_err(bench_ab.main_judge, ["--run", str(broken)])
+        self.assert_refused(rc, err, "bench judge: ", "cannot read config.json or runs.jsonl")
+        self.assertFalse((broken / "judge.json").exists())
+
+
+class RunFailureTests(HardeningSandbox):
+    """S12 (b): a run that raises is recorded as failed with a fixed reason and the plan goes on."""
+
+    TASK = [{"id": "c", "kind": "change", "prompt": "MAKE_FILE", "verify": "test -f done.txt"}]
+
+    def run_two_arms(self, failing, arms, out=None):
+        out = out or self.root / "out"
+        cfg = self.config(tasks=self.TASK, arms=arms, seed=self.seed_with_first([failing, "vanilla"], failing))
+        rc, text = self.call(bench_ab.main_ab, ["--config", str(cfg), "--out", str(out)])
+        self.assertEqual(rc, 0)
+        records = self.runs(out)
+        self.assertEqual([r["arm"] for r in records], [failing, "vanilla"])  # the failure came first
+        self.assertEqual(json.loads(text)["by_status"], {"failed": 1, "ok": 1})
+        self.assertEqual((records[1]["status"], records[1]["verify_passed"]), ("ok", True))
+        self.assertIn(records[0]["reason"], bench_ab.RUN_FAILURE_REASONS)
+        self.assertEqual(git(self.repo, "worktree", "list", "--porcelain").count("worktree "), 1)
+        return records[0]
+
+    @unittest.skipIf(os.geteuid() == 0, "root can read a mode-000 file")
+    def test_overlay_copy_that_fails_is_recorded_and_the_next_run_goes_on(self):
+        locked = self.repo / "locked.txt"
+        locked.write_text("x\n")
+        locked.chmod(0)
+        self.addCleanup(locked.chmod, 0o600)
+        failed = self.run_two_arms("broken", self.arms("broken", "vanilla", broken={"overlay": ["locked.txt"]}))
+        self.assertEqual((failed["status"], failed["reason"]), ("failed", "overlay-failed"))
+        self.assertEqual(len(self.stub_calls()), 1)  # the broken arm never launched, so it cost nothing
+
+    def test_raw_file_that_cannot_be_written_keeps_the_cost_and_the_next_run_goes_on(self):
+        out = self.root / "out"
+        (out / "raw" / "c" / "blocked" / "0" / "stdout.json").mkdir(parents=True)  # a directory where the file goes
+        failed = self.run_two_arms("blocked", self.arms("blocked", "vanilla"), out)
+        self.assertEqual((failed["status"], failed["reason"]), ("failed", "raw-write-failed"))
+        self.assertEqual(failed["cost_usd"], 0.25)  # the run was paid: its cost is not lost with the file
+        self.assertEqual(len(self.stub_calls()), 2)
+        rep = self.report(out)  # scored the way the report already scores a failed run: listed, charged
+        self.assertEqual(rep["arms"]["blocked"]["tasks"]["c"]["spend_usd"]["value"], 0.25)
+        self.assertEqual(rep["excluded_runs"], [{"arm": "blocked", "rep": 0, "status": "failed", "task": "c",
+                                                 "reason": "raw-write-failed"}])
+
+    def test_any_other_exception_in_a_run_is_recorded_as_run_error(self):
+        real, seen = bench_ab.build_prompt, []
+
+        def flaky(cfg, task, arm):
+            seen.append(arm["name"])
+            if len(seen) == 1:
+                raise RuntimeError("boom")
+            return real(cfg, task, arm)
+
+        with mock.patch.object(bench_ab, "build_prompt", flaky):
+            failed = self.run_two_arms("odd", self.arms("odd", "vanilla"))
+        self.assertEqual((failed["status"], failed["reason"]), ("failed", "run-error"))
+
+
+class InterruptTests(HardeningSandbox):
+    """S12 (c): an interrupt kills the child's process group before the worktree is removed."""
+
+    def setUp(self):
+        super().setUp()
+        self.pid_file = self.root / "pids.json"
+        self.linger = write_exe(self.bin / "linger", LINGER_CLAUDE)
+        patcher = mock.patch.dict(os.environ, {"CLAUDE_BIN": str(self.linger), "STUB_PIDS": str(self.pid_file)})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.addCleanup(self.kill_leftovers)
+
+    def kill_leftovers(self):
+        if self.pid_file.exists():
+            for pid in json.loads(self.pid_file.read_text()):
+                with contextlib.suppress(OSError):
+                    os.kill(pid, signal.SIGKILL)
+
+    def interrupting_popen(self):
+        stub, pid_file = str(self.linger), self.pid_file
+
+        class InterruptedPopen(subprocess.Popen):
+            """communicate() on the stub raises KeyboardInterrupt once, when the stub and its child are up."""
+
+            def communicate(self, input=None, timeout=None):
+                if self.args[0] == stub and not getattr(self, "_fired", False):
+                    self._fired = True
+                    deadline = time.monotonic() + 2
+                    while not pid_file.exists() and time.monotonic() < deadline:
+                        time.sleep(0.02)
+                    raise KeyboardInterrupt
+                return super().communicate(input, timeout)
+
+        return InterruptedPopen
+
+    def test_interrupt_kills_the_process_group_before_the_worktree_is_removed(self):
+        out = self.root / "out"
+        cfg = self.config(tasks=[{"id": "c", "kind": "change", "prompt": "x"}], arms=self.arms("vanilla"))
+        real_git, seen = bench_ab._git, {}
+
+        def spy(repo, *args):
+            if args[:2] == ("worktree", "remove"):
+                seen["gone_at_removal"] = [gone(pid) for pid in json.loads(self.pid_file.read_text())]
+            return real_git(repo, *args)
+
+        with mock.patch.object(subprocess, "Popen", self.interrupting_popen()), \
+                mock.patch.object(bench_ab, "_git", spy):
+            with self.assertRaises(KeyboardInterrupt):
+                self.call(bench_ab.main_ab, ["--config", str(cfg), "--out", str(out)])
+        self.assertEqual(seen.get("gone_at_removal"), [True, True])  # the stub and its own child
+        self.assertEqual(git(self.repo, "worktree", "list", "--porcelain").count("worktree "), 1)
+
+
+class JudgeFailureTests(HardeningSandbox):
+    """S12 (d): a malformed judge reply is one failed judgment; the others are kept."""
+
+    def test_malformed_reply_is_recorded_and_the_other_judgments_are_kept(self):
+        bad = write_exe(self.bin / "bad-judge", BAD_JUDGE)
+        modes = ("a-list", "b-string", "per-finding-list")
+        judges = [{"name": "good-before", "family": "fam-a", "command": [str(self.judge), "constant"]}]
+        judges += [{"name": m, "family": "fam-b", "command": [str(bad), m]} for m in modes]
+        judges += [{"name": "good-after", "family": "fam-a", "command": [str(self.judge), "constant"]}]
+        task = {"id": "rev", "kind": "review", "base": self.base_sha, "prompt": "Review {base}..{sha}."}
+        out = self.root / "out"
+        cfg = self.config(tasks=[task], arms=self.arms("vanilla", "other"), judges=judges)
+        self.call(bench_ab.main_ab, ["--config", str(cfg), "--out", str(out)])
+        rc, text = self.call(bench_ab.main_judge, ["--run", str(out)])
+        self.assertEqual(rc, 0)
+        by_judge = {}
+        for j in json.loads((out / "judge.json").read_text())["judgments"]:
+            by_judge.setdefault(j["judge"], []).append((j["status"], j["reason"]))
+        for name in ("good-before", "good-after"):  # both orders, before and after the bad judges
+            self.assertEqual(by_judge[name], [("ok", None)] * 2, name)
+        for mode in modes:
+            self.assertEqual(by_judge[mode], [("failed", "malformed-reply")] * 2, mode)
+        self.assertEqual((json.loads(text)["judgments"], json.loads(text)["ok"]), (10, 4))
+        rep = self.report(out)  # the report builds from the judgments that were kept
+        self.assertEqual(rep["arms"]["vanilla"]["tasks"]["rev"]["judge_validity"]["n"], 4)
+
+
+def pass_hat_k_fixture():
+    """The fixture of ReportTests.test_pass_hat_k_flip_and_failed_runs_listed_not_averaged."""
+    tasks = [{"id": "t1", "kind": "change", "verify": "x"}, {"id": "t2", "kind": "change", "verify": "x"}]
+    runs = [run("t1", "vanilla", r, True) for r in range(3)]
+    runs += [run("t1", "kit", 0, True), run("t1", "kit", 1, False), run("t1", "kit", 2, True)]
+    runs += [run("t2", "vanilla", r, False) for r in range(3)]
+    runs += [run("t2", "kit", 0, True), run("t2", "kit", 1, True), run("t2", "kit", 2, None, "failed", 9.0)]
+    return tasks, runs
+
+
+class ReportSpendTests(HardeningSandbox):
+    """S12 (e): timed-out runs with no measured cost are counted next to the spend."""
+
+    # Keys S12 added to a report cell. Everything else must stay as it was.
+    ADDED_CELL_KEYS = {"n_timed_out_no_cost"}
+    # sha256 of this fixture's report before the hardening (bench_ab.py at f0c2485): report.json as
+    # json.dumps(sort_keys=True) without `tool_sha256`, and report.md byte for byte.
+    BASELINE_JSON = "0df1cc5aed2668e5dfd32a4d12ad18dcc2c9f2afe556d2e8edd99ec9d0cb1a35"
+    BASELINE_MD = "0097c00b0f57b6a75bc792b53a9fda38d0f927628f49a4ce1714516d6651f83d"
+
+    def test_timed_out_runs_without_a_cost_are_counted_next_to_the_spend(self):
+        tasks = [{"id": "t1", "kind": "change", "verify": "x"}]
+        runs = [run("t1", "kit", 0, True), run("t1", "kit", 1, None, "failed", None, reason="timeout"),
+                run("t1", "kit", 2, None, "failed", None, reason="timeout"),
+                run("t1", "vanilla", 0, True), run("t1", "vanilla", 1, True),
+                run("t1", "vanilla", 2, None, "failed", 0.5, reason="timeout")]
+        run_dir = make_run_dir(self.root / "run", tasks, ["vanilla", "kit"], runs, k=3)
+        rep = self.report(run_dir)
+        kit, vanilla = (rep["arms"][a]["tasks"]["t1"] for a in ("kit", "vanilla"))
+        self.assertEqual((kit["spend_usd"]["value"], kit["n_timed_out_no_cost"]), (1.0, 2))
+        # a timed-out run that did report a cost is already in the spend, so it is not counted
+        self.assertEqual((vanilla["spend_usd"]["value"], vanilla["n_timed_out_no_cost"]), (2.5, 0))
+        rows = {line.split(" | ")[0]: line for line in (run_dir / "report.md").read_text().splitlines()
+                if " | t1 | " in line}
+        self.assertIn("| 1.0 [Measured] (+2 timed out, cost not measured) |", rows["| kit"])
+        self.assertNotIn("cost not measured", rows["| vanilla"])
+
+    def test_report_from_the_existing_fixture_is_unchanged_apart_from_added_keys(self):
+        def strip(node):
+            if isinstance(node, dict):
+                return {k: strip(v) for k, v in node.items() if k not in self.ADDED_CELL_KEYS}
+            return [strip(v) for v in node] if isinstance(node, list) else node
+
+        tasks, runs = pass_hat_k_fixture()
+        run_dir = make_run_dir(self.root / "run", tasks, ["vanilla", "kit"], runs, k=3)
+        rep = self.report(run_dir)
+        rep.pop("tool_sha256")  # the hash of bench_ab.py itself changes with every edit of the tool
+        self.assertEqual(hashlib.sha256(json.dumps(strip(rep), sort_keys=True).encode()).hexdigest(),
+                         self.BASELINE_JSON)
+        self.assertEqual(hashlib.sha256((run_dir / "report.md").read_bytes()).hexdigest(), self.BASELINE_MD)
+
 
 
 if __name__ == "__main__":

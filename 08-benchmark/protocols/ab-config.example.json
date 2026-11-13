@@ -21,7 +21,12 @@
     "comparisons (optional): judge pairs [[arm, arm], ...]; default: each arm vs vanilla, and kit-invoked vs native.",
     "Every arm shares the user-level ~/.claude setup and anything committed under the repo's .claude/;",
     "  only the untracked overlay paths differ between arms.",
-    "Each run leaves its transcript under ~/.claude/projects/; delete those dirs after the report if they hold sensitive prompts."
+    "Each run leaves its transcript under ~/.claude/projects/; delete those dirs after the report if they hold sensitive prompts.",
+    "The config is checked before the first run: an invalid evidence regex, a prompt_file that cannot be read, a",
+    "  non-integer k, max_turns or bootstrap_resamples, or a top-level value that is not an object exits 2.",
+    "Limits, stated and not fixed: (1) the default allowed_tools lets `git diff`, `git show` and `git log` take",
+    "  `--output`, so an arm can write a file outside its worktree; (2) `judge` runs the judges[].command its run",
+    "  directory names, so run it only on run directories you created."
   ],
   "repo": "..",
   "head": "HEAD",

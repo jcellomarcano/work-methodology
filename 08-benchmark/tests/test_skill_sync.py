@@ -1,8 +1,10 @@
 """The harness-benchmark skill ships copies of 08-benchmark/lib; they must never drift."""
+import json
 import os
 import pathlib
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -93,24 +95,57 @@ class SyncScriptTests(unittest.TestCase):
         self.assertEqual(self._sync("--bogus").returncode, 2)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class NoBytecodeInSkillFolderTests(unittest.TestCase):
     """The kit installer copies every entry of a skill folder with plain cp, so a __pycache__
-    directory left by running bench.py in place would break the next install (2026-10-20)."""
+    directory left by running a script in place would break the next install (2026-10-20).
+    Every case runs the shipped copies, the files an install carries, and checks the exit code,
+    so a script that died before importing anything cannot pass for one that wrote no bytecode."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = pathlib.Path(os.path.realpath(self.tmp.name))
+        self.skill = self.root / "harness-benchmark"
+        shutil.copytree(SKILL, self.skill, ignore=shutil.ignore_patterns("__pycache__"))
+        self.env = {k: v for k, v in os.environ.items()
+                    if k not in ("PYTHONDONTWRITEBYTECODE", "PYTHONPYCACHEPREFIX")}
+
+    def run_script(self, name, *args):
+        return subprocess.run([sys.executable, str(self.skill / name), *args], capture_output=True, text=True,
+                              env=self.env, cwd=str(self.root))
+
+    def assert_ran_without_bytecode(self, res, returncode):
+        self.assertEqual(res.returncode, returncode, res.stdout + res.stderr)
+        self.assertFalse((self.skill / "__pycache__").exists(), sorted(p.name for p in self.skill.iterdir()))
 
     def test_running_bench_in_a_skill_folder_writes_no_bytecode(self):
-        import shutil, subprocess, sys, tempfile
-        lib = pathlib.Path(__file__).resolve().parents[1] / "lib"
-        with tempfile.TemporaryDirectory() as d:
-            skill = pathlib.Path(d) / "harness-benchmark"
-            skill.mkdir()
-            for name in ("transcript_metrics.py", "bench_session.py", "bench_ab.py"):
-                shutil.copy(lib / name, skill / name)
-            shutil.copy(lib / "bench_cli.py", skill / "bench.py")
-            env = {k: v for k, v in __import__("os").environ.items() if k != "PYTHONDONTWRITEBYTECODE"}
-            subprocess.run([sys.executable, str(skill / "bench.py"), "report", "--run", str(pathlib.Path(d) / "nope")],
-                           capture_output=True, env=env)
-            self.assertFalse((skill / "__pycache__").exists(), sorted(p.name for p in skill.iterdir()))
+        res = self.run_script("bench.py", "report", "--run", str(self.root / "nope"))
+        self.assert_ran_without_bytecode(res, 2)  # a usage error, after bench_ab was imported
+
+    def test_running_bench_ab_directly_writes_no_bytecode(self):
+        # `judge` on a run with two ok reviews and no judge configured: nothing is launched, and
+        # normalizing the findings imports transcript_metrics, the sibling that would be compiled.
+        run_dir = self.root / "run"
+        cfg = {"k": 1, "tasks": [{"id": "rev", "kind": "review"}], "arms": [{"name": "vanilla"}, {"name": "other"}],
+               "judges": []}
+        runs = [{"task": "rev", "arm": arm, "rep": 0, "status": "ok"} for arm in ("vanilla", "other")]
+        for arm in ("vanilla", "other"):
+            raw = run_dir / "raw" / "rev" / arm / "0"
+            raw.mkdir(parents=True)
+            (raw / "findings.json").write_text(json.dumps([{"id": "F1", "file": "a.py", "line": 1, "claim": "c"}]))
+        (run_dir / "config.json").write_text(json.dumps(cfg))
+        (run_dir / "runs.jsonl").write_text("".join(json.dumps(r) + "\n" for r in runs))
+        res = self.run_script("bench_ab.py", "judge", "--run", str(run_dir))
+        self.assert_ran_without_bytecode(res, 0)
+        self.assertTrue((run_dir / "judge.json").is_file())
+
+    def test_running_bench_session_directly_writes_no_bytecode(self):
+        (self.root / "projects").mkdir()
+        res = self.run_script("bench_session.py", "--root", str(self.root / "projects"), "--out",
+                              str(self.root / "session-out"))
+        self.assert_ran_without_bytecode(res, 0)
+        self.assertTrue((self.root / "session-out" / "session-report.json").is_file())
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -12,15 +12,27 @@ repo; an arm's `overlay` copies untracked paths (the kit's `.claude/`, `.mcp.jso
 an arm without overlay sees no kit file. The worktree is removed in a finally block. The user's
 working tree is never written. A run is `ok`, `failed` (no output, API error, timeout, no
 findings block) or `invalid-arm` (its transcript does not match the arm's evidence pattern).
+The config is validated before the first run: a fault is one `bench ab:` line and exit 2. A run
+whose own steps raise is recorded as `failed` with a reason from RUN_FAILURE_REASONS and the
+plan goes on. An interrupt kills the running child's process group before its worktree goes.
 
 `judge` matches seeded defects deterministically, then asks every configured judge to rate
 each finding of two arms (kit fingerprints stripped) in both orders, and reports agreement.
+A reply whose "A", "B" or "per_finding" is not an object is one failed judgment, reason
+`malformed-reply`; the other judgments are kept.
 
 `report` writes report.json and report.md: every number carries a label (Measured, Tested,
 Inferred, Unknown) and a status. A timed-out run counts as not solved; infrastructure failures
-and invalid-arm runs are listed and never averaged in.
+and invalid-arm runs are listed and never averaged in. A timed-out run usually reports no cost,
+so the spend leaves it out: each cell counts those runs next to it (`n_timed_out_no_cost`).
 Deterministic: sorted keys, no run timestamps, fixed bootstrap seed. No prompt or reply text
 and no absolute path reaches the report.
+
+Limits, stated and not fixed:
+  - The default allowlist's `git diff`, `git show` and `git log` accept `--output`, so an arm
+    can write a file outside its worktree.
+  - `judge` runs the command its run directory names (the `judges` of its config.json), so run
+    it only on run directories you created.
 
 Python 3 stdlib only. Works from 08-benchmark/lib and as a top-level copy in a skill folder.
 """
@@ -54,6 +66,8 @@ KIT_EVIDENCE = (r'subagent_type":"generic-|"name":"mcp__metodo__|"name":"Skill",
                 r'(receipt-review|adversarial-round|review-comment|cartography|verify-per-commit|'
                 r'revision-con-recibo|ronda-adversarial-dos|comentario-de-review|cartografia|verify-por-commit)"')
 NATIVE_EVIDENCE = r'"skill":"code-review"'
+# Why a run is `failed` when one of its own steps raised (the other reasons come from its outcome).
+RUN_FAILURE_REASONS = ("overlay-failed", "raw-write-failed", "run-error")
 
 # The findings contract every review task gets, so every arm answers in the same shape.
 REVIEW_CONTRACT = """Do not modify any file and do not post anything. Deliver two things, in this order:
@@ -121,6 +135,14 @@ class ConfigError(Exception):
     pass
 
 
+class RunFailure(Exception):
+    """A step of one run failed; its message is the reason, one of RUN_FAILURE_REASONS."""
+
+
+def _one_line(exc) -> str:
+    return " ".join(str(exc).split())
+
+
 def _tool_sha256() -> str:
     return hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest()
 
@@ -161,20 +183,37 @@ def _check_rel(path: str, what: str) -> str:
     return str(p)
 
 
+def _int_key(raw: dict, key: str, default: int) -> int:
+    value = raw.get(key, default)
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ConfigError(f"{key} must be an integer, got {value!r}")
+    return value
+
+
 def load_config(path: pathlib.Path, preset: str | None = None) -> dict:
+    """The validated config. Every fault is a ConfigError, raised before anything runs or is paid."""
+    try:
+        return _load_config(path, preset)
+    except (AttributeError, KeyError, TypeError, ValueError) as exc:  # a shape no check above names
+        raise ConfigError(f"malformed config: {type(exc).__name__}: {_one_line(exc)}") from exc
+
+
+def _load_config(path: pathlib.Path, preset: str | None) -> dict:
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise ConfigError(f"cannot read config: {exc}") from exc
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ConfigError(f"cannot read config: {_one_line(exc)}") from exc
+    if not isinstance(raw, dict):
+        raise ConfigError(f"config must be a JSON object, got {type(raw).__name__}")
     base = path.resolve().parent
     if not raw.get("model"):
         raise ConfigError("config needs 'model' (the same model runs every arm)")
     repo = (base / raw.get("repo", ".")).resolve()
     cfg = {
         "repo": str(repo), "model": raw["model"], "effort": raw.get("effort", "high"),
-        "k": int(raw.get("k", 3)), "seed": raw.get("seed", 0), "timeout_s": float(raw.get("timeout_s", 1800)),
-        "max_turns": int(raw.get("max_turns", 80)), "allowed_tools": raw.get("allowed_tools", DEFAULT_ALLOWED),
-        "bootstrap_resamples": int(raw.get("bootstrap_resamples", 10000)),
+        "k": _int_key(raw, "k", 3), "seed": raw.get("seed", 0), "timeout_s": float(raw.get("timeout_s", 1800)),
+        "max_turns": _int_key(raw, "max_turns", 80), "allowed_tools": raw.get("allowed_tools", DEFAULT_ALLOWED),
+        "bootstrap_resamples": _int_key(raw, "bootstrap_resamples", 10000),
         "judge_timeout_s": float(raw.get("judge_timeout_s", raw.get("timeout_s", 600))),
         "ref": raw.get("sha") or raw.get("head") or "HEAD", "comparisons": raw.get("comparisons"),
     }
@@ -191,17 +230,29 @@ def load_config(path: pathlib.Path, preset: str | None = None) -> dict:
         tpl = arm.get("prompt_template", "{task}")
         if not NAME_RE.match(name) or "{task}" not in tpl:
             raise ConfigError(f"arm {name!r}: needs a filename-safe name and a template containing {{task}}")
+        evidence = arm.get("evidence")
+        if evidence is not None:  # compiled here, not after the run it would otherwise leave unrecorded
+            if not isinstance(evidence, str):
+                raise ConfigError(f"arm {name!r}: evidence must be a regular expression string or null")
+            try:
+                re.compile(evidence)
+            except re.error as exc:
+                raise ConfigError(f"arm {name!r}: evidence is not a valid regular expression: {exc}") from exc
         cfg["arms"].append({"name": name, "prompt_template": tpl, "env": dict(arm.get("env") or {}),
                             "flags": list(arm.get("flags") or []),
                             "overlay": [_check_rel(p, "overlay") for p in arm.get("overlay") or []],
-                            "evidence": arm.get("evidence")})
+                            "evidence": evidence})
     for task in tasks:
         tid, kind = task.get("id", ""), task.get("kind", "review")
         if not NAME_RE.match(tid) or kind not in ("review", "change"):
             raise ConfigError(f"task {tid!r}: needs a filename-safe id and kind 'review' or 'change'")
         prompt = task.get("prompt")
         if prompt is None and task.get("prompt_file"):
-            prompt = (base / task["prompt_file"]).read_text(encoding="utf-8")
+            try:
+                prompt = (base / task["prompt_file"]).read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError) as exc:
+                why = exc.strerror if isinstance(exc, OSError) and exc.strerror else _one_line(exc)
+                raise ConfigError(f"task {tid!r}: cannot read prompt_file {task['prompt_file']!r}: {why}") from exc
         if not prompt:
             raise ConfigError(f"task {tid!r}: needs 'prompt' or 'prompt_file'")
         cfg["tasks"].append({"id": tid, "kind": kind, "prompt": prompt, "verify": task.get("verify"),
@@ -248,6 +299,14 @@ def _transcript_dir(path) -> pathlib.Path:
     return root / re.sub(r"[^A-Za-z0-9]", "-", os.path.realpath(path))
 
 
+def _kill_group(proc) -> None:
+    """Kill the child's whole process group, so grandchildren holding the pipes die too."""
+    try:
+        os.killpg(proc.pid, signal.SIGKILL) if hasattr(os, "killpg") else proc.kill()
+    except OSError:  # already gone
+        pass
+
+
 def _run_process(cmd, cwd, env, timeout, stdin_text=None) -> dict:
     try:
         proc = subprocess.Popen(cmd, cwd=cwd, env=env, text=True, start_new_session=True,
@@ -259,12 +318,22 @@ def _run_process(cmd, cwd, env, timeout, stdin_text=None) -> dict:
         out, err = proc.communicate(stdin_text, timeout=timeout)
         timed_out = False
     except subprocess.TimeoutExpired:
-        try:  # kill the whole group, so grandchildren holding the pipes die too
-            os.killpg(proc.pid, signal.SIGKILL) if hasattr(os, "killpg") else proc.kill()
-        except ProcessLookupError:
-            pass
+        _kill_group(proc)
         out, err = proc.communicate()
         timed_out = True
+    except BaseException:
+        # An interrupt. The child leads its own session, so the terminal's signal never reaches it:
+        # kill its group and reap it here, before the caller's cleanup removes the directory it runs
+        # in, then let the interrupt go on. Without this a paid process outlives its worktree.
+        _kill_group(proc)
+        proc.wait()
+        for stream in (proc.stdin, proc.stdout, proc.stderr):
+            try:
+                if stream:
+                    stream.close()
+            except OSError:
+                pass
+        raise
     return {"rc": proc.returncode, "stdout": out or "", "stderr": err or "", "timed_out": timed_out,
             "launch_error": False}
 
@@ -317,19 +386,34 @@ def build_prompt(cfg: dict, task: dict, arm: dict) -> str:
     return arm["prompt_template"].replace("{task}", text)
 
 
+def _write_raw(path: pathlib.Path, text: str) -> None:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    except OSError as exc:
+        raise RunFailure("raw-write-failed") from exc
+
+
 def run_one(cfg: dict, task: dict, arm: dict, rep: int, order: int, out: pathlib.Path) -> dict:
+    """One run, always as a record: a step that raises makes it `failed` with a reason from
+    RUN_FAILURE_REASONS (and whatever was already measured, its cost included) instead of ending
+    the plan. An interrupt is not caught here; it still passes through the worktree cleanup."""
     repo = pathlib.Path(cfg["repo"])
     raw_dir = out / "raw" / task["id"] / arm["name"] / str(rep)
-    raw_dir.mkdir(parents=True, exist_ok=True)
     rec = {"task": task["id"], "kind": task["kind"], "arm": arm["name"], "rep": rep, "order": order,
            "sha": cfg["sha"], "model": cfg["model"], "effort": cfg["effort"], "status": "failed", "reason": None,
            "session_id": None, "cost_usd": None, "num_turns": None, "duration_ms": None, "is_error": None,
            "usage": None, "findings_count": None, "verdict": None, "verify_exit": None, "verify_passed": None,
            "evidence_hits": None, "transcript_found": None, "overlay_copied": [], "overlay_missing": []}
-    base = pathlib.Path(tempfile.mkdtemp(prefix="bench-ab-")).resolve()
-    wt = base / "wt"
+    base = wt = None
     added = False
     try:
+        try:  # every run leaves its raw dir, as before, even one that fails before its first file
+            raw_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise RunFailure("raw-write-failed") from exc
+        base = pathlib.Path(tempfile.mkdtemp(prefix="bench-ab-")).resolve()
+        wt = base / "wt"
         if _inside(wt, repo):
             rec["reason"] = "worktree-inside-repo"
             return rec
@@ -339,41 +423,49 @@ def run_one(cfg: dict, task: dict, arm: dict, rep: int, order: int, out: pathlib
         except subprocess.CalledProcessError:
             rec["reason"] = "worktree-failed"
             return rec
-        rec["overlay_copied"], rec["overlay_missing"] = _copy_overlay(repo, wt, arm["overlay"])
+        try:
+            rec["overlay_copied"], rec["overlay_missing"] = _copy_overlay(repo, wt, arm["overlay"])
+        except (OSError, shutil.Error) as exc:
+            raise RunFailure("overlay-failed") from exc
         prompt = build_prompt(cfg, task, arm)
-        (raw_dir / "prompt.txt").write_text(prompt, encoding="utf-8")
+        _write_raw(raw_dir / "prompt.txt", prompt)
         cmd = [os.environ.get("CLAUDE_BIN") or "claude", "-p", "--model", cfg["model"], "--effort", cfg["effort"],
                "--output-format", "json", "--allowedTools", cfg["allowed_tools"], "--permission-prompts", "none",
                "--max-turns", str(cfg["max_turns"]), *arm["flags"], prompt]
         res = _run_process(cmd, str(wt), dict(os.environ, **arm["env"]), cfg["timeout_s"])
-        (raw_dir / "stdout.json").write_text(res["stdout"], encoding="utf-8")
-        (raw_dir / "stderr.txt").write_text(res["stderr"], encoding="utf-8")
+        # The run is paid by now. Read what it measured before writing any raw file, so a file that
+        # cannot be written does not take the cost and the session id with it.
+        data = None
+        if not res["timed_out"] and not res["launch_error"]:
+            try:
+                data = json.loads(res["stdout"]) if res["stdout"].strip() else None
+            except json.JSONDecodeError:
+                data = None
+        if isinstance(data, dict):
+            usage = data.get("usage") or {}
+            rec.update({"session_id": data.get("session_id"), "cost_usd": data.get("total_cost_usd"),
+                        "num_turns": data.get("num_turns"), "duration_ms": data.get("duration_ms"),
+                        "is_error": data.get("is_error"),
+                        "usage": {k: usage.get(k) for k in ("input_tokens", "cache_read_input_tokens",
+                                                            "cache_creation_input_tokens", "output_tokens")}})
+        _write_raw(raw_dir / "stdout.json", res["stdout"])
+        _write_raw(raw_dir / "stderr.txt", res["stderr"])
         if res["timed_out"]:
             rec["reason"] = "timeout"
             return rec
         if res["launch_error"]:
             rec["reason"] = "launch-failed"
             return rec
-        try:
-            data = json.loads(res["stdout"]) if res["stdout"].strip() else None
-        except json.JSONDecodeError:
-            data = None
         if not isinstance(data, dict):
             rec["reason"] = "no-output" if not res["stdout"].strip() else "unparseable-output"
             return rec
-        usage = data.get("usage") or {}
-        rec.update({"session_id": data.get("session_id"), "cost_usd": data.get("total_cost_usd"),
-                    "num_turns": data.get("num_turns"), "duration_ms": data.get("duration_ms"),
-                    "is_error": data.get("is_error"),
-                    "usage": {k: usage.get(k) for k in ("input_tokens", "cache_read_input_tokens",
-                                                        "cache_creation_input_tokens", "output_tokens")}})
         if data.get("is_error"):
             rec["reason"] = "api-error"
             return rec
         result = data.get("result") or ""
         if task["kind"] == "review":
             findings = extract_findings(result)
-            (raw_dir / "findings.json").write_text(_dump(findings), encoding="utf-8")
+            _write_raw(raw_dir / "findings.json", _dump(findings))
             rec["verdict"] = extract_verdict(result)
             if findings is None:
                 rec["reason"] = "no-findings-block"
@@ -381,7 +473,7 @@ def run_one(cfg: dict, task: dict, arm: dict, rep: int, order: int, out: pathlib
             rec["findings_count"] = len(findings)
         elif task.get("verify"):
             v = _run_process(["/bin/sh", "-c", task["verify"]], str(wt), dict(os.environ), cfg["timeout_s"])
-            (raw_dir / "verify.txt").write_text(v["stdout"] + v["stderr"], encoding="utf-8")
+            _write_raw(raw_dir / "verify.txt", v["stdout"] + v["stderr"])
             rec["verify_exit"] = v["rc"]
             rec["verify_passed"] = v["rc"] == 0 and not v["timed_out"]
         rec["status"] = "ok"
@@ -397,6 +489,14 @@ def run_one(cfg: dict, task: dict, arm: dict, rep: int, order: int, out: pathlib
             if rec["evidence_hits"] == 0:
                 rec["status"], rec["reason"] = "invalid-arm", "evidence-missing"
         return rec
+    except RunFailure as exc:
+        rec["status"], rec["reason"] = "failed", str(exc)
+        return rec
+    except Exception as exc:  # anything else a step raised: keep the record, name the error once
+        rec["status"], rec["reason"] = "failed", "run-error"
+        print(f"bench ab: {task['id']} {arm['name']} {rep} raised {type(exc).__name__}: {_one_line(exc)}",
+              file=sys.stderr)
+        return rec
     finally:
         if added:
             try:
@@ -404,7 +504,8 @@ def run_one(cfg: dict, task: dict, arm: dict, rep: int, order: int, out: pathlib
             except subprocess.CalledProcessError:
                 shutil.rmtree(wt, ignore_errors=True)
                 subprocess.run(["git", "-C", str(repo), "worktree", "prune"], capture_output=True)
-        shutil.rmtree(base, ignore_errors=True)
+        if base is not None:
+            shutil.rmtree(base, ignore_errors=True)
 
 
 def main_ab(argv=None) -> int:
@@ -558,6 +659,25 @@ def parse_judge_reply(stdout: str):
     return reply if isinstance(reply, dict) and "A" in reply and "B" in reply else None
 
 
+def _per_finding(reply: dict):
+    """{"A": {...}, "B": {...}} with each review's verdicts by finding id, or None when "A", "B" or a
+    "per_finding" is given and is not an object (a missing or null one counts as empty)."""
+    out = {}
+    for letter in ("A", "B"):
+        review = reply.get(letter)
+        if review is None:
+            review = {}
+        if not isinstance(review, dict):
+            return None
+        given = review.get("per_finding")
+        if given is None:
+            given = {}
+        if not isinstance(given, dict):
+            return None
+        out[letter] = given
+    return out
+
+
 def _verdict(value) -> str:
     v = str(value or "").strip().lower()
     return "valid" if v == "valid" else "invalid" if v == "invalid" else "Unknown"
@@ -600,8 +720,16 @@ def main_judge(argv=None) -> int:
     ap.add_argument("--run", required=True)
     args = ap.parse_args(argv)
     run_dir = pathlib.Path(args.run)
-    cfg = json.loads((run_dir / "config.json").read_text(encoding="utf-8"))
-    runs = {(r["task"], r["arm"], r["rep"]): r for r in _load_runs(run_dir)}
+    if not (run_dir / "runs.jsonl").is_file() or not (run_dir / "config.json").is_file():
+        print("bench judge: the run dir needs runs.jsonl and config.json (from `bench.py ab`)", file=sys.stderr)
+        return 2
+    try:
+        cfg = json.loads((run_dir / "config.json").read_text(encoding="utf-8"))
+        runs = {(r["task"], r["arm"], r["rep"]): r for r in _load_runs(run_dir)}
+    except (OSError, KeyError, TypeError, ValueError) as exc:
+        print(f"bench judge: cannot read config.json or runs.jsonl in the run dir: {type(exc).__name__}: "
+              f"{_one_line(exc)}", file=sys.stderr)
+        return 2
     template = _judge_template(cfg)
     seeded_out, judgments = [], []
 
@@ -643,14 +771,16 @@ def main_judge(argv=None) -> int:
                         reply = None if res["timed_out"] else parse_judge_reply(res["stdout"])
                         rec = {"task": task["id"], "pair": [x, y], "rep": rep, "judge": judge["name"],
                                "family": judge["family"], "order": order, "A": a, "B": b}
+                        given = None if reply is None else _per_finding(reply)
                         if reply is None:
                             rec.update({"status": "failed", "reason": "timeout" if res["timed_out"] else "no-reply"})
+                        elif given is None:  # parsed, wrong shape: one failed judgment, the rest are kept
+                            rec.update({"status": "failed", "reason": "malformed-reply"})
                         else:
                             per = {}
                             for letter, arm in (("A", a), ("B", b)):
-                                given = (reply.get(letter) or {}).get("per_finding") or {}
-                                per[arm] = {f["id"]: _verdict(given.get(f["id"])) for f in norm[arm]
-                                            if f["id"] in given}
+                                per[arm] = {f["id"]: _verdict(given[letter].get(f["id"])) for f in norm[arm]
+                                            if f["id"] in given[letter]}
                             pref = str(reply.get("preferred", "")).strip()
                             rec.update({"status": "ok", "reason": None, "per_finding": per,
                                         "preferred": a if pref == "A" else b if pref == "B" else "tie"})
@@ -816,6 +946,10 @@ def build_report(run_dir: pathlib.Path) -> dict:
                     and isinstance(r.get("cost_usd"), (int, float))]
             cell["spend_usd"] = num(sum(paid) if paid else None, "Measured" if paid else "Unknown",
                                     "ok" if paid else "not-run", len(paid))
+            # A timed-out run was paid for but rarely reports a cost, so the spend above leaves it out:
+            # count those runs next to it instead of dropping them without a word.
+            cell["n_timed_out_no_cost"] = sum(1 for r in cr if _timed_out(r)
+                                              and not isinstance(r.get("cost_usd"), (int, float)))
             solved = sum(passed)
             if verified and ok and solved:
                 cell["cost_per_solved_usd"] = num(sum(paid) / solved, "Measured", "ok", len(paid))
@@ -889,6 +1023,11 @@ def build_report(run_dir: pathlib.Path) -> dict:
     return report
 
 
+def _fmt_spend(cell: dict) -> str:
+    unpriced = cell.get("n_timed_out_no_cost", 0)
+    return _fmt(cell["spend_usd"]) + (f" (+{unpriced} timed out, cost not measured)" if unpriced else "")
+
+
 def _fmt(n: dict | None) -> str:
     if not n or n["value"] is None:
         return f"Unknown ({n['status'] if n else 'not-run'})"
@@ -911,7 +1050,7 @@ def render_md(rep: dict) -> str:
             lines.append(f"| {arm} | {tid} | {c['n_scored']}/{c['n_runs']} ({c['n_excluded']} excluded) | "
                          f"{_fmt(c['pass_at_1'])} | "
                          f"{_fmt(c['pass_hat_k'])} | {_fmt(c['flip'])} | {_fmt(c['cost_per_run_usd'])} | "
-                         f"{_fmt(c['spend_usd'])} | {_fmt(c['cost_per_solved_usd'])} | {_fmt(c['mean_findings'])} | "
+                         f"{_fmt_spend(c)} | {_fmt(c['cost_per_solved_usd'])} | {_fmt(c['mean_findings'])} | "
                          f"{_fmt(c['judge_validity'])} | {c['status']} |")
     lines += ["", "## Activation and stability", "", "| arm | activation | n runs | flip rate | n tasks |",
               "|---|---|---|---|---|"]
@@ -976,6 +1115,9 @@ def main_report(argv=None) -> int:
 
 
 if __name__ == "__main__":
+    # Run directly from a skill folder: the installer copies that folder entry by entry, so leave no
+    # __pycache__ next to the siblings imported from here on (same rule as bench_cli.py).
+    sys.dont_write_bytecode = True
     cmds = {"ab": main_ab, "judge": main_judge, "report": main_report}
     if len(sys.argv) < 2 or sys.argv[1] not in cmds:
         print("usage: bench_ab.py ab|judge|report ...", file=sys.stderr)
