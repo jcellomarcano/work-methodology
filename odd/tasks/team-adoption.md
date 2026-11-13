@@ -17,7 +17,7 @@
 
 | ID | Specs | Route | Status | Evidence |
 |---|---|---|---|---|
-| T1 | S2 to S6 | delegated writer (owner preference: role agents do each task) | pending | |
+| T1 | S2 to S6 | delegated writer (owner preference: role agents do each task) | done | `a4c7bf5`; docs lint 0 offenders; path test RED first and it caught a planted path |
 | T2 | all | parent: seam check against the code, status block, close | pending | |
 
 ## Log
@@ -25,4 +25,4 @@
 - **L1 (2026-11-13, owner, verbatim).** "tienes permiso a proceder u terminar todo hasta el /goal"; the request itself is the goal text quoted in S1.
 - **L2 (2026-11-13, scope).** The audit names what a team still lacks to judge the kit: a one-page runbook and adoption steps with exit checks (audit sections 4 and 8). The statistics code, the repetitions and the two-order judges it also listed arrived with `feat/benchmark-port`; the seeded tasks and a paid run did not. [Measured: `odd/research/kit-audit-2026-11/audit.md`]
 - **L3 (2026-11-13, owner, verbatim).** "sigue hasta terminar todo y lo mergeas a megain quedandote con 1 sola rama y la subes a psuh". Read as: finish, merge everything into `main`, keep one branch, push it. So this feature lands on the same chain instead of a branch of its own.
-
+- **L4 (2026-11-13, writer and seam).** Three pages written against the code, not against the audit: the audit's "no interval, one repetition" gaps were measured on the Spanish tree and no longer hold here, so the runbook's "cannot measure yet" table describes this tree. Facts the writer read in the code and the pages state: the report prints `shown`, `not shown` and `signal, not a conclusion`, and has no non-inferiority margin, so the margin is the team's own frame; comparisons are computed only against arms named `vanilla` or `native`; `hooks_report.py --verdicts` leaves `precision` null until a false positive is marked, so the calibration step checks fires and false positives against a limit the team writes down. Parent seam: the README map row for `docs/` now names both pages; the README stays at its 320-line cap. Open: the usage text of the skill's `bench.py` does not list `--preset`; the market notes the audit cites are not in this tree, so the audit is the last source a reader can open. [Measured by the writer; parent spot check on the runbook's first half]
