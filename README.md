@@ -77,11 +77,11 @@ flowchart LR
 
 ## Start here
 
-Pick the path that fits you:
-
 | You want to… | Read / run | Time |
 |---|---|---|
 | Understand the method (no AI needed) | `docs/01-principles.md`, then `docs/02-workflow.md` | 30 min |
+| Adopt it in a team, in five steps you can back out of | `docs/07-adoption.md` | 10 min |
+| Decide with numbers whether it helps, and see where it stands in the market | `docs/09-measurement.md`, then `docs/10-position.md` | 15 min |
 | Plug the kit into a repository | `03-tools/bin/init.sh <repo> --dry-run`, then without `--dry-run` (below) | 10 min + owner answers |
 | Brief an AI agent on this repo | `AGENTS.md` (Claude Code reads it through `CLAUDE.md`), then `CONTEXT-PACK.md` | 5 min |
 | Change the kit itself | `AGENTS.md` "Rules when changing this kit", then `00-principles/methodology.md` | 20 min |
@@ -265,7 +265,7 @@ report pass^k, cost per solved task and paired CIs (why: `odd/research/benchmark
 
 | Path | Content |
 |---|---|
-| `docs/` | The friendly entry layer: principles, workflow, change card, review, work management, git/release, adoption, other harnesses |
+| `docs/` | The friendly entry layer: principles, workflow, change card, review, work management, git/release, adoption, other harnesses, measurement, market position |
 | `AGENTS.md`, `CLAUDE.md`, `CONTEXT-PACK.md` | How an agent enters, and the whole method in ≤ 120 lines |
 | `00-principles/` | The operating law: evidence, why-layer, change card, review receipt, model and multi-provider routing, runtime adapters, agent protocol |
 | `01-roles/agents/` | The 12 roles, each with its `.contract.json` |

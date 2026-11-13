@@ -36,6 +36,8 @@
     "CLAUDE.md": 10,
     "CONTEXT-PACK.md": 120,
     "docs/08-harnesses.md": 240,
+    "docs/09-measurement.md": 120,
+    "docs/10-position.md": 80,
     "README.md": 320
   },
   "docs_root": "../.."
