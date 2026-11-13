@@ -89,10 +89,10 @@ flowchart LR
 <!-- kit-status:start -->
 | Kit status (`03-tools/bin/kit-status.sh --write`, never by hand) | Value | Tag |
 |---|---|---|
-| measured_at | `0216c4b`, dirty: no | [Measured] |
-| code_fingerprint | `sha256:484fa1a70eca3ca2` over 309 files (roles, skills, tools, tests) | [Measured] |
-| structure | 12 agents, 17 skills (17 installed), 34 MCP tools, 13 Claude hooks, 1719 test cases | [Measured] |
-| kit suite | OK: ran 1719, failures 0, errors 0, skipped 5, expected failures 2 | [Tested] |
+| measured_at | `b52da4f`, dirty: no | [Measured] |
+| code_fingerprint | `sha256:42f7f1c3a642253f` over 310 files (roles, skills, tools, tests) | [Measured] |
+| structure | 12 agents, 17 skills (17 installed), 34 MCP tools, 13 Claude hooks, 1723 test cases | [Measured] |
+| kit suite | OK: ran 1723, failures 0, errors 0, skipped 5, expected failures 2 | [Tested] |
 | docs caps | 0 offenders, 0 missing (`config/docs-caps.json` over this checkout) | [Measured] |
 | init on a Gradle/Kotlin fixture | doctor PASS, kit_installed true, smoke PASS, loop_ran true, ready_for_benchmark true; 25 pending human steps | [Tested] |
 | init suggestions | 0 missing, 1 unknown of 6 suggested helpers (temp HOME) | [Measured, this machine] |
