@@ -60,7 +60,7 @@ bin/bench.sh ab <repo> <run|judge|report> [args] [--tools D]   # the A/B runner 
 bin/init.sh <repo> --uninstall [--instance D] [--audit D] [--purge] [--runtime claude|pi|agy|all] [--dry-run]
                                          # unplug: report <instance>/out/uninstall/<repo_sha>.json; instance and
                                          # audit stay; --purge deletes them only if untouched; exit 1 = kit left
-bin/doctor.sh <repo> [--tools D] [--runtime claude|pi|agy|all] [--out F]   # FAIL names its fix; bench.wired
+bin/doctor.sh <repo> [--tools D] [--runtime claude|pi|agy|all] [--out F]   # FAIL names its fix; no --runtime = what is installed; bench.wired
                                          # (PASS or WARN; not required) and bench.used (this repo's counts:
                                          # sessions, hooks, agents, mcp, skills, engram) are SKIP on pi and agy,
                                          # where nothing is measured; with bench.enabled: false bench.wired is also

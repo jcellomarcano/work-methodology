@@ -1,6 +1,6 @@
 ---
 name: receipt-review
-description: Review with receipt (RDD): freezes the candidate tree, derives the tier and runs only the review it calls for, one correction at most, then finalizes from captures. Use it on every candidate before pushing; never pushes.
+description: "Review with receipt (RDD): freezes the candidate tree, derives the tier and runs only the review it calls for, one correction at most, then finalizes from captures. Use it on every candidate before pushing; never pushes."
 version: 1.0.0
 triggers:
   - review with receipt

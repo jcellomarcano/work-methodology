@@ -1,6 +1,6 @@
 ---
 name: necessary-comment
-description: Runs every new diff comment through comment_gate.py and generic-comment-gate: a comment exists only if it states a short, plain why (ISO 24495-code). Use it after each proposer and the mechanic, before the adversarial round.
+description: "Runs every new diff comment through comment_gate.py and generic-comment-gate: a comment exists only if it states a short, plain why (ISO 24495-code). Use it after each proposer and the mechanic, before the adversarial round."
 version: 1.0.0
 triggers:
   - necessary comment

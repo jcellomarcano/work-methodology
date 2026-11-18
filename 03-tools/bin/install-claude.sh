@@ -2,8 +2,9 @@
 # Installs into <repo>/.claude/ the generic-* agents and the kit's skills, the
 # `metodo` MCP server (.mcp.json, excluded from commits), and the Claude
 # Code hooks (merged into .claude/settings.local.json without touching
-# anything else). The source of truth lives in this kit's 01-roles/agents/,
-# 02-skills/ and 03-tools/.
+# anything else). Every path it writes goes into .git/info/exclude, so a
+# `git add -A` in the repo never commits the kit. The source of truth lives
+# in this kit's 01-roles/agents/, 02-skills/ and 03-tools/.
 #
 #   bin/install-claude.sh <repo> [--tools <dir>] [--uninstall]
 #
@@ -15,8 +16,8 @@
 #                and listed skill files that are byte-identical to what this
 #                kit renders for the repo (for --tools, or for the tools root
 #                .mcp.json records), the marked hooks, mcpServers.metodo (kept
-#                while pi still uses it), the .mcp.json exclude line (only once
-#                .mcp.json is gone) and the agents/skills dirs once empty. An
+#                while pi still uses it), each exclude line (only once the
+#                path it names is gone) and the agents/skills dirs once empty. An
 #                agent an older kit installed also counts when this kit is a
 #                git checkout (render_agents.py --candidates-dir). A
 #                modified kit file is kept and printed as `kept: modified`.
@@ -69,6 +70,12 @@ SKILLS_DST="$REPO/.claude/skills"
 SETTINGS="$REPO/.claude/settings.local.json"
 MCP_JSON="$REPO/.mcp.json"
 EXCLUDE="$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || echo "$REPO/.git")/info/exclude"
+# A last line with no final newline would be glued to the line appended after it
+# (measured 2026-11-13: a user's `*.log` became `*.log.claude/agents/generic-*.md`).
+exclude_append() {
+  if [ -s "$EXCLUDE" ] && [ -n "$(tail -c 1 "$EXCLUDE")" ]; then echo >> "$EXCLUDE"; fi
+  echo "$1" >> "$EXCLUDE"
+}
 
 # Every 02-skills/<dir> with a SKILL.md goes in SKILLS (installed; install-pi.sh
 # reads this same list) or in SKILLS_EXCLUDED (shipped but not installed, on
@@ -93,6 +100,15 @@ SKILLS=(
   harness-benchmark
 )
 SKILLS_EXCLUDED=()
+
+# What the kit writes under .claude/ stays out of commits, like .mcp.json: the
+# files are rendered for this checkout and the settings carry absolute local
+# paths. Agents go by the generic-* names the kit owns and skills by one line
+# per installed skill, so an agent or a skill of the repo's own stays visible
+# to git. (Measured 2026-11-13: with .mcp.json as the only line, an agent's
+# `git add -A` committed 46 kit files into the user's repo.)
+CLAUDE_EXCLUDE_ENTRIES=(".claude/agents/generic-*.md" ".claude/agents/generic-*.contract.json" ".claude/settings.local.json" ".claude/metodo-settings-keys.json")
+for _skill in "${SKILLS[@]}"; do CLAUDE_EXCLUDE_ENTRIES+=(".claude/skills/$_skill"); done
 
 copied=0
 skipped=0
@@ -264,6 +280,29 @@ PY
       item - "info/exclude#.mcp.json" "removed"
     fi
   fi
+  # Same rule for the .claude/ lines: a line goes only once nothing matches it
+  # (a kept, modified kit file keeps the line that hides it).
+  if [ -f "$EXCLUDE" ]; then
+    for entry in "${CLAUDE_EXCLUDE_ENTRIES[@]}"; do
+      grep -qxF -- "$entry" "$EXCLUDE" || continue
+      if python3 - "$REPO" "$entry" <<'PY'
+import glob, os, sys
+repo, entry = sys.argv[1], sys.argv[2]
+sys.exit(0 if glob.glob(os.path.join(glob.escape(repo), entry)) else 1)
+PY
+      then
+        item = "info/exclude#$entry" "kept: $entry still exists"
+      else
+        python3 - "$EXCLUDE" "$entry" <<'PY'
+import sys
+path, entry = sys.argv[1], sys.argv[2].encode()
+lines = open(path, "rb").read().splitlines(keepends=True)
+open(path, "wb").write(b"".join(l for l in lines if l.rstrip(b"\r\n") != entry))
+PY
+        item - "info/exclude#$entry" "removed"
+      fi
+    done
+  fi
 
   echo
   echo "summary: $n_removed removed, $n_kept kept (modified), $n_missing not found"
@@ -310,9 +349,17 @@ if [ -d "$(dirname "$(dirname "$EXCLUDE")")" ]; then
   if grep -qxF ".mcp.json" "$EXCLUDE" 2>/dev/null; then
     echo "  = .mcp.json already excluded from commits ($EXCLUDE)"
   else
-    echo ".mcp.json" >> "$EXCLUDE"
+    exclude_append ".mcp.json"
     echo "  + .mcp.json excluded from commits ($EXCLUDE)"
   fi
+  for entry in "${CLAUDE_EXCLUDE_ENTRIES[@]}"; do
+    if grep -qxF -- "$entry" "$EXCLUDE" 2>/dev/null; then
+      echo "  = $entry already excluded from commits"
+    else
+      exclude_append "$entry"
+      echo "  + $entry excluded from commits"
+    fi
+  done
 fi
 
 echo "== hooks -> $SETTINGS =="

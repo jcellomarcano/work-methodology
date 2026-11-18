@@ -64,6 +64,12 @@ EXT_DST="$REPO/.pi/extensions"
 PI_MCP="$REPO/.pi/mcp.json"
 MCP_JSON="$REPO/.mcp.json"
 EXCLUDE="$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || echo "$REPO/.git")/info/exclude"
+# A last line with no final newline would be glued to the line appended after it
+# (measured 2026-11-13: a user's `*.log` became `*.log.claude/agents/generic-*.md`).
+exclude_append() {
+  if [ -s "$EXCLUDE" ] && [ -n "$(tail -c 1 "$EXCLUDE")" ]; then echo >> "$EXCLUDE"; fi
+  echo "$1" >> "$EXCLUDE"
+}
 
 # One skill list, kept in install-claude.sh so the two runtimes cannot drift.
 SKILLS=()
@@ -311,7 +317,7 @@ if [ -d "$(dirname "$(dirname "$EXCLUDE")")" ]; then
     if grep -qxF "$entry" "$EXCLUDE" 2>/dev/null; then
       echo "  = $entry"
     else
-      echo "$entry" >> "$EXCLUDE"
+      exclude_append "$entry"
       echo "  + $entry"
     fi
   done

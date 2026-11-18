@@ -538,5 +538,105 @@ class RouterCatalogCheckTests(unittest.TestCase):
         self.assertEqual(self._check(json.dumps(self.catalog))["status"], "PASS")
 
 
+class DoctorRuntimeDetectionTests(unittest.TestCase):
+    """Live probe 2026-11-13 (F5): `doctor.sh <repo> --tools <instance>`, the check
+    AGENTS.md gives, read FAIL on four pi.* checks in a repo installed for Claude
+    Code only. Without --runtime the doctor now checks what is installed."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = Path(tempfile.mkdtemp(prefix="doctor-rt-"))
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def _repo(self, name: str, *runtimes: str) -> Path:
+        repo = self.tmp / name
+        repo.mkdir()
+        _git(repo, "init", "-q")
+        (repo / "README.md").write_text("fixture\n", encoding="utf-8")
+        _git(repo, "add", "README.md")
+        _git(repo, "commit", "-q", "-m", "init")
+        for runtime in runtimes:
+            proc = subprocess.run(["bash", str(INSTALL), str(repo), "--runtime", runtime, "--tools", str(TOOLS_ROOT)],
+                                  capture_output=True, text=True, env=ENV)
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        return repo
+
+    def _doctor(self, repo: Path, *extra: str):
+        proc = subprocess.run(["python3", str(DOCTOR), str(repo), *extra], capture_output=True, text=True, env=ENV)
+        return proc, json.loads(proc.stdout)
+
+    def _prefixes(self, report: dict) -> set:
+        return {c["id"].split(".")[0] for c in report["checks"]} & {"claude", "pi", "agy"}
+
+    def test_a_claude_only_install_is_checked_as_claude(self):
+        repo = self._repo("claude-only", "claude")
+        proc, report = self._doctor(repo)
+        self.assertEqual((report["runtime"], report["runtime_source"], report["also_installed"]), ("claude", "detected", []))
+        self.assertEqual(self._prefixes(report), {"claude"})
+        self.assertEqual([c["id"] for c in report["checks"] if c["status"] == "FAIL"], [])
+        self.assertEqual(proc.returncode, 0)
+        # the flag still decides when it is given: asking for all reads the missing pi wiring
+        forced, all_report = self._doctor(repo, "--runtime", "all")
+        self.assertEqual((all_report["runtime"], all_report["runtime_source"]), ("all", "flag"))
+        self.assertIn("pi.extension", [c["id"] for c in all_report["checks"] if c["status"] == "FAIL"])
+        self.assertEqual(forced.returncode, 1)
+
+    def test_a_pi_only_install_is_checked_as_pi(self):
+        _, report = self._doctor(self._repo("pi-only", "pi"))
+        self.assertEqual((report["runtime"], report["runtime_source"]), ("pi", "detected"))
+        self.assertEqual(self._prefixes(report), {"pi"})
+
+    def test_claude_and_pi_together_are_checked_as_all(self):
+        _, report = self._doctor(self._repo("both", "all"))
+        self.assertEqual((report["runtime"], report["runtime_source"], report["also_installed"]), ("all", "detected", []))
+        self.assertEqual(self._prefixes(report), {"claude", "pi"})
+
+    def test_an_agy_only_install_is_checked_as_agy(self):
+        _, report = self._doctor(self._repo("agy-only", "agy"))
+        self.assertEqual((report["runtime"], report["runtime_source"]), ("agy", "detected"))
+        self.assertEqual(self._prefixes(report), {"agy"})
+
+    def test_agy_beside_claude_is_named_and_not_checked(self):
+        repo = self._repo("claude-agy", "claude", "agy")
+        _, report = self._doctor(repo)
+        self.assertEqual((report["runtime"], report["also_installed"]), ("claude", ["agy"]))
+        self.assertEqual(self._prefixes(report), {"claude"})
+        table = subprocess.run(["python3", str(DOCTOR), str(repo), "--table"], capture_output=True, text=True, env=ENV).stdout
+        self.assertIn("also installed, not checked here: agy (run again with --runtime agy)", table)
+
+    def test_broken_claude_wiring_beside_pi_is_still_checked_and_fails(self):
+        # verifier B2, 2026-11-13: a settings file that does not parse read as "claude not
+        # installed", so the default doctor answered PASS for runtime pi
+        for name, damage in (("broken-settings", lambda f: f.write_text('{"hooks": {"PreToolUse": [ BROKEN', encoding="utf-8")),
+                             ("no-settings", lambda f: f.unlink()),
+                             ("no-kit-hooks", lambda f: f.write_text("{}", encoding="utf-8"))):
+            with self.subTest(name):
+                repo = self._repo(name, "all")
+                damage(repo / ".claude" / "settings.local.json")
+                proc, report = self._doctor(repo)
+                self.assertEqual((report["runtime"], report["runtime_source"]), ("all", "detected"))
+                self.assertIn("claude.hooks", [c["id"] for c in report["checks"] if c["status"] == "FAIL"])
+                self.assertEqual(proc.returncode, 1)
+
+    def test_broken_pi_wiring_beside_claude_is_still_checked_and_fails(self):
+        repo = self._repo("pi-unwired", "all")
+        (repo / ".pi" / "extensions" / "metodo-hooks.ts").unlink()
+        (repo / ".pi" / "mcp.json").unlink()
+        proc, report = self._doctor(repo)
+        self.assertEqual(report["runtime"], "all")
+        self.assertIn("pi.extension", [c["id"] for c in report["checks"] if c["status"] == "FAIL"])
+        self.assertEqual(proc.returncode, 1)
+
+    def test_nothing_installed_still_checks_all_and_fails(self):
+        proc, report = self._doctor(self._repo("empty"))
+        self.assertEqual((report["runtime"], report["runtime_source"], report["also_installed"]), ("all", "default", []))
+        self.assertEqual(self._prefixes(report), {"claude", "pi"})
+        self.assertFalse(report["kit_installed"])
+        self.assertEqual(proc.returncode, 1)
+
+
 if __name__ == "__main__":
     unittest.main()

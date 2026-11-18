@@ -6,6 +6,8 @@
 #
 #   bin/doctor.sh <repo> [--tools <tools-root>] [--runtime claude|pi|agy|all] [--out <file>] [--absent]
 #
+# --runtime without it the doctor checks what is installed in <repo> (claude, pi,
+#           both, or agy alone) and falls back to all when it finds nothing.
 # --out     default <tools-root>/out/doctor/<repo_sha>.json (no-sha.json when the
 #           repo has no commit; <repo_sha>.absent.json with --absent). The report
 #           is deterministic: sorted keys, no timestamps, no absolute paths.

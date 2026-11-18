@@ -1,4 +1,5 @@
 {
   "name": "metodo",
+  "version": "1.0.0",
   "description": "The working-methodology kit: generic-* roles as subagents, the kit's skills, its guard hooks and the metodo MCP server."
 }

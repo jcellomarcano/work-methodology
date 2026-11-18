@@ -59,10 +59,10 @@ bin/install.sh <repo> --tools ~/<instance>     # point at a synced tools instanc
 bin/install.sh <repo> --engram-project <name>  # fix the engram project name
 ```
 
-`--runtime claude` delegates to `install-claude.sh` unchanged. `--runtime pi` calls `install-pi.sh`, which
-renders the roles with `render_agents.py`, copies the same skill list (read out of `install-claude.sh`, so
-the two cannot drift), writes the shared `.mcp.json` with `mcp_config.py`, adds the `.pi/mcp.json` prefix
-override, installs the guards extension, and appends everything to `.git/info/exclude`.
+`--runtime claude` delegates to `install-claude.sh`. `--runtime pi` calls `install-pi.sh`, which renders the
+roles with `render_agents.py`, copies the same skill list (read out of `install-claude.sh`, so the two cannot
+drift), writes the shared `.mcp.json` with `mcp_config.py`, adds the `.pi/mcp.json` prefix override and
+installs the guards extension. Each installer appends the paths it wrote to `.git/info/exclude`.
 
 `bin/init.sh <repo>` wraps `install.sh` with the instance, adaptation, baseline, bench step, doctor and smoke.
 Unplug with `bin/init.sh <repo> --uninstall` (or `install.sh <repo> --uninstall`): only files byte-identical

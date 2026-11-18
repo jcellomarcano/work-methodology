@@ -7,9 +7,16 @@ Usage:
     lib/doctor.py <repo> --absent [--runtime claude|pi|agy|all] [--out <file>] [--table]
 
 --tools    tools root the repo was installed against (default: this kit's 03-tools).
---runtime  default all. claude.* checks run for claude/all, pi.* for pi/all, agy.* for agy
+--runtime  claude.* checks run for claude/all, pi.* for pi/all, agy.* for agy
            only (agy is opt-in: `all` is claude and pi), the rest always. With agy,
            git.exclude checks the plugin folder's line instead of .mcp.json's.
+           Without the flag the doctor checks what is installed in <repo>: claude
+           (kit hooks in .claude/settings.local.json or a generic-* agent), pi (the
+           kit's extension, MCP override or a generic-* agent), both -> all; agy when the plugin folder is
+           the only one found; nothing found -> all, as before. `runtime_source`
+           says which it was (flag, detected, default) and `also_installed` names
+           an agy plugin that sits beside claude or pi and was not checked here.
+           --absent keeps all as its default.
 --out      also writes the JSON report to that file.
 --table    prints a short human table on stdout instead of the JSON.
 --absent   inverts the wiring checks into an absence report (after
@@ -26,8 +33,9 @@ A directory that is not a git repo is not a usage error: it is reported as
 repo.git FAIL (exit 1), so the caller still gets the evidence.
 
 Output (deterministic: sorted keys, no timestamps, no absolute paths):
-    {schema_version, tool_sha, repo_sha, repo_dirty, runtime, verdict, kit_installed,
-     required, summary, placeholders, checks: [{id, status, detail, fix}]}
+    {schema_version, tool_sha, repo_sha, repo_dirty, runtime, runtime_source,
+     also_installed, verdict, kit_installed, required, summary, placeholders,
+     checks: [{id, status, detail, fix}]}
 status is PASS|WARN|FAIL|SKIP; fix is null on PASS, otherwise the exact
 command or file to edit. Paths are repo-relative, or written with the
 placeholders <repo> and <tools>; `bin/...` commands run from the kit's 03-tools.
@@ -731,7 +739,27 @@ def check_personal_absent(ctx: Ctx) -> dict:
 
 # ---------------------------------------------------------------- report
 
-def build_report(repo: Path, tools: Path, runtime: str) -> dict:
+def detect_runtime(repo: Path) -> tuple[str, str, list[str]]:
+    """The runtime to check when --runtime is absent: (runtime, source, also_installed).
+    A repo installed for one runtime used to read FAIL on the other's checks
+    (measured 2026-11-13 on a Claude Code only install)."""
+    hooks, _ = _claude_hooks_left(repo)
+    # The kit's agents count as well: with the hooks or the extension as the only
+    # sign, wiring broken at exactly that file read as "not installed" and the
+    # default doctor answered PASS beside another runtime (verifier B2, 2026-11-13).
+    claude = bool(hooks) or any((repo / ".claude" / "agents").glob("generic-*.md"))
+    pi = _pi_wired(repo) or any((repo / ".pi" / "agents").glob("generic-*.md"))
+    agy = os.path.isdir(repo / AGY_PLUGIN)
+    if claude or pi:
+        runtime = "all" if claude and pi else ("claude" if claude else "pi")
+        return runtime, "detected", ["agy"] if agy else []
+    if agy:
+        return "agy", "detected", []
+    return "all", "default", []
+
+
+def build_report(repo: Path, tools: Path, runtime: str, runtime_source: str = "flag",
+                 also_installed: list[str] | None = None) -> dict:
     ctx = Ctx(repo, tools, runtime)
     tool_head = _git(tools, "rev-parse", "--verify", "--quiet", "HEAD")
     tool_sha = tool_head.stdout.strip() if tool_head.returncode == 0 and tool_head.stdout.strip() else None
@@ -763,6 +791,8 @@ def build_report(repo: Path, tools: Path, runtime: str) -> dict:
         "repo_sha": ctx.repo_sha,
         "repo_dirty": _is_dirty(repo) if ctx.is_git else None,
         "runtime": runtime,
+        "runtime_source": runtime_source,
+        "also_installed": list(also_installed or []),
         "checks": checks,
         "required": required,
         "summary": summary,
@@ -967,6 +997,8 @@ def render_table(report: dict) -> str:
     flag = ("kit_absent", report["kit_absent"]) if report.get("mode") == "absent" else ("kit_installed", report["kit_installed"])
     lines.append(f"verdict: {report['verdict']}  {flag[0]}: {str(flag[1]).lower()}  "
                  f"(PASS {s['PASS']}, WARN {s['WARN']}, FAIL {s['FAIL']}, SKIP {s['SKIP']}; runtime {report['runtime']})")
+    for other in report.get("also_installed") or []:
+        lines.append(f"also installed, not checked here: {other} (run again with --runtime {other})")
     return "\n".join(lines) + "\n"
 
 
@@ -974,7 +1006,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Wiring doctor: is the kit installed in <repo> and does it respond?")
     parser.add_argument("repo")
     parser.add_argument("--tools", default=str(KIT_TOOLS))
-    parser.add_argument("--runtime", choices=RUNTIMES, default="all")
+    parser.add_argument("--runtime", choices=RUNTIMES, default=None)
     parser.add_argument("--out", default=None)
     parser.add_argument("--table", action="store_true", help="print a human table instead of the JSON")
     parser.add_argument("--absent", action="store_true",
@@ -984,7 +1016,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"doctor: not a directory: {args.repo}", file=sys.stderr)
         return 2
     if args.absent:
-        report = build_absent_report(Path(os.path.abspath(args.repo)), args.runtime)
+        report = build_absent_report(Path(os.path.abspath(args.repo)), args.runtime or "all")
         text = dumps(report)
         if args.out:
             out = Path(args.out)
@@ -995,7 +1027,9 @@ def main(argv: list[str] | None = None) -> int:
     if not os.path.isdir(args.tools):
         print(f"doctor: tools root is not a directory: {args.tools}", file=sys.stderr)
         return 2
-    report = build_report(Path(os.path.abspath(args.repo)), Path(os.path.abspath(args.tools)), args.runtime)
+    repo = Path(os.path.abspath(args.repo))
+    runtime, source, also = (args.runtime, "flag", []) if args.runtime else detect_runtime(repo)
+    report = build_report(repo, Path(os.path.abspath(args.tools)), runtime, source, also)
     text = dumps(report)
     if args.out:
         out = Path(args.out)

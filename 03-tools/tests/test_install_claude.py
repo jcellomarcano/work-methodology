@@ -94,6 +94,67 @@ class InstallClaudeTests(unittest.TestCase):
         self.assertNotIn("autoCompactWindow", json.loads(self.settings.read_text(encoding="utf-8")))
         self.assertFalse((self.repo / ".claude" / "metodo-settings-keys.json").exists())
 
+    def _untracked(self):
+        out = subprocess.run(["git", "-C", str(self.repo), "status", "--porcelain", "--untracked-files=all"],
+                             capture_output=True, text=True, check=True).stdout
+        return sorted(line[3:] for line in out.splitlines())
+
+    def _exclude_lines(self):
+        return (self.repo / ".git" / "info" / "exclude").read_text(encoding="utf-8").splitlines()
+
+    def test_install_hides_the_kit_files_from_git_and_leaves_the_repos_own_visible(self):
+        # live probe 2026-11-13 (F1): an agent's `git add -A` committed 46 kit files into the user's repo
+        proc = self._run()
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertEqual(self._untracked(), [".claude/agents/domain-redteam.md"])
+        # an agent or a skill the repo adds later is still the repo's to commit
+        (self.repo / ".claude" / "agents" / "team-reviewer.md").write_text("---\nname: team-reviewer\n---\n", encoding="utf-8")
+        (self.repo / ".claude" / "skills" / "our-own").mkdir()
+        (self.repo / ".claude" / "skills" / "our-own" / "SKILL.md").write_text("---\nname: our-own\n---\n", encoding="utf-8")
+        self.assertEqual(self._untracked(), [".claude/agents/domain-redteam.md", ".claude/agents/team-reviewer.md",
+                                             ".claude/skills/our-own/SKILL.md"])
+        before = self._exclude_lines()
+        self.assertEqual(len(before), len(set(before)))
+        second = self._run()
+        self.assertEqual(second.returncode, 0, second.stderr)
+        self.assertEqual(self._exclude_lines(), before)
+
+    def test_an_exclude_file_with_no_final_newline_keeps_the_users_last_pattern(self):
+        # verifier B1, 2026-11-13: `echo >>` glued the first kit line onto the user's `*.log`
+        exclude = self.repo / ".git" / "info" / "exclude"
+        exclude.parent.mkdir(exist_ok=True)
+        exclude.write_text("*.log", encoding="utf-8")
+        (self.repo / "debug.log").write_text("x\n", encoding="utf-8")
+        self.assertEqual(self._run().returncode, 0)
+        lines = self._exclude_lines()
+        for entry in ("*.log", ".mcp.json", ".claude/agents/generic-*.md"):
+            self.assertIn(entry, lines)
+        self.assertEqual(self._untracked(), [".claude/agents/domain-redteam.md"])
+        # the same file, cut again after an install: the second pass must not glue either
+        exclude.write_text(exclude.read_text(encoding="utf-8").replace(".claude/skills/cartography\n", "") + "*.tmp", encoding="utf-8")
+        self.assertEqual(self._run().returncode, 0)
+        lines = self._exclude_lines()
+        self.assertIn("*.tmp", lines)
+        self.assertIn(".claude/skills/cartography", lines)
+
+    def test_uninstall_drops_each_exclude_line_once_its_path_is_gone(self):
+        self.assertEqual(self._run().returncode, 0)
+        skill = self.repo / ".claude" / "skills" / "receipt-review" / "SKILL.md"
+        skill.write_text(skill.read_text(encoding="utf-8") + "\nedited by the repo\n", encoding="utf-8")
+        gone = self._run("--uninstall")
+        self.assertEqual(gone.returncode, 0, gone.stdout + gone.stderr)
+        lines = self._exclude_lines()
+        # the edited skill stays, and so does the line that keeps it out of commits
+        self.assertIn(".claude/skills/receipt-review", lines)
+        self.assertIn("= info/exclude#.claude/skills/receipt-review (kept: .claude/skills/receipt-review still exists)", gone.stdout)
+        # settings.local.json held the repo's own keys before the kit came: it stays, with its line
+        self.assertIn(".claude/settings.local.json", lines)
+        for entry in (".claude/agents/generic-*.md", ".claude/agents/generic-*.contract.json",
+                      ".claude/metodo-settings-keys.json", ".claude/skills/cartography"):
+            self.assertNotIn(entry, lines)
+            self.assertIn(f"- info/exclude#{entry} (removed)", gone.stdout)
+        self.assertEqual(self._untracked(), [".claude/agents/domain-redteam.md"])
+
     def test_install_is_complete_idempotent_and_reversible(self):
         first = self._run()
         self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
@@ -218,6 +279,16 @@ class InstallPiTests(unittest.TestCase):
     def _run(self, *extra):
         return subprocess.run(["bash", str(PI_INSTALLER), str(self.repo), *extra], capture_output=True, text=True)
 
+    def test_an_exclude_file_with_no_final_newline_keeps_the_users_last_pattern(self):
+        exclude = self.repo / ".git" / "info" / "exclude"
+        exclude.parent.mkdir(exist_ok=True)
+        exclude.write_text("*.log", encoding="utf-8")
+        proc = self._run()
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        lines = exclude.read_text(encoding="utf-8").splitlines()
+        for entry in ("*.log", ".mcp.json", ".pi/agents", ".pi/mcp.json"):
+            self.assertIn(entry, lines)
+
     def test_publish_comment_skill_is_installed_and_second_pass_unchanged(self):
         first = self._run()
         self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
@@ -271,3 +342,43 @@ class InstalledTextRulesTests(unittest.TestCase):
                     self.assertIn(needed, text)
                 self.assertRegex(text, r"before the first launch")
                 self.assertRegex(text, r"only the newly approved entry")
+
+
+class FrontMatterIsStrictYamlTests(unittest.TestCase):
+    """pi parses skill and agent front matter with a strict YAML parser and drops
+    the file on an error; Claude Code is lenient, so the defect only shows there.
+    The kit ships no YAML parser: this checks the one rule plain scalars break."""
+
+    PLAIN_BREAKERS = (": ", " #")
+
+    def _plain_scalar_problems(self, path):
+        text = path.read_text(encoding="utf-8")
+        if not text.startswith("---\n"):
+            return []
+        block = text.split("---\n", 2)[1]
+        problems = []
+        for number, line in enumerate(block.splitlines(), start=2):
+            found = re.match(r"^([A-Za-z_][\w-]*):[ \t]+(.*)$", line)
+            if not found:
+                continue
+            value = found.group(2).strip()
+            if not value or value[0] in "\"'[{|>":
+                continue
+            for breaker in self.PLAIN_BREAKERS:
+                if breaker in value:
+                    problems.append(f"{path.parent.name}/{path.name}:{number} `{found.group(1)}` holds {breaker!r} unquoted")
+        return problems
+
+    def test_no_skill_or_agent_front_matter_breaks_a_strict_parser(self):
+        files = sorted(SKILLS_SRC.glob("*/SKILL.md")) + sorted((TOOLS_ROOT.parent / "01-roles" / "agents").glob("*.md"))
+        self.assertGreater(len(files), 20)
+        problems = [p for f in files for p in self._plain_scalar_problems(f)]
+        self.assertEqual(problems, [])
+
+    def test_the_check_catches_an_unquoted_colon_and_accepts_the_quoted_form(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bad = Path(tmp) / "SKILL.md"
+            bad.write_text("---\nname: x\ndescription: Writes a comment: one paragraph.\n---\nbody: not front matter\n", encoding="utf-8")
+            self.assertEqual(len(self._plain_scalar_problems(bad)), 1)
+            bad.write_text('---\nname: x\ndescription: "Writes a comment: one paragraph."\ntools: [Read, Write]\n---\n', encoding="utf-8")
+            self.assertEqual(self._plain_scalar_problems(bad), [])
