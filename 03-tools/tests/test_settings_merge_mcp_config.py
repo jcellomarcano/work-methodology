@@ -316,6 +316,50 @@ class McpConfigTests(unittest.TestCase):
         existing = {"mcpServers": {"github": {"type": "http"}, "metodo": {"type": "stdio"}}}
         self.assertEqual(mcp_config.remove(existing), {"mcpServers": {"github": {"type": "http"}}})
 
+    def test_pi_entry_is_a_full_server_for_pis_built_in_mcp(self):
+        # live probe 2026-11-13 (F4): pi 1.3.0's built-in MCP never reads .mcp.json and drops an
+        # entry that is only a toolPrefix override, without a word; it needs the whole server here
+        existing = {"mcpServers": {"github": {"toolPrefix": "gh"}, "metodo": {"toolPrefix": "mcp", "timeout": 5}}, "settings": {"x": 1}}
+        merged = mcp_config.merge_pi_entry(existing, "/t", "/r")
+        self.assertEqual(merged["mcpServers"]["github"], {"toolPrefix": "gh"})
+        self.assertEqual(merged["settings"], {"x": 1})
+        self.assertEqual(merged["mcpServers"]["metodo"],
+                         {"toolPrefix": "mcp", "timeout": 5, "command": "python3", "args": ["/t/mcp/server.py"],
+                          "env": {"METODO_TOOLS": "/t", "METODO_REPO": "/r"}, "exposure": "direct"})
+        self.assertEqual(mcp_config.merge_pi_entry(merged, "/t", "/r"), merged)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / ".pi" / "mcp.json"
+            first = mcp_config.apply(path, "/t", "/r", False, pi_entry=True)
+            self.assertEqual((first["changed"], first["action"]), (True, "merge"))
+            self.assertFalse(mcp_config.apply(path, "/t", "/r", False, pi_entry=True)["changed"])
+            # the uninstall takes the kit's keys and leaves nothing behind
+            gone = mcp_config.apply(path, "", "", True, pi_override=True)
+            self.assertTrue(gone["changed"])
+            self.assertFalse(path.exists())
+
+    def test_pi_entry_never_takes_a_metodo_server_that_is_not_the_kits_and_keeps_the_owners_env(self):
+        # verifier B1, 2026-11-18: install overwrote an owner's `metodo` server and uninstall then deleted it
+        theirs = {"mcpServers": {"metodo": {"command": "node", "args": ["mine.js"], "env": {"X": "1"}}}}
+        self.assertEqual(mcp_config.merge_pi_entry(theirs, "/t", "/r"), theirs)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "mcp.json"
+            text = json.dumps(theirs)
+            path.write_text(text, encoding="utf-8")
+            kept = mcp_config.apply(path, "/t", "/r", False, pi_entry=True)
+            self.assertEqual((kept["changed"], kept["action"]), (False, mcp_config.FOREIGN_ACTION))
+            self.assertFalse(mcp_config.apply(path, "", "", True, pi_override=True)["changed"])
+            self.assertEqual(path.read_text(encoding="utf-8"), text)
+        owned = {"mcpServers": {"metodo": {"toolPrefix": "mcp", "env": {"OWNER": "1"}}}}
+        merged = mcp_config.merge_pi_entry(owned, "/t", "/r")
+        self.assertEqual(merged["mcpServers"]["metodo"]["env"], {"OWNER": "1", "METODO_TOOLS": "/t", "METODO_REPO": "/r"})
+        self.assertEqual(mcp_config.remove_pi_override(merged), {"mcpServers": {"metodo": {"env": {"OWNER": "1"}}}})
+
+    def test_pi_entry_removal_keeps_the_owners_keys_and_a_server_that_is_not_the_kits(self):
+        full = mcp_config.merge_pi_entry({"mcpServers": {"metodo": {"timeout": 5}}}, "/t", "/r")
+        self.assertEqual(mcp_config.remove_pi_override(full), {"mcpServers": {"metodo": {"timeout": 5}}})
+        theirs = {"mcpServers": {"metodo": {"command": "node", "args": ["their-own.js"], "exposure": "direct"}}}
+        self.assertEqual(mcp_config.remove_pi_override(theirs), theirs)
+
     def test_pi_override_removal_keeps_other_keys(self):
         existing = {"mcpServers": {"github": {"toolPrefix": "gh"}, "metodo": {"toolPrefix": "mcp"}}, "settings": {"x": 1}}
         self.assertEqual(mcp_config.remove_pi_override(existing),

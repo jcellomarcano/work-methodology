@@ -285,25 +285,18 @@ done
 echo "== metodo MCP server -> $MCP_JSON =="
 python3 "$TOOLS_ROOT/lib/mcp_config.py" "$MCP_JSON" --tools-root-expr "$TOOLS_DIR" --repo-expr "$REPO"
 
-echo "== pi override -> $PI_MCP =="
-# Every kit skill names its tools as mcp__metodo__<tool>. The adapter's default
-# prefix would register them as metodo_<tool>, so this override is what makes
-# the skill bodies true on pi.
-python3 - "$PI_MCP" <<'PY'
-import json, sys
-from pathlib import Path
-path = Path(sys.argv[1])
-data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
-servers = data.get("mcpServers") or {}
-entry = dict(servers.get("metodo") or {})
-before = dict(entry)
-entry["toolPrefix"] = "mcp"
-servers["metodo"] = entry
-data["mcpServers"] = servers
-path.parent.mkdir(parents=True, exist_ok=True)
-path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-print("  = toolPrefix mcp already set" if before == entry else "  + toolPrefix mcp")
-PY
+echo "== metodo MCP server for pi -> $PI_MCP =="
+# pi's built-in MCP reads .pi/mcp.json, never .mcp.json, and drops an entry that
+# is only an override without a word, so the whole server goes here too
+# (measured on pi 1.3.0, 2026-11-18). Every kit skill names its tools as
+# mcp__metodo__<tool>: `exposure: direct` declares them to the model under that
+# name, and `toolPrefix: mcp` gives the same names under the pi-mcp-adapter
+# package, whose default would register them as metodo_<tool>.
+pi_entry_out="$(python3 "$TOOLS_ROOT/lib/mcp_config.py" "$PI_MCP" --pi-entry --tools-root-expr "$TOOLS_DIR" --repo-expr "$REPO")"
+echo "$pi_entry_out"
+if grep -q '"action": "kept' <<<"$pi_entry_out"; then
+  echo "  ! .pi/mcp.json already declares a metodo server that is not the kit's: left as it is, so pi gets no kit MCP tool" >&2
+fi
 
 echo "== guards extension -> $EXT_DST/metodo-hooks.ts =="
 sed -e "s|__TOOLS_DEFAULT__|$TOOLS_DIR|g" -e "s|__REPO_DEFAULT__|$REPO|g" \
@@ -333,4 +326,7 @@ fi
 echo
 echo "summary: $copied copied/updated, $skipped unchanged; tools root: $TOOLS_DIR"
 echo "untouched: ~/.pi/agent/ and everything gentle-ai manages there"
-echo "note: pi loads .pi/extensions only after the project is trusted (/trust, or defaultProjectTrust)"
+echo "note: pi skips every project file (.pi/extensions, .pi/skills, .pi/agents, .pi/mcp.json) in a project it does not"
+echo "      trust, and in print mode it says nothing: /trust once, --approve per run, or defaultProjectTrust"
+echo "note: the mcp__metodo__* tools need pi's built-in MCP: check with 'pi mcp list' in the trusted repo. It is off"
+echo "      when the user settings list -builtin:mcp; '-e builtin:mcp' turns it on for one run"

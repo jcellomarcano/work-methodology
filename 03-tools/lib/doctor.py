@@ -367,14 +367,31 @@ def check_pi_mcp(ctx: Ctx) -> dict:
     problems, detail = _mcp_problems(ctx)
     path = ctx.repo / ".pi" / "mcp.json"
     try:
-        prefix = ((json.loads(path.read_text(encoding="utf-8")).get("mcpServers") or {}).get("metodo") or {}).get("toolPrefix")
+        entry = (json.loads(path.read_text(encoding="utf-8")).get("mcpServers") or {}).get("metodo") or {}
     except (OSError, json.JSONDecodeError, AttributeError):
-        prefix = None
-    if prefix != "mcp":
+        entry = {}
+    if not isinstance(entry, dict) or entry.get("toolPrefix") != "mcp":
         problems.append('.pi/mcp.json lacks toolPrefix "mcp" for metodo')
     if problems:
         return _check("pi.mcp", "FAIL", "; ".join(problems), ctx.install_fix("pi"))
-    return _check("pi.mcp", "PASS", detail + ', toolPrefix "mcp"')
+    args = entry.get("args")
+    full = (entry.get("command") == "python3" and isinstance(args, list) and len(args) == 1
+            and str(args[0]).endswith("/mcp/server.py") and entry.get("exposure") == "direct")
+    try:
+        shared = (json.loads((ctx.repo / ".mcp.json").read_text(encoding="utf-8")).get("mcpServers") or {}).get("metodo") or {}
+    except (OSError, json.JSONDecodeError, AttributeError):
+        shared = {}
+    if full and args != shared.get("args"):
+        # .mcp.json's server was checked above (it exists and is this tools root's); the pi copy must be the same one
+        return _check("pi.mcp", "FAIL", ".pi/mcp.json runs another server path than .mcp.json for metodo", ctx.install_fix("pi"))
+    if not full:
+        # pi 1.3.0's built-in MCP never reads .mcp.json and drops an override-only entry
+        # without a word (measured 2026-11-18); only the pi-mcp-adapter package reads this shape.
+        return _check("pi.mcp", "WARN", detail + ', toolPrefix "mcp", but .pi/mcp.json holds no server entry: '
+                      "pi's built-in MCP gets no metodo tool from it (only the pi-mcp-adapter package reads this shape)",
+                      ctx.install_fix("pi"))
+    return _check("pi.mcp", "PASS", detail + ', toolPrefix "mcp", and the whole server in .pi/mcp.json for pi\'s built-in '
+                  "MCP (not checked here: that it is on and the project trusted; `pi mcp list` shows it)")
 
 
 def check_agy_contracts(ctx: Ctx) -> dict:
@@ -599,7 +616,8 @@ def check_pi_extension(ctx: Ctx) -> dict:
     tools_forms = sorted({os.path.abspath(ctx.tools), ctx.tools_real})
     repo_forms = sorted({os.path.abspath(ctx.repo), ctx.repo_real})
     if any(installed == text.replace(TOOLS_TOKEN, t).replace(REPO_TOKEN, r) for t in tools_forms for r in repo_forms):
-        return _check("pi.extension", "PASS", ".pi/extensions/metodo-hooks.ts matches <tools>/hooks/pi/metodo-hooks.ts")
+        return _check("pi.extension", "PASS", ".pi/extensions/metodo-hooks.ts matches <tools>/hooks/pi/metodo-hooks.ts "
+                      "(pi loads it only in a trusted project: /trust, or --approve in print mode, where a skip is silent)")
     return _check("pi.extension", "FAIL",
                   ".pi/extensions/metodo-hooks.ts differs from <tools>/hooks/pi/metodo-hooks.ts rendered for this repo",
                   ctx.install_fix("pi"))

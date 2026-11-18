@@ -677,6 +677,16 @@ class SessionStartTouchedReplyTests(HookFixture):
         self.assertIn("verdict=approved", proc.stdout)
         self.assertTrue((self.hooks_dir / "s1" / "run-meta.json").exists())
 
+    def test_run_meta_states_its_time_zone_and_keeps_no_machine_name(self):
+        # live probe 2026-11-13 (F6): started_at was local time with no zone, beside the host name
+        import datetime
+        self.run_hook("session_start_status.py", {"hook_event_name": "SessionStart", "source": "startup"})
+        meta = json.loads((self.hooks_dir / "s1" / "run-meta.json").read_text(encoding="utf-8"))
+        self.assertEqual(sorted(meta), ["session_id", "started_at"])
+        started = datetime.datetime.fromisoformat(meta["started_at"])
+        self.assertEqual(started.utcoffset(), datetime.timedelta(0))
+        self.assertLess(abs((datetime.datetime.now(datetime.timezone.utc) - started).total_seconds()), 120)
+
     def test_session_start_silent_when_disabled(self):
         self.set_config(enabled=False)
         _, proc = self.run_hook("session_start_status.py", {"hook_event_name": "SessionStart", "source": "startup"})

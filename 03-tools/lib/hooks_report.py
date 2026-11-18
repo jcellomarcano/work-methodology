@@ -73,12 +73,19 @@ def read_jsonl(path: Path) -> list[dict]:
     return [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
 
 
+def _started_at(text: str) -> datetime.datetime:
+    """run-meta's started_at as an aware datetime. Sessions recorded before the
+    hooks wrote UTC carry a local time with no zone: read it as this machine's."""
+    stamp = datetime.datetime.fromisoformat(text)
+    return stamp.astimezone() if stamp.tzinfo is None else stamp
+
+
 def _days_observed(hooks_dir: Path) -> int:
     stamps = []
     for meta in hooks_dir.glob("*/run-meta.json"):
         try:
-            stamps.append(datetime.datetime.fromisoformat(json.loads(meta.read_text(encoding="utf-8"))["started_at"]))
-        except (KeyError, ValueError, json.JSONDecodeError):
+            stamps.append(_started_at(json.loads(meta.read_text(encoding="utf-8"))["started_at"]))
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError):
             continue
     if len(stamps) < 1:
         return 0
@@ -205,8 +212,7 @@ def mark_false_positive(hooks_dir: Path, session: str, seq: int, reason: str) ->
 
 def _session_date(sdir: Path) -> datetime.date | None:
     try:
-        return datetime.datetime.fromisoformat(
-            json.loads((sdir / "run-meta.json").read_text(encoding="utf-8"))["started_at"]).date()
+        return _started_at(json.loads((sdir / "run-meta.json").read_text(encoding="utf-8"))["started_at"]).astimezone().date()
     except (OSError, KeyError, TypeError, ValueError):
         return None
 

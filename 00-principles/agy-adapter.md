@@ -75,6 +75,6 @@ that does not parse, is still a subagent (`agy-subagent`: subagent denies apply,
 - Start agy in the repo again after install: a new plugin folder loads on the next start.
 - Decide where writer roles run. With no `edit_file` in a subagent, `generic-proposer` and
   `generic-mechanic` report a diff and the main session applies it, under the same guards.
-- Allow the kit's MCP tools once. agy asks before an MCP call and in a headless run nobody can answer, so
-  it is denied until an allow rule for the `metodo_metodo` server exists in agy's own settings under
-  `~/.gemini/` (documented form `mcp(<server>/*)`; never run here). The kit never writes there.
+- Allow the kit's MCP tools once. agy asks before an MCP call and in a headless run nobody can answer, so it
+  is denied until an allow rule exists: in agy's settings under `~/.gemini/` (form `mcp(<server>/*)`), or for
+  one run with `--settings '{"permissions":{"allow":[...]}}'` (agy 1.5.8 help; never run here). The kit writes neither.

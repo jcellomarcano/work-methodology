@@ -132,6 +132,22 @@ class ClaimDetectorTests(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertEqual(self.claims(text), expected)
 
+    def test_a_green_claim_in_other_common_words_is_still_a_claim(self):
+        # live probe 2026-11-13 (F7): a session closed with the first sentence and the gate stayed silent
+        for text in ("The test run passed: 2 tests ran, result OK.", "The test suite passed.",
+                     "2 tests ran, OK.", "Los tests pasan.", "Los tests pasaron.", "Pasaron todos los tests."):
+            with self.subTest(text=text):
+                self.assertEqual(self.claims(text), ["green"])
+        # the second line is ordinary prose the first cut of these patterns took for a claim (verifier, 2026-11-18)
+        for text in ("The test run failed.", "3 tests ran, 1 failed.", "The test run did not pass.",
+                     "Los tests no pasaron.", "I will start the test run now.",
+                     "The test run passes the repo path as its first argument.",
+                     "To make the test suite pass you first need to export TZ.", "Did the test suite pass on your machine?",
+                     "Si los tests pasan, hago el commit.", "Los tests pasaron de 10 a 12; dos fallan.",
+                     "12 tests ran, result OK for 10 and FAILED for 2."):
+            with self.subTest(text=text):
+                self.assertEqual(self.claims(text), [])
+
     def test_no_claim_for_questions_negations_code_quotes_and_facts(self):
         for text in ("Which option do you prefer?", "It is not done yet.", "Todavía no está listo.",
                      "Nothing was committed.", "Run `git commit` when done.".replace("when done", "later"),

@@ -685,8 +685,10 @@ class Init:
         self.record("install", "done", f"kit installed in <repo> for runtime {self.args.runtime} with tools "
                     f"<instance> (local files only: {files}, .git/info/exclude)")
         if self.args.runtime in ("pi", "all"):
-            self.todo(3, "trust the project in pi once (/trust, or --approve for one run) so it loads the guards "
-                      "extension", "<repo>/.pi/extensions/metodo-hooks.ts")
+            self.todo(3, "trust the project in pi once (/trust, or --approve for one run; print mode skips an untrusted "
+                      "project without a word) so it loads the guards extension, then check `pi mcp list` shows metodo "
+                      "(pi's built-in MCP is off when the user settings list -builtin:mcp)",
+                      "<repo>/.pi/extensions/metodo-hooks.ts")
         if self.args.runtime == "agy":
             self.todo(3, "start agy in the repo again so it loads the new workspace plugin, and keep it enabled "
                       "(agy plugin list); check it with agy plugin validate --strict .agents/plugins/metodo",

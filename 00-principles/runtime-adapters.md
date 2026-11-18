@@ -23,7 +23,7 @@ agy (Google Antigravity CLI) is a third, opt-in adapter with its own matrix, lim
 |---|---|---|---|
 | Agents | `.claude/agents/generic-*.md` with the Claude frontmatter [Measured] | `.pi/agents/generic-*.md`, tools mapped to pi built-ins [Measured, rendered and installed; no role run end to end] | same, side by side with `~/.pi/agent/agents/` [Unverified] |
 | Skills | `.claude/skills/<name>/` [Measured] | `.pi/skills/<name>/`, Agent Skills standard [Measured, installed; `allowed-tools` is ignored by pi] | same [Unverified] |
-| MCP tools | `.mcp.json`, names `mcp__metodo__*` [Measured] | same `.mcp.json` plus `toolPrefix: "mcp"` in `.pi/mcp.json` [Measured, `mcp__metodo__docs_lint` called and returned] | same [Unverified] |
+| MCP tools | `.mcp.json`, names `mcp__metodo__*` [Measured] | the whole server in `.pi/mcp.json` with `exposure: "direct"` and `toolPrefix: "mcp"`; pi's built-in MCP never reads `.mcp.json` [Tested on pi 1.3.0: 34 `mcp__metodo__*` tools declared; no tool call run] | same [Unverified] |
 | Hooks and guards | ten hooks in `.claude/settings.local.json` (Stop and SubagentStop run only `done_gate.py`; reply lint off since D3; SessionEnd runs `bench_queue.py`, which queues the session for the benchmark, a Claude Code only measurement) [Tested] | `.pi/extensions/metodo-hooks.ts` runs the same Python with the same matchers (`HOOK_MATRIX`, checked against `hooks.settings.json`) [Measured: a write to `build.gradle` was blocked and ledgered; Harness: matrix parity]; the extension does not carry the SessionEnd entry, so a pi session is never queued or measured | kit extension only; gentle-ai's hooks live in `~/.claude/settings.json` and are untouched [Unverified] |
 | Receipt gate | `mcp__metodo__receipt_start/finalize/acknowledge` reach `guard_gates.py` [Tested, `test_hooks.py`] | same three names, plus the generic `mcp` proxy when an input string names a receipt tool; a subagent is denied [Harness; Unverified on a live pi] | same as pi [Unverified] |
 | Launch gate | `guard_spawn.py` on `Task\|Agent`: a kit role launching outside `may_spawn` is denied; a launch without a goal contract warns or blocks [Tested, `test_hooks.py`] | same script and matcher in `HOOK_MATRIX` [Harness: matrix parity; which pi tool launches a subagent is Unverified] | same as pi [Unverified] |
@@ -68,8 +68,8 @@ installs the guards extension. Each installer appends the paths it wrote to `.gi
 Unplug with `bin/init.sh <repo> --uninstall` (or `install.sh <repo> --uninstall`): only files byte-identical
 to the kit's render go, a modified one stays; `doctor.sh <repo> --absent` proves nothing is left.
 
-pi loads `.pi/extensions` only after the project is trusted: interactively `/trust`; non-interactively
-`--approve` (`-a`) for one run, or `defaultProjectTrust: "always"` in `~/.pi/agent/settings.json`.
+pi loads project files only in a trusted project, and print mode skips them without a word: `/trust` once,
+`--approve` (`-a`) per run, or `defaultProjectTrust: "always"`. `pi mcp list` shows whether pi sees the server.
 
 ## 4. Living beside gentle-ai
 

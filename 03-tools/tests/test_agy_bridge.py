@@ -704,6 +704,13 @@ class GuardTests(BridgeFixture):
         self.assertIn("--force-with-lease", out["reason"])
         self.assertEqual(self.tool("PreToolUse", "run_command", {"CommandLine": "git status"}), "")
 
+    def test_a_plain_push_with_no_receipt_is_a_ledger_warning_the_model_never_sees(self):
+        # live probe F8: agy has no channel for a warning, so warn mode answers nothing and
+        # the push gate's line stays in the ledger (00-principles/agy-adapter.md, known limits)
+        self.assertEqual(self.tool("PreToolUse", "run_command", {"CommandLine": "git push origin main"}), "")
+        last = self.ledger("owner-1")[-1]
+        self.assertEqual((last["kind"], last["decision"], last["mode"]), ("gate-push", "warn", "warn"))
+
     def test_a_subagent_over_its_budget_is_denied_on_any_tool(self):
         agents = self.repo / ".claude" / "agents"
         agents.mkdir(parents=True)

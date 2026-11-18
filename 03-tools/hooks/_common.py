@@ -12,7 +12,6 @@ from __future__ import annotations
 import datetime
 import json
 import os
-import platform
 import subprocess
 import sys
 import time
@@ -298,8 +297,11 @@ def write_run_meta(inp: dict) -> None:
         sdir.mkdir(parents=True, exist_ok=True)
         meta = sdir / "run-meta.json"
         if not meta.exists():
-            meta.write_text(json.dumps({"started_at": datetime.datetime.now().isoformat(timespec="seconds"),
-                                        "host": platform.node(), "session_id": inp.get("session_id")}, indent=2) + "\n", encoding="utf-8")
+            # UTC with its offset (a zone-less local time cannot be compared across machines),
+            # and no host name: nothing reads it and it names the person's machine.
+            started = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+            meta.write_text(json.dumps({"started_at": started, "session_id": inp.get("session_id")}, indent=2) + "\n",
+                            encoding="utf-8")
     except OSError:
         pass
 

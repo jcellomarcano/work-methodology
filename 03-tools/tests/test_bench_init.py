@@ -106,8 +106,11 @@ CHECKS_BEFORE = {
         "git.exclude": ("PASS", ".mcp.json is in info/exclude", None),
         "personal.absent": ("PASS", "no personal asset under .claude/ or .pi/", None),
         "pi.agents": ("PASS", "N agent files under .pi/agents/", None),
-        "pi.extension": ("PASS", ".pi/extensions/metodo-hooks.ts matches <tools>/hooks/pi/metodo-hooks.ts", None),
-        "pi.mcp": ("PASS", MCP_DETAIL + ', toolPrefix "mcp"', None),
+        # both details changed on purpose (live probe F3 and F4, 2026-11-18): they now say what pi needs
+        "pi.extension": ("PASS", ".pi/extensions/metodo-hooks.ts matches <tools>/hooks/pi/metodo-hooks.ts "
+                         "(pi loads it only in a trusted project: /trust, or --approve in print mode, where a skip is silent)", None),
+        "pi.mcp": ("PASS", MCP_DETAIL + ', toolPrefix "mcp", and the whole server in .pi/mcp.json for pi\'s built-in '
+                   "MCP (not checked here: that it is on and the project trusted; `pi mcp list` shows it)", None),
         "pi.skills": ("PASS", "N skills under .pi/skills/", None),
     },
     "agy": {

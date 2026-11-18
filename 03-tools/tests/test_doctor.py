@@ -172,6 +172,35 @@ class DoctorTests(unittest.TestCase):
         _, pi = self.run_doctor(repo, "--runtime", "pi")
         self.assertEqual(self.check(pi, "pi.mcp")["status"], "FAIL")
 
+    def test_pi_mcp_passes_on_the_full_entry_and_warns_on_the_old_override_alone(self):
+        _, pi = self.run_doctor(self.fixture, "--runtime", "pi")
+        check = self.check(pi, "pi.mcp")
+        self.assertEqual(check["status"], "PASS")
+        self.assertIn("pi mcp list", check["detail"])
+        repo = self.copy_fixture("pi-old-override")
+        (repo / ".pi" / "mcp.json").write_text(json.dumps({"mcpServers": {"metodo": {"toolPrefix": "mcp"}}}), encoding="utf-8")
+        _, old = self.run_doctor(repo, "--runtime", "pi")
+        check = self.check(old, "pi.mcp")
+        self.assertEqual(check["status"], "WARN")
+        self.assertIn("built-in MCP", check["detail"])
+        self.assertIn("--runtime pi", check["fix"])
+        self.assertTrue(old["kit_installed"])
+
+    def test_pi_mcp_fails_when_the_pi_copy_runs_another_server_path(self):
+        repo = self.copy_fixture("pi-other-server")
+        path = repo / ".pi" / "mcp.json"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data["mcpServers"]["metodo"]["args"] = ["/nonexistent/old-instance/mcp/server.py"]
+        path.write_text(json.dumps(data), encoding="utf-8")
+        _, pi = self.run_doctor(repo, "--runtime", "pi")
+        check = self.check(pi, "pi.mcp")
+        self.assertEqual(check["status"], "FAIL")
+        self.assertIn("another server path", check["detail"])
+
+    def test_pi_extension_detail_says_when_pi_loads_it(self):
+        _, pi = self.run_doctor(self.fixture, "--runtime", "pi")
+        self.assertIn("--approve", self.check(pi, "pi.extension")["detail"])
+
     def test_moved_repo_without_reinstall_fails_mcp(self):
         # METODO_REPO still names the original repo: the server would serve the wrong one
         repo = self.tmp / "moved"

@@ -49,6 +49,17 @@ class ReportTests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
+    def test_days_observed_reads_old_local_stamps_beside_new_utc_ones(self):
+        # run-meta written before the UTC change has no zone; both shapes share one hooks dir
+        newer = self.hooks / "s3"
+        newer.mkdir()
+        (newer / "run-meta.json").write_text(json.dumps({"started_at": "2026-09-12T10:00:00+00:00"}), encoding="utf-8")
+        self.assertEqual(hooks_report._days_observed(self.hooks), 11)
+        import datetime
+        local_day = datetime.datetime.fromisoformat("2026-09-12T10:00:00+00:00").astimezone().date()
+        self.assertEqual(hooks_report._session_date(newer), local_day)
+        self.assertEqual(str(hooks_report._session_date(self.hooks / "s1")), "2026-09-01")
+
     def test_counts(self):
         report = hooks_report.build_report(self.hooks, self.receipts, 7, 5, 2)
         self.assertEqual(report["sessions"], 2)

@@ -3,7 +3,7 @@
   "schema_version": 1,
   "claims": {
     "done": ["\\b(?:done|finished|complete|completed|fixed)\\b", "\\b(?:listo|lista|listos|listas|terminad[oa]s?|hech[oa]s?|completad[oa]s?|arreglad[oa]s?)\\b"],
-    "green": ["\\bgreen\\b", "\\b(?:all )?tests? (?:pass|passes|passed)\\b", "\\bsuite passe[sd]\\b", "\\ben verde\\b", "\\bverdes?\\b", "\\bpasan (?:todos )?los tests\\b"],
+    "green": ["\\bgreen\\b", "\\b(?:all )?tests? (?:pass|passes|passed)\\b", "\\bsuite passe[sd]\\b", "\\ben verde\\b", "\\bverdes?\\b", "\\bpasan (?:todos )?los tests\\b", "\\btest (?:run|suite) passed\\b", "\\b\\d+ tests? ran,? (?:result )?OK\\b(?! for\\b)", "(?<!si )\\blos tests pasa(?:n|ron)\\b(?! de\\b)", "\\bpasaron (?:todos )?los tests\\b"],
     "committed": ["\\bcommitted\\b", "\\bcommitead[oa]s?\\b", "\\bcomitead[oa]s?\\b"],
     "delivered": ["\\bpushed\\b", "\\bdelivered\\b", "\\bpublished\\b", "\\bpublicad[oa]s?\\b", "\\bentregad[oa]s?\\b", "\\bpushead[oa]s?\\b", "\\bready to (?:push|merge)\\b", "\\bPR (?:is )?ready\\b", "\\bPR (?:está )?lista\\b"]
   },

@@ -289,6 +289,35 @@ class InstallPiTests(unittest.TestCase):
         for entry in ("*.log", ".mcp.json", ".pi/agents", ".pi/mcp.json"):
             self.assertIn(entry, lines)
 
+    def test_pi_gets_the_whole_mcp_server_and_is_told_what_pi_needs(self):
+        proc = self._run()
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        entry = json.loads((self.repo / ".pi" / "mcp.json").read_text(encoding="utf-8"))["mcpServers"]["metodo"]
+        self.assertEqual(entry["command"], "python3")
+        self.assertTrue(entry["args"][0].endswith("/mcp/server.py"), entry)
+        self.assertEqual(entry["env"]["METODO_REPO"], str(self.repo))
+        self.assertEqual((entry["exposure"], entry["toolPrefix"]), ("direct", "mcp"))
+        # F3: pi skips project files in an untrusted project, silently in print mode; the install says so
+        self.assertIn("--approve", proc.stdout)
+        self.assertIn("pi mcp list", proc.stdout)
+        second = self._run()
+        self.assertEqual(second.returncode, 0, second.stderr)
+        self.assertIn('"changed": false', second.stdout)
+        gone = self._run("--uninstall")
+        self.assertEqual(gone.returncode, 0, gone.stdout + gone.stderr)
+        self.assertFalse((self.repo / ".pi" / "mcp.json").exists())
+
+    def test_an_owners_metodo_server_in_pi_mcp_json_survives_install_and_uninstall(self):
+        theirs = json.dumps({"mcpServers": {"metodo": {"command": "node", "args": ["mine.js"], "env": {"X": "1"}}}})
+        (self.repo / ".pi").mkdir()
+        (self.repo / ".pi" / "mcp.json").write_text(theirs, encoding="utf-8")
+        proc = self._run()
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertIn("not the kit's", proc.stderr)
+        self.assertEqual((self.repo / ".pi" / "mcp.json").read_text(encoding="utf-8"), theirs)
+        self.assertEqual(self._run("--uninstall").returncode, 0)
+        self.assertEqual((self.repo / ".pi" / "mcp.json").read_text(encoding="utf-8"), theirs)
+
     def test_publish_comment_skill_is_installed_and_second_pass_unchanged(self):
         first = self._run()
         self.assertEqual(first.returncode, 0, first.stdout + first.stderr)

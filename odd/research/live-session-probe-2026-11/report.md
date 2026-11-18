@@ -66,7 +66,27 @@ no cost; pi spent nothing.
   broken `.claude/settings.local.json` beside pi read as "claude not installed", so the default doctor said PASS
   (detection now also counts the kit's `generic-*` agents). [Tested: `test_install_claude.py`,
   `test_install_agy.py`, `test_doctor.py`]
-- F3, F4, F6, F7 and F8 are open.
+- F3 (2026-11-18): the pi installer, the doctor's `pi.extension` detail and init's pending step now say that
+  print mode skips an untrusted project without a word. The skip itself is pi's and stays. [Tested]
+- F4 (2026-11-18): cause found in pi's own docs and source. Its built-in MCP never reads `.mcp.json` and drops
+  an entry that is only a `toolPrefix` override, so the installer now writes the whole server to `.pi/mcp.json`
+  with `exposure: "direct"`. A default pi 1.3.0 session then declares 34 `mcp__metodo__*` tools beside the kit's
+  extension. `pi.mcp` reads WARN on the old shape. On the owner's machine the built-in MCP is switched off in
+  the user settings; the kit says how to check and does not change it. [Tested; no tool call run, login expired]
+- F6 (2026-11-18): `run-meta.json` carries `started_at` in UTC with its offset and no host name; the hook
+  report reads old and new stamps together. [Tested]
+- F7 (2026-11-18): the gate was silent because "The test run passed: 2 tests ran, result OK" matched no claim
+  pattern. Four `green` patterns added, English and Spanish, with negative cases. [Tested]
+- F8 (2026-11-18): answered at the bridge. Under agy a plain `git push` with no receipt is a `gate-push` warn
+  line in the ledger and nothing reaches the model, the adapter's stated limit; a test pins it. A live run with
+  a one-session allow rule (`--settings`) answered Google's 429 quota error three times and stays not run.
+  [Tested at the bridge; live: Unknown]
+- Independent verifier on these changes (2026-11-18): one blocker, corrected with tests. The installer overwrote
+  a `metodo` server of the owner's own in `.pi/mcp.json` and the uninstall then deleted it; such an entry is now
+  left alone, with a warning, and the owner's own `env` keys survive. Also from its notes: `pi.mcp` fails when
+  the pi copy runs another server path, and the new claim patterns no longer take conditionals or "passes X" for
+  a claim. Left as notes: an invalid `.pi/mcp.json` ends the install in a traceback (as before), and
+  `bin/metrics.sh` and `bin/verify-sectors.sh` still write local time and the host to their own run metadata.
 
 ## Not tested
 
