@@ -12,7 +12,7 @@ that enforce the gates, and one command to plug it into a repository and unplug 
 | It is | It is not |
 |---|---|
 | A way of working: frame, map, card, small commits, review sized by risk, verify, owner gate, learn | A framework you import into your code, or a runtime dependency |
-| A kit for AI-assisted teams: 12 agent roles, 16 skills, a `metodo` MCP server, hooks for Claude Code and pi | A general-purpose chatbot setup; every agent has one role, one model tier and a JSON contract |
+| A kit for AI-assisted teams: 12 agent roles, 17 skills, a `metodo` MCP server, hooks for Claude Code and pi | A general-purpose chatbot setup; every agent has one role, one model tier and a JSON contract |
 | Deterministic checks (Python 3 standard library + bash) with tests and negative controls | A linter collection that replaces your CI; it adds evidence on top of your own checks |
 | Language guidance with the official rule quoted verbatim, then labeled house rules (Kotlin, Swift, Python, SQL, Haskell, Go, Gradle, Compose, SwiftUI) | A style war; official guides win, house rules are labeled as such |
 | Usable by humans alone; AI agents are optional helpers | A way to hand decisions to AI: humans own every gate (merge, deploy, release, shared build files) |
@@ -46,7 +46,7 @@ flowchart LR
     end
     subgraph Reasoning["Reasoning (AI, optional)"]
         A["12 role agents<br/>one model tier each"]
-        K["16 skills<br/>wrap the scripts"]
+        K["17 skills<br/>wrap the scripts"]
     end
     subgraph Judgment["Judgment (humans)"]
         O["Owner gates:<br/>merge, deploy, release"]
@@ -81,7 +81,7 @@ flowchart LR
 |---|---|---|
 | Understand the method (no AI needed) | `docs/01-principles.md`, then `docs/02-workflow.md` | 30 min |
 | Adopt it in a team, in five steps you can back out of | `docs/07-adoption.md` | 10 min |
-| Decide with numbers whether it helps, and see where it stands in the market | `docs/09-measurement.md`, then `docs/10-position.md` | 15 min |
+| Decide with numbers whether it helps, whether one skill works, and where it stands in the market | `docs/09-measurement.md`, `docs/11-skill-evals.md`, then `docs/10-position.md` | 20 min |
 | Plug the kit into a repository | `03-tools/bin/init.sh <repo> --dry-run`, then without `--dry-run` (below) | 10 min + owner answers |
 | Brief an AI agent on this repo | `AGENTS.md` (Claude Code reads it through `CLAUDE.md`), then `CONTEXT-PACK.md` | 5 min |
 | Change the kit itself | `AGENTS.md` "Rules when changing this kit", then `00-principles/methodology.md` | 20 min |
@@ -265,17 +265,17 @@ report pass^k, cost per solved task and paired CIs (why: `odd/research/benchmark
 
 | Path | Content |
 |---|---|
-| `docs/` | The friendly entry layer: principles, workflow, change card, review, work management, git/release, adoption, other harnesses, measurement, market position |
+| `docs/` | The friendly entry layer: principles, workflow, change card, review, work management, git/release, adoption, other harnesses, measurement, market position, skill evals |
 | `AGENTS.md`, `CLAUDE.md`, `CONTEXT-PACK.md` | How an agent enters, and the whole method in ≤ 120 lines |
 | `00-principles/` | The operating law: evidence, why-layer, change card, review receipt, model and multi-provider routing, runtime adapters, agent protocol |
 | `01-roles/agents/` | The 12 roles, each with its `.contract.json` |
-| `02-skills/` | The 16 skills (`SKILL.md`) |
+| `02-skills/` | The 17 skills (`SKILL.md`), each with its `BUILD.json` |
 | `03-tools/` | `bin/` (init, doctor, smoke, install, adopt, metrics, kit-status…), `lib/` checkers, `hooks/`, `mcp/` server, `config/`, `schemas/`, `tests/` |
 | `04-templates/` | Change card, PR, findings, release benchmark, project profile, agent brief, round minutes |
 | `05-adopt/` | The adoption checklist, each item marked init or human |
 | `06-languages/` | Official rule verbatim + labeled house rules + detectors, per language and build tool, plus data practice (OSINT, data engineering, data analysis, statistical ML) |
 | `07-communication/` | How an agent talks to a person: identity block, COM rules with a linter, templates, provider adapters, its own benchmark |
-| `08-benchmark/` | Kit vs vanilla: metrics, protocols, runners, reports |
+| `08-benchmark/` | Kit vs vanilla: metrics, protocols, runners, reports; `evals/`, the eval cases per skill |
 | `odd/` | Task documents (specs, tasks, log) for the kit's own changes |
 
 ## Glossary

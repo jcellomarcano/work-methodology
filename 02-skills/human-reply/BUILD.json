@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "agent_skill": {
+    "srcs": ["SKILL.md"],
+    "deps": [
+      "mcp__metodo__reply_lint",
+      "mcp__metodo__done_check",
+      "07-communication/identidad.es.md",
+      "07-communication/identity.en.md",
+      "07-communication/templates.md",
+      "03-tools/bin/done-waive.sh"
+    ]
+  },
+  "validate_skill_test": {},
+  "py_type_test": {},
+  "py_test": {},
+  "eval_suite": {}
+}

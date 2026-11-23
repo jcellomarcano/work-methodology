@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "agent_skill": {
+    "srcs": ["SKILL.md"],
+    "deps": [
+      "mcp__metodo__receipt_start",
+      "mcp__metodo__receipt_status",
+      "mcp__metodo__receipt_capture",
+      "mcp__metodo__receipt_finalize",
+      "mcp__metodo__receipt_acknowledge",
+      "mcp__metodo__test_sectors",
+      "mcp__metodo__verify_sectors",
+      "mcp__metodo__verify_commit",
+      "mcp__metodo__job_status",
+      "mcp__metodo__change_card_validate",
+      "mcp__metodo__comment_gate_measure",
+      "mcp__metodo__docs_lint",
+      "mcp__metodo__role_contract_validate",
+      "mcp__metodo__output_validate",
+      "mcp__metodo__route"
+    ]
+  },
+  "validate_skill_test": {},
+  "py_type_test": {},
+  "py_test": {},
+  "eval_suite": {}
+}

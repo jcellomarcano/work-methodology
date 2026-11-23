@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "agent_skill": {
+    "srcs": ["SKILL.md"],
+    "deps": [
+      "mcp__metodo__domain_invariants",
+      "mcp__metodo__dep_boundaries",
+      "mcp__metodo__change_card_validate",
+      "mcp__metodo__receipt_status",
+      "mcp__metodo__output_validate",
+      "mcp__metodo__receipt_capture",
+      "mcp__metodo__route"
+    ]
+  },
+  "validate_skill_test": {},
+  "py_type_test": {},
+  "py_test": {},
+  "eval_suite": {}
+}

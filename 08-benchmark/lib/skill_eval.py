@@ -35,8 +35,9 @@ Example (`evals/demo-skill/smoke-basic/case.json`):
    "max_turns": 8, "timeout_seconds": 300, "allowed_tools": ["Read", "Edit", "Skill"], "runs": 1}
 
 Every path of a case is relative and stays inside the case folder, also after its symlinks are
-resolved. A `setup.files` entry that reaches `testdata/` is a problem. A link to a file inside
-the case is staged as a regular file; a link to a folder is refused.
+resolved. A `setup.files` entry that reaches `testdata/` is a problem, and so are two entries
+that stage a file at the same destination. A link to a file inside the case is staged as a
+regular file; a link to a folder is refused.
 
 Functions the runner builds on:
   validate_case(case_dir) -> list[str]   the problems of one case, one line each, [] when valid
@@ -53,7 +54,7 @@ A CaseError is raised for a case that is not valid or a path that cannot be read
 
 Usage:
     lib/skill_eval.py validate [ROOT]
-    lib/skill_eval.py run [--skill NAME ...] [--tier TIER] [--real] ...
+    lib/skill_eval.py run [--skill NAME ...] [--tier TIER] [--kit-mcp] [--real] ...
     lib/skill_eval.py report [--skill NAME ...] [--tier TIER] ...
 
 `validate` prints `<skill>/<case>: <problem>` lines, sorted, then one summary line.
@@ -202,6 +203,7 @@ def _check_setup(case_real: str, setup, problems: list[str]) -> None:
         problems.append(f"'setup' must be an object with a 'files' list, got {setup!r}")
         return
     problems.extend(f"setup: unknown key {key!r}" for key in sorted(setup) if key != "files")
+    landed: dict[str, int] = {}  # destination -> the first entry that stages a file there
     for index, entry in enumerate(setup.get("files", [])):
         label = f"setup.files[{index}]"
         if not isinstance(entry, dict) or not all(isinstance(entry.get(k), str) for k in ("from", "to")):
@@ -213,7 +215,15 @@ def _check_setup(case_real: str, setup, problems: list[str]) -> None:
             lexical.append(f"{label}.from: {entry['from']!r} must be a relative path inside the case folder")
         if not _is_relative(entry["to"]):
             lexical.append(f"{label}.to: {entry['to']!r} must be a relative path inside the working directory")
-        problems.extend(lexical or _plan_entry(case_real, index, entry)[1])
+        if lexical:
+            problems.extend(lexical)
+            continue
+        pairs, faults = _plan_entry(case_real, index, entry)
+        problems.extend(faults)
+        for _source, target in pairs:
+            if landed.setdefault(target, index) != index:  # the later file would silently replace the earlier one
+                problems.append(f"{label}.to: {target!r} is also the destination of setup.files[{landed[target]}]: "
+                                f"two files cannot land on one path")
 
 
 def _check_validators(case_real: str, validators, problems: list[str]) -> None:
@@ -385,10 +395,12 @@ def stage(case: dict, dest) -> list[str]:
     if problems:
         raise _case_error(case["id"], problems)
     # Every source is copied into a holding folder first, so one that cannot be read stops the
-    # staging before any file lands; what did land is taken back if a later move fails.
+    # staging before any file lands; what did land is taken back if a later move fails, and a
+    # file that was replaced is put back from the copy kept of it.
     holding = tempfile.mkdtemp(prefix=".staging-", dir=dest_real)
     placed: list[str] = []
     made: list[str] = []
+    replaced: list[tuple[str, str]] = []  # (where the file that was there is kept, where it was)
     try:
         held = []
         for number, (source, target, _index) in enumerate(pairs):
@@ -405,16 +417,22 @@ def stage(case: dict, dest) -> list[str]:
                 os.mkdir(folder)
                 made.append(folder)
             existed = os.path.lexists(landing)
+            if existed and (os.path.islink(landing) or not os.path.isdir(landing)):
+                kept = os.path.join(holding, f"replaced-{len(replaced)}")
+                os.replace(landing, kept)
+                replaced.append((kept, landing))
             os.replace(copy, landing)
             if not existed:
                 placed.append(landing)
     except OSError as exc:
-        for undo, paths in ((os.remove, placed), (os.rmdir, reversed(made))):
-            for path in paths:
-                try:
-                    undo(path)
-                except OSError:
-                    pass
+        undone = [(os.remove, path) for path in placed]
+        undone += [(lambda path, kept=kept: os.replace(kept, path), path) for kept, path in reversed(replaced)]
+        undone += [(os.rmdir, path) for path in reversed(made)]
+        for undo, path in undone:
+            try:
+                undo(path)
+            except OSError:
+                pass
         shutil.rmtree(holding, ignore_errors=True)
         if created:
             shutil.rmtree(dest_real, ignore_errors=True)
@@ -525,6 +543,9 @@ def main(argv: list[str] | None = None) -> int:
         command.add_argument("--json", metavar="FILE", help="also write the report as JSON")
     run.add_argument("--real", action="store_true", help="spend: start the native tool (without it only the plan is printed)")
     run.add_argument("--no-cache", action="store_true", help="run a case again even when its hash has a stored result")
+    run.add_argument("--kit-mcp", action="store_true",
+                     help="for a skill that declares MCP tools: start this checkout's MCP server in its runs "
+                          "(it runs as you, outside the tool's sandbox); off by default")
     run.add_argument("--runs", type=_above_zero(int), metavar="N", help="runs per arm, instead of each case's own")
     run.add_argument("--model", metavar="M", help="model of the agent under test (default: the session's)")
     run.add_argument("--judge-model", metavar="M", help="model of the judge (default: the tool's)")
@@ -536,7 +557,7 @@ def main(argv: list[str] | None = None) -> int:
         args = parser.parse_args(argv)
         return args.run(args)
     except UsageError as exc:
-        print(f"skill-eval: {_one_line(exc)} (usage: skill_eval.py validate [ROOT] | run [--real] ... | report ...)",
+        print(f"skill-eval: {_one_line(exc)} (usage: skill_eval.py validate [ROOT] | run [--kit-mcp] [--real] ... | report ...)",
               file=sys.stderr)
         return 2
     except CaseError as exc:

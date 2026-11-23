@@ -18,6 +18,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from lib import doctor as doctor_lib
+
 TOOLS_ROOT = Path(__file__).resolve().parent.parent
 DOCTOR = TOOLS_ROOT / "lib" / "doctor.py"
 DOCTOR_SH = TOOLS_ROOT / "bin" / "doctor.sh"
@@ -665,6 +667,32 @@ class DoctorRuntimeDetectionTests(unittest.TestCase):
         self.assertEqual(self._prefixes(report), {"claude", "pi"})
         self.assertFalse(report["kit_installed"])
         self.assertEqual(proc.returncode, 1)
+
+
+class AbsentSkillFilesTests(unittest.TestCase):
+    """`--absent` looks for what the installers put in a repo; a skill's BUILD.json is never installed."""
+
+    def setUp(self):
+        self.repo = Path(tempfile.mkdtemp(prefix="doctor-absent-"))
+        self.addCleanup(shutil.rmtree, self.repo, True)
+        self.installed = self.repo / ".claude" / "skills" / "change-card"
+        self.installed.mkdir(parents=True)
+
+    def check(self) -> dict:
+        return doctor_lib._absent_skills(self.repo, "claude.skills", ".claude/skills", "claude")
+
+    def test_an_owners_build_file_is_not_a_kit_file_left_behind(self):
+        self.assertTrue((TOOLS_ROOT.parent / "02-skills" / "change-card" / "BUILD.json").is_file())
+        (self.installed / "BUILD.json").write_text("{}\n", encoding="utf-8")
+        self.assertEqual(self.check()["status"], "PASS", self.check())
+
+    def test_an_installed_skill_file_is_still_reported(self):  # previous behavior of --absent
+        (self.installed / "BUILD.json").write_text("{}\n", encoding="utf-8")
+        (self.installed / "SKILL.md").write_text("left behind\n", encoding="utf-8")
+        check = self.check()
+        self.assertEqual(check["status"], "FAIL", check)
+        self.assertIn(".claude/skills/change-card/SKILL.md", check["detail"])
+        self.assertNotIn("BUILD.json", check["detail"])
 
 
 if __name__ == "__main__":

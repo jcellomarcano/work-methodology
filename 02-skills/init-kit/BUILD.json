@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "agent_skill": {
+    "srcs": ["SKILL.md"],
+    "deps": [
+      "03-tools/bin/init.sh",
+      "03-tools/lib/detect_repo.py",
+      "00-principles/methodology.md"
+    ]
+  },
+  "validate_skill_test": {},
+  "py_type_test": {},
+  "py_test": {},
+  "eval_suite": {}
+}

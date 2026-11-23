@@ -5,7 +5,8 @@
 five targets, each an object. A target that is not declared is not run; any other key is a problem.
 
   agent_skill          {"srcs": [...], "deps": [...]}    the skill as a package
-      srcs     the files of the skill, relative to its folder; SKILL.md is always one of them
+      srcs     the files of the skill, at the top level of its folder; SKILL.md is always one of
+               them. A file in a subfolder is a problem until the installers can copy one
       deps     optional; what the skill needs from the kit: an `mcp__metodo__<tool>` name per MCP
                tool, or the path of a kit file or folder it calls at run time
   validate_skill_test  {}    the front matter of SKILL.md is well formed
@@ -13,7 +14,8 @@ five targets, each an object. A target that is not declared is not run; any othe
   py_test              {"cwd": DIR, "modules": [...], "inputs": [...]}    the unit tests
       cwd      the kit folder `python3 -m unittest` runs in
       modules  the dotted unittest modules to run
-      inputs   optional; kit files or folders the tests read, so a change in them runs again
+      inputs   kit files or folders the tests read, so a change in them runs again; the test
+               modules themselves always count, and with no `inputs` a PASS is never cached
   eval_suite           {}    every case under 08-benchmark/evals/<skill>/ is valid
 
 Example (`02-skills/demo-skill/BUILD.json`):
@@ -37,6 +39,7 @@ What each target checks, and when it is a SKIP (a SKIP is never a pass):
   validate_skill_test  `name` equals the folder, `description` is not empty, and no plain scalar
                        holds ': ' or ' #' (the two forms a strict YAML parser rejects)
   py_type_test         SKIP "no Python in this skill"; SKIP naming the checker when none is installed
+                       or when the named one has no strict argv in CHECKERS
   py_test              SKIP "no unittest module declared"
   eval_suite           SKIP "no eval case yet"; a case is checked by 08-benchmark/lib/skill_eval.py
 
@@ -51,12 +54,14 @@ inputs give identical bytes on any machine. Nothing outside `srcs` is packed.
 A src carrying the `__TOOLS_DEFAULT__` token (the kit's tools root, rendered by the installers) is
 packed verbatim, token intact: the zip does not depend on a machine. The manifest lists the file
 under `requires.tools_root_token`, the package does not stand alone, and `deps` must name a path
-under 03-tools or the target fails. `layout_plugin(..., local_mcp=True)` renders the token to
+under 03-tools or the target fails. `layout_plugin(..., render_tools=True)` renders the token to
 this checkout's tools root, as the installers do.
 
 A PASS is stored in 03-tools/out/skill-build/cache/<skill>.<target>.json under a hash of the
-target's inputs (the files of the skill folder, plus the catalog, the checker, the declared
-`inputs` or the cases) and RUNNER_VERSION; a stored target is reported `cached` and not run.
+target's inputs (the files of the skill folder, plus the catalog, the checker with its flags and
+its `--version`, the test modules with the declared `inputs`, or the cases) and RUNNER_VERSION; a
+stored target is reported `cached` and not run. The cache trusts `inputs`: a file the tests read
+and the declaration does not list can change without a new run.
 A FAIL or a SKIP is never stored. `--no-cache` neither reads nor writes the cache.
 
 Functions the eval runner builds on:
@@ -64,11 +69,16 @@ Functions the eval runner builds on:
   load_build(kit, skill)                   (declaration or None, problems, one line each)
   run_skill(kit, skill, use_cache=True)    one result per target: skill, target, status, reason, cached
   build_package(kit, skill, out_dir)       writes the zip and returns its path
-  layout_plugin(kit, skill, dest, local_mcp=False, repo=None)
+  package_path(out_dir, skill, version)    where that zip goes
+  plugin_tool_name(plugin, tool)           `mcp__metodo__<tool>` as a plugin exposes it
+  layout_plugin(kit, skill, dest, local_mcp=False, repo=None, render_tools=False)
       lays the same package out as a plugin folder in `dest` (absent or empty) and returns
-      plugin_dir, name, skill, invoke ("<plugin>:<skill>"), version, files, manifest, local_mcp.
-      With `local_mcp` it adds `.mcp.json` for this checkout's `metodo` server (METODO_REPO set
-      when `repo` is given); that file is never part of the zip.
+      plugin_dir, name, skill, invoke ("<plugin>:<skill>"), version, files, manifest, local_mcp,
+      rendered_tools and mcp_tools. `render_tools` renders the tools-root token in the skill's
+      files. `local_mcp` does that too, adds `.mcp.json` for this checkout's `metodo` server
+      (METODO_REPO set when `repo` is given; that file is never part of the zip) and rewrites
+      every `mcp__metodo__` name in the skill's files to the name Claude Code gives a plugin's
+      tool, `mcp__plugin_<plugin>_metodo__<tool>`; `mcp_tools` lists the declared ones that way.
 A BuildError is raised by the last two for a skill that cannot be packed.
 
 Usage:
@@ -94,9 +104,11 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
+import textwrap
 import zipfile
 
-RUNNER_VERSION = 1  # part of every hash: raise it when a target checks something new
+RUNNER_VERSION = 2  # part of every hash: raise it when a target checks something new
 SCHEMA_VERSION = 1
 HERE = pathlib.Path(__file__).resolve().parent
 BUILD_FILE = "BUILD.json"
@@ -116,13 +128,19 @@ ZIP_MODE = 0o100644
 # The checker a test (or the owner) names; otherwise the first of CHECKERS found on PATH.
 CHECKER_ENV = "SKILL_BUILD_TYPE_CHECKER"
 # UNVERIFIED: none of the three was installed when this was written (2026-11-23), so no argv
-# below has been run. Check each line against the checker's own --help before trusting a PASS.
+# below has been run. Check each line against the checker's own --help before trusting a PASS;
+# until CHECKERS_VERIFIED is set, every PASS of py_type_test says so in its reason.
+# Each line asks for the checker's strict mode. pyright has no strict flag: it reads the mode from
+# a project file, which the executor writes from STRICT_PROJECT_SETTINGS in place of STRICT_PROJECT.
+STRICT_PROJECT = "{strict-project}"
+STRICT_PROJECT_SETTINGS = {"typeCheckingMode": "strict"}
 CHECKERS = {
     "pytype": ["--strict-none-binding", "--strict-parameter-checks", "--strict-primitive-comparisons",
                "--strict-undefined-checks"],
     "mypy": ["--strict"],
-    "pyright": ["--warnings"],
+    "pyright": ["--warnings", "--project", STRICT_PROJECT],
 }
+CHECKERS_VERIFIED = False
 _DRIVE_RE = re.compile(r"^[A-Za-z]:")
 _SKILL_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 _TOOL_RE = re.compile(rf"^{MCP_PREFIX}[a-z0-9_]+$")
@@ -130,6 +148,7 @@ _MODULE_RE = re.compile(r"^[A-Za-z_]\w*(\.[A-Za-z_]\w*)*$")
 _VERSION_RE = re.compile(r"^[0-9A-Za-z][0-9A-Za-z.+-]*$")
 _KEY_RE = re.compile(r"^([A-Za-z_][\w-]*):(?:[ \t]+(.*))?$")
 _ITEM_RE = re.compile(r"^[ \t]+-[ \t]+(.*)$")
+_BLOCK_RE = re.compile(r"^[|>][+-]?[0-9]?[+-]?$")  # the indicator of a YAML block scalar
 _RAN_RE = re.compile(r"^Ran (\d+) tests? in", re.MULTILINE)
 _CATALOG_CODE = ("import json, sys\nsys.dont_write_bytecode = True\nsys.path.insert(0, sys.argv[1])\n"
                  "from mcp import catalog\nprint(json.dumps(sorted(catalog.BY_NAME)))\n")
@@ -231,6 +250,9 @@ def _check_agent_skill(kit: Kit, skill: str, decl: dict, problems: list[str]) ->
                 problems.append(problem)
             elif src == BUILD_FILE or any(part in CACHE_PARTS for part in parts):
                 problems.append(f"agent_skill.srcs: {src!r} is the BUILD file or a cache entry, which is never packed")
+            elif len(parts) > 1:
+                problems.append(f"agent_skill.srcs: {src!r} is in a subfolder, and the installers copy only the "
+                                f"top-level files of a skill, so it could not be installed: keep it at the top level")
             elif src in seen:
                 problems.append(f"agent_skill.srcs: {src!r} is listed more than once")
             seen.add(src if isinstance(src, str) else repr(src))
@@ -265,8 +287,14 @@ def _check_py_test(kit: Kit, decl: dict, problems: list[str]) -> None:
 def load_build(kit: Kit, skill: str) -> tuple[dict | None, list[str]]:
     """The declaration of `skill` and its problems, one line each; the declaration is None with any."""
     try:
-        raw = json.loads((kit.skills / skill / BUILD_FILE).read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, ValueError) as exc:
+        text = (kit.skills / skill / BUILD_FILE).read_bytes().decode("utf-8")
+    except OSError as exc:
+        return None, [f"{BUILD_FILE} cannot be read: {exc.strerror or _one_line(exc)}"]
+    except UnicodeDecodeError:
+        return None, [f"{BUILD_FILE} is not UTF-8 text"]
+    try:
+        raw = json.loads(text)
+    except ValueError as exc:
         return None, [f"{BUILD_FILE} is not valid JSON: {_one_line(exc)}"]
     if not isinstance(raw, dict):
         return None, [f"{BUILD_FILE} must be a JSON object, got {type(raw).__name__}"]
@@ -304,9 +332,11 @@ def _unquote(value: str) -> str:
 def read_front_matter(path) -> tuple[dict | None, list[str]]:
     """(top-level fields, plain-scalar problems) of a SKILL.md; (None, []) when it has no front matter.
 
-    A field is a string, or a list for a flow (`[a, b]`) or block (`- a`) sequence. The kit
-    ships no YAML parser: this reads the subset the skills use and checks the one rule a strict
-    parser rejects in it, a plain scalar holding ': ' or ' #'.
+    A field is a string, or a list for a flow (`[a, b]`) or block (`- a`) sequence. A block
+    scalar (`|` or `>`) is its indented lines, dedented, kept as lines or folded into one; with no
+    line under it the field is empty. The kit ships no YAML parser: this reads the subset the
+    skills use and checks the one rule a strict parser rejects in it, a plain scalar holding
+    ': ' or ' #'.
     """
     try:
         lines = pathlib.Path(path).read_text(encoding="utf-8").split("\n")
@@ -317,11 +347,25 @@ def read_front_matter(path) -> tuple[dict | None, list[str]]:
     fields: dict = {}
     problems: list[str] = []
     current = None
+    block: tuple[bool, list[str]] | None = None  # (folded, lines) while a block scalar is being read
+
+    def block_text(folded: bool, raw: list[str]) -> str:
+        text = textwrap.dedent("\n".join(raw)).strip("\n")
+        return " ".join(part.strip() for part in text.split("\n") if part.strip()) if folded else text
+
     for number, line in enumerate(lines[1:lines.index("---", 1)], start=2):
+        if block is not None:
+            if not line.strip() or line[0] in " \t":
+                block[1].append(line.rstrip())
+                continue
+            fields[current], block = block_text(*block), None
         key, item = _KEY_RE.match(line), _ITEM_RE.match(line)
         if key:
             current, value = key.group(1), (key.group(2) or "").strip()
             label = current
+            if _BLOCK_RE.match(value):  # the indicator is not the value: the lines under it are
+                fields[current], block = "", (value[0] == ">", [])
+                continue
             if value.startswith("[") and value.endswith("]"):
                 fields[current] = [_unquote(part.strip()) for part in value[1:-1].split(",") if part.strip()]
             else:
@@ -334,6 +378,8 @@ def read_front_matter(path) -> tuple[dict | None, list[str]]:
         if value and value[0] not in "\"'[{|>":
             problems += [f"line {number}: `{label}` holds {breaker!r} unquoted"
                          for breaker in PLAIN_BREAKERS if breaker in value]
+    if block is not None:
+        fields[current] = block_text(*block)
     return fields, problems
 
 
@@ -348,8 +394,9 @@ def _json_bytes(data) -> bytes:
     return (json.dumps(data, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
 
-def _plan_package(kit: Kit, skill: str, decl: dict) -> tuple[dict | None, list[str]]:
-    """What the package of `skill` holds, or the problems that keep it from being packed."""
+def _inspect_package(kit: Kit, skill: str, decl: dict) -> tuple[dict | None, list[str]]:
+    """(what the package of `skill` holds, []) for a loaded `agent_skill`, or (None, the problems
+    that keep it from being packed). `_require_package` is the one to call for a skill by name."""
     folder = kit.skills / skill
     problems: list[str] = []
     files: list[tuple[str, bytes]] = []
@@ -404,14 +451,17 @@ def _plan_package(kit: Kit, skill: str, decl: dict) -> tuple[dict | None, list[s
     return {"name": name, "version": version, "manifest": manifest, "entries": sorted(entries)}, []
 
 
-def _package_plan(kit: Kit, skill: str) -> dict:
-    """The plan of a skill that can be packed; a BuildError says in one line why it cannot."""
+def _require_package(kit: Kit, skill: str) -> dict:
+    """What the package of `skill` holds, from its BUILD file; a BuildError says in one line why
+    the skill cannot be packed."""
     if not (kit.skills / skill / BUILD_FILE).is_file():
         raise BuildError(f"{skill}: no {BUILD_FILE}")
     build, problems = load_build(kit, skill)
-    if build is not None and "agent_skill" not in build:
+    if build is None:
+        raise BuildError(f"{skill}: " + "; ".join(problems))
+    if "agent_skill" not in build:
         raise BuildError(f"{skill}: agent_skill is not declared")
-    plan, problems = (None, problems) if build is None else _plan_package(kit, skill, build["agent_skill"])
+    plan, problems = _inspect_package(kit, skill, build["agent_skill"])
     if plan is None:
         raise BuildError(f"{skill}: " + "; ".join(problems))
     return plan
@@ -430,25 +480,44 @@ def _write_zip(path: pathlib.Path, entries: list[tuple[str, bytes]]) -> None:
     os.replace(partial, path)
 
 
-def build_package(kit: Kit, skill: str, out_dir) -> pathlib.Path:
-    """Write `<out_dir>/<skill>/<skill>-<version>.zip` and return its path."""
-    plan = _package_plan(kit, skill)
-    path = pathlib.Path(out_dir) / skill / f"{skill}-{plan['version']}.zip"
+def package_path(out_dir, skill: str, version: str) -> pathlib.Path:
+    """Where the package of a skill goes: `<out_dir>/<skill>/<skill>-<version>.zip`."""
+    return pathlib.Path(out_dir) / skill / f"{skill}-{version}.zip"
+
+
+def _write_package(plan: dict, skill: str, out_dir) -> pathlib.Path:
+    path = package_path(out_dir, skill, plan["version"])
     _write_zip(path, plan["entries"])
     return path
 
 
-def layout_plugin(kit: Kit, skill: str, dest, local_mcp: bool = False, repo=None) -> dict:
+def build_package(kit: Kit, skill: str, out_dir) -> pathlib.Path:
+    """Write the package of `skill` under `out_dir` and return its path."""
+    return _write_package(_require_package(kit, skill), skill, out_dir)
+
+
+def plugin_tool_name(plugin: str, tool: str) -> str:
+    """`mcp__metodo__<tool>` under the name Claude Code gives the tool of a plugin's server."""
+    return f"mcp__plugin_{plugin}_{MCP_SERVER}__{tool[len(MCP_PREFIX):]}"
+
+
+def layout_plugin(kit: Kit, skill: str, dest, local_mcp: bool = False, repo=None, render_tools: bool = False) -> dict:
     """Lay the package of `skill` out as a plugin folder in `dest`, which is absent or empty."""
-    plan = _package_plan(kit, skill)
+    plan = _require_package(kit, skill)
     dest = pathlib.Path(dest)
     if dest.exists() and (not dest.is_dir() or any(dest.iterdir())):
         raise BuildError(f"{dest} is not an empty folder: a plugin is laid out in a folder of its own")
     entries = list(plan["entries"])
-    if local_mcp:
-        tools = str(kit.tools)
-        prefix = f"skills/{skill}/"
+    tools = str(kit.tools)
+    prefix = f"skills/{skill}/"
+    render_tools = bool(render_tools or local_mcp)
+    if render_tools:
         entries = [(name, data.replace(TOKEN.encode(), tools.encode()) if name.startswith(prefix) else data)
+                   for name, data in entries]
+    if local_mcp:
+        # Every name of the server's tools, declared or only mentioned, as the plugin exposes it.
+        exposed = plugin_tool_name(plan["name"], MCP_PREFIX).encode()
+        entries = [(name, data.replace(MCP_PREFIX.encode(), exposed) if name.startswith(prefix) else data)
                    for name, data in entries]
         env = {"METODO_TOOLS": tools, **({"METODO_REPO": str(repo)} if repo is not None else {})}
         server = {"command": "python3", "args": [f"{tools}/mcp/server.py"], "env": env}
@@ -459,13 +528,15 @@ def layout_plugin(kit: Kit, skill: str, dest, local_mcp: bool = False, repo=None
         path.write_bytes(data)
     return {"plugin_dir": str(dest), "name": plan["name"], "skill": skill, "invoke": f"{plan['name']}:{skill}",
             "version": plan["version"], "files": [name for name, _data in entries],
-            "manifest": plan["manifest"], "local_mcp": bool(local_mcp)}
+            "manifest": plan["manifest"], "local_mcp": bool(local_mcp), "rendered_tools": render_tools,
+            "mcp_tools": ([plugin_tool_name(plan["name"], tool) for tool in plan["manifest"]["requires"]["mcp_tools"]]
+                          if local_mcp else [])}
 
 
 # -------------------------------------------------------------------------------------- targets
 
 def _agent_skill(kit: Kit, skill: str, build: dict) -> tuple[str, str]:
-    plan, problems = _plan_package(kit, skill, build["agent_skill"])
+    plan, problems = _inspect_package(kit, skill, build["agent_skill"])
     if plan is None:
         return "FAIL", "; ".join(problems)
     requires, count = plan["manifest"]["requires"], len(plan["manifest"]["files"])
@@ -489,36 +560,61 @@ def _python_sources(build: dict) -> list[str]:
     return sorted(src for src in build.get("agent_skill", {}).get("srcs", []) if src.endswith(".py"))
 
 
-def _find_checker() -> tuple[list[str] | None, str]:
-    """(argv of the type checker, its name), or (None, the SKIP reason naming what is missing)."""
+def _find_checker() -> tuple[str | None, list[str], str]:
+    """(path of the type checker, its strict flags, its name), or (None, [], the SKIP reason).
+
+    A checker is run only with the strict flags CHECKERS holds for its name: one named through
+    CHECKER_ENV that the table does not know would run lenient, so it is a SKIP, never a PASS.
+    """
     named = os.environ.get(CHECKER_ENV, "").strip()
-    if named:
-        found = shutil.which(named)
-        if not found:
-            return None, f"type checker {named} is not installed"
-        return [found] + CHECKERS.get(os.path.basename(found), []), os.path.basename(found)
-    for name, flags in CHECKERS.items():
+    for name in ([named] if named else list(CHECKERS)):
         found = shutil.which(name)
-        if found:
-            return [found] + flags, name
-    return None, f"no type checker is installed (looked for {', '.join(CHECKERS)})"
+        if not found:
+            continue
+        known = os.path.basename(found)
+        if known not in CHECKERS:
+            return None, [], (f"type checker {known} has no strict argv in the table "
+                              f"(known: {', '.join(CHECKERS)}), so it was not run")
+        return found, list(CHECKERS[known]), known
+    if named:
+        return None, [], f"type checker {named} is not installed"
+    return None, [], f"no type checker is installed (looked for {', '.join(CHECKERS)})"
+
+
+def _checker_version(found: str) -> str:
+    """What the checker prints for `--version`; an OSError when it cannot say, so nothing is cached."""
+    try:
+        proc = subprocess.run([found, "--version"], capture_output=True, text=True, timeout=60)
+    except subprocess.TimeoutExpired as exc:
+        raise OSError(f"{found} --version did not end") from exc
+    said = (proc.stdout + proc.stderr).strip()
+    if proc.returncode != 0 or not said:
+        raise OSError(f"{found} --version gave no version")
+    return said
 
 
 def _py_type(kit: Kit, skill: str, build: dict) -> tuple[str, str]:
     sources = _python_sources(build)
     if not sources:
         return "SKIP", "no Python in this skill"
-    argv, name = _find_checker()
-    if argv is None:
+    found, flags, name = _find_checker()
+    if found is None:
         return "SKIP", name
     try:
-        proc = subprocess.run(argv + sources, cwd=kit.skills / skill, capture_output=True, text=True, timeout=900)
+        with tempfile.TemporaryDirectory(prefix="skill-build-") as scratch:
+            if STRICT_PROJECT in flags:
+                project = os.path.join(scratch, "pyrightconfig.json")
+                pathlib.Path(project).write_bytes(_json_bytes(STRICT_PROJECT_SETTINGS))
+                flags = [project if flag == STRICT_PROJECT else flag for flag in flags]
+            proc = subprocess.run([found, *flags, *sources], cwd=kit.skills / skill, capture_output=True,
+                                  text=True, timeout=900)
     except (OSError, subprocess.TimeoutExpired) as exc:
         return "FAIL", f"{name} did not run: {_one_line(exc)}"
     if proc.returncode != 0:
         last = ((proc.stdout + proc.stderr).strip().splitlines() or ["no output"])[-1]
         return "FAIL", f"{name} exit {proc.returncode}: {_one_line(last)}"
-    return "PASS", f"{name} accepts {len(sources)} file{'s' if len(sources) != 1 else ''}"
+    note = "" if CHECKERS_VERIFIED else "; its strict argv is unverified against the checker's own help"
+    return "PASS", f"{name} accepts {len(sources)} file{'s' if len(sources) != 1 else ''}{note}"
 
 
 def _py_test(kit: Kit, skill: str, build: dict) -> tuple[str, str]:
@@ -540,7 +636,19 @@ def _py_test(kit: Kit, skill: str, build: dict) -> tuple[str, str]:
     if proc.returncode != 0 or count == 0:
         last = (proc.stderr.strip().splitlines() or ["no output"])[-1]
         return "FAIL", f"unittest exit {proc.returncode}: {_one_line(last)}" if proc.returncode else "no test ran"
-    return "PASS", f"{count} test{'s' if count != 1 else ''} ran in {len(modules)} module{'s' if len(modules) != 1 else ''}"
+    note = "" if decl.get("inputs") else "; not cached: no `inputs` declared, so a change the tests read would go unseen"
+    return "PASS", f"{count} test{'s' if count != 1 else ''} ran in {len(modules)} module{'s' if len(modules) != 1 else ''}{note}"
+
+
+def _module_path(kit: Kit, decl: dict, module: str) -> str:
+    """The file or package folder of a declared unittest module."""
+    base = _join(_join(kit.root, decl["cwd"]), module.replace(".", "/"))
+    return base if os.path.isdir(base) else base + ".py"
+
+
+def _cacheable(target: str, build: dict) -> bool:
+    """A py_test that lists no input says nothing of what its tests read: its PASS is never stored."""
+    return target != "py_test" or bool(build["py_test"].get("inputs"))
 
 
 def _skill_eval_path(kit: Kit) -> pathlib.Path | None:
@@ -566,14 +674,21 @@ def _eval_suite(kit: Kit, skill: str, build: dict) -> tuple[str, str]:
     path = _skill_eval_path(kit)
     if path is None:
         return "FAIL", "08-benchmark/lib/skill_eval.py, the case validator, is not in this checkout"
-    spec = importlib.util.spec_from_file_location("_skill_build_skill_eval", path)
-    module = importlib.util.module_from_spec(spec)
     written, sys.dont_write_bytecode = sys.dont_write_bytecode, True  # no __pycache__ beside the validator
     try:
+        spec = importlib.util.spec_from_file_location("_skill_build_skill_eval", path)
+        module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
+    except Exception as exc:  # whatever the validator's own code raises is a result line, never a traceback
+        return "FAIL", f"the case validator {path.name} cannot be imported: {type(exc).__name__}: {_one_line(exc)}"
     finally:
         sys.dont_write_bytecode = written
-    found = [(case.name, problem) for case in cases for problem in module.validate_case(case)]
+    found = []
+    for case in cases:
+        try:
+            found += [(case.name, problem) for problem in module.validate_case(case)]
+        except Exception as exc:
+            return "FAIL", f"the case validator stopped on {case.name}: {type(exc).__name__}: {_one_line(exc)}"
     if found:
         bad = len({name for name, _problem in found})
         return "FAIL", (f"{len(found)} problems in {bad} of {len(cases)} cases; "
@@ -613,10 +728,20 @@ def _target_inputs(kit: Kit, skill: str, target: str, build: dict) -> list[tuple
                   for path in build["agent_skill"]["kit_paths"]]
         return [("catalog", listed.encode("utf-8"))] + exists
     if target == "py_type_test":
-        argv, name = _find_checker()
-        return [("checker", "\0".join(argv or [name]).encode("utf-8", "surrogateescape"))]
+        if not _python_sources(build):
+            return []
+        found, flags, name = _find_checker()
+        if found is None:
+            return [("checker", name.encode("utf-8", "surrogateescape"))]
+        # The version too: a new release of the checker may reject what the last one accepted.
+        return [("checker", "\0".join([found, *flags]).encode("utf-8", "surrogateescape")),
+                ("checker-version", _checker_version(found).encode("utf-8", "surrogateescape"))]
     if target == "py_test":
-        return [part for path in build["py_test"].get("inputs", []) for part in _tree(f"input:{path}", _join(kit.root, path))]
+        declared = build["py_test"]
+        parts = [part for path in declared.get("inputs", []) for part in _tree(f"input:{path}", _join(kit.root, path))]
+        for module in declared.get("modules", []):  # what runs is an input, listed or not
+            parts += _tree(f"module:{module}", _module_path(kit, declared, module))
+        return parts
     if target == "eval_suite":
         validator = _skill_eval_path(kit)
         return _tree("evals", kit.evals / skill) + (_tree("validator", validator) if validator else [])
@@ -679,7 +804,7 @@ def run_skill(kit: Kit, skill: str, use_cache: bool = True) -> list[dict]:
         if target not in build:
             continue
         key = None
-        if skill_files is not None:
+        if skill_files is not None and _cacheable(target, build):
             try:
                 key = _target_hash(kit, skill, target, build, skill_files)
             except OSError:
@@ -704,11 +829,10 @@ def build_skill(kit: Kit, skill: str, out_dir) -> list[dict]:
         return [_result(skill, "BUILD", "FAIL", problem) for problem in problems]
     if "agent_skill" not in build:
         return [_result(skill, "agent_skill", "SKIP", "not declared")]
-    plan, problems = _plan_package(kit, skill, build["agent_skill"])
+    plan, problems = _inspect_package(kit, skill, build["agent_skill"])
     if plan is None:
         return [_result(skill, "agent_skill", "FAIL", "; ".join(problems))]
-    path = pathlib.Path(out_dir) / skill / f"{skill}-{plan['version']}.zip"
-    _write_zip(path, plan["entries"])
+    path = _write_package(plan, skill, out_dir)
     return [_result(skill, "agent_skill", "PASS", f"{path} sha256:{hashlib.sha256(path.read_bytes()).hexdigest()}")]
 
 

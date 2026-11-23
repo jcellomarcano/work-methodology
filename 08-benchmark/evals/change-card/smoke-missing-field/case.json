@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "skill": "change-card",
+  "tier": "smoke",
+  "expected_skills": [
+    "change-card"
+  ],
+  "setup": {
+    "files": [
+      {
+        "from": "setup/card.md",
+        "to": "card.md"
+      }
+    ]
+  },
+  "validators": [
+    "validators/check_verdict.py"
+  ],
+  "expectations": [
+    "The answer says the card fails validation because the field \"How we'll know\" is missing.",
+    "The answer says the card takes the opus lane."
+  ],
+  "max_turns": 10,
+  "timeout_seconds": 240,
+  "allowed_tools": [
+    "Read",
+    "Write",
+    "Skill"
+  ],
+  "runs": 1
+}

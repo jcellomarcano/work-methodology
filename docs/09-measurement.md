@@ -114,5 +114,5 @@ Source: `08-benchmark/reports/pilot-pr176.md` [Measured, n=1, the kit's own run]
 | A second judge family | the config accepts one; the example ships one family, and every judgment so far is same-family | Measured in `odd/research/benchmark-landscape/report.md` on 2026-10-20 |
 | A non-inferiority verdict | no margin in the code (section 5) | Measured |
 | Rework, escaped defects, lead time | the A/B report has no such field | Measured |
-| The effect of one part of the kit | arms change the whole bundle | Inferred |
+| The effect of one part of the kit | arms change the whole bundle; per skill: [11-skill-evals.md](11-skill-evals.md) | Inferred |
 | Whether a hook's blocks are right | only after the owner marks false positives ([07-adoption.md](07-adoption.md), step 2) | Measured |

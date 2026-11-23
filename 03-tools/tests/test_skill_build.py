@@ -216,8 +216,8 @@ class AgentSkillTests(KitCase):
         self.assertIn("03-tools/lib/gone.py does not exist", self.target("agent_skill", "nodep")["reason"])
 
     def test_the_zip_holds_the_plugin_manifest_the_srcs_and_what_the_package_requires(self):
-        self.add_skill(build=all_targets(srcs=["SKILL.md", "refs/guide.md", "tool.py"]),
-                       files={"refs/guide.md": "guide\n", "tool.py": "X = 1\n"})
+        self.add_skill(build=all_targets(srcs=["SKILL.md", "guide.md", "tool.py"]),
+                       files={"guide.md": "guide\n", "tool.py": "X = 1\n"})
         self.add_skill("alone", build=all_targets(deps=[]), md=skill_md("alone", tools=("Read",)))
         path = skill_build.build_package(self.kit, "demo", self.tmp / "out")
         self.assertEqual(path, self.tmp / "out" / "demo" / "demo-1.2.0.zip")
@@ -227,10 +227,10 @@ class AgentSkillTests(KitCase):
             manifest = json.loads(package.read("MANIFEST.json"))
             skill_text = package.read("skills/demo/SKILL.md")
         self.assertEqual(names, sorted([".claude-plugin/plugin.json", "MANIFEST.json", "skills/demo/SKILL.md",
-                                        "skills/demo/refs/guide.md", "skills/demo/tool.py"]))
+                                        "skills/demo/guide.md", "skills/demo/tool.py"]))
         self.assertEqual(plugin, {"name": "demo", "version": "1.2.0", "description": "Does a demo thing."})
         self.assertEqual(skill_text, (self.root / "02-skills" / "demo" / "SKILL.md").read_bytes())
-        self.assertEqual(manifest["files"], ["SKILL.md", "refs/guide.md", "tool.py"])
+        self.assertEqual(manifest["files"], ["SKILL.md", "guide.md", "tool.py"])
         self.assertEqual(manifest["requires"]["mcp_server"], "metodo")
         self.assertEqual(manifest["requires"]["mcp_tools"], [DEMO_TOOL])
         self.assertIs(manifest["standalone"], False)
@@ -341,11 +341,18 @@ class ValidateSkillTests(KitCase):
 
 
 class PyTypeTests(KitCase):
-    def stub(self, exit_code=0) -> Path:
-        """A stand-in checker: logs its arguments beside itself and exits with `exit_code`."""
-        path = self.tmp / "stub-checker"
-        path.write_text(f'#!/bin/sh\necho "$@" >> "{self.tmp}/checker.log"\necho "stub: checked"\nexit {exit_code}\n',
-                        encoding="utf-8")
+    def stub(self, exit_code=0, name="mypy") -> Path:
+        """A stand-in checker under the name of one of the table: it answers `--version` from
+        <tmp>/checker.version, keeps a copy of a `--project` file, logs its arguments and exits
+        with `exit_code`."""
+        path = self.tmp / "bin" / name
+        path.parent.mkdir(exist_ok=True)
+        path.write_text(
+            "#!/bin/sh\n"
+            f'if [ "$1" = "--version" ]; then cat "{self.tmp}/checker.version" 2>/dev/null || echo "stub 1.0"; exit 0; fi\n'
+            'prev=""\n'
+            f'for arg in "$@"; do if [ "$prev" = "--project" ]; then cp "$arg" "{self.tmp}/project.json"; fi; prev="$arg"; done\n'
+            f'echo "$@" >> "{self.tmp}/checker.log"\necho "stub: checked"\nexit {exit_code}\n', encoding="utf-8")
         os.chmod(path, 0o755)
         return path
 
@@ -380,11 +387,52 @@ class PyTypeTests(KitCase):
         with mock.patch.dict(os.environ, {skill_build.CHECKER_ENV: str(self.stub(0))}):
             passed = self.target("py_type_test")
         self.assertEqual(passed["status"], "PASS", passed)
-        self.assertEqual((self.tmp / "checker.log").read_text(encoding="utf-8").split(), ["tool.py"])
+        self.assertEqual((self.tmp / "checker.log").read_text(encoding="utf-8").split(), ["--strict", "tool.py"])
         with mock.patch.dict(os.environ, {skill_build.CHECKER_ENV: str(self.stub(1))}):
             failed = self.target("py_type_test")
         self.assertEqual(failed["status"], "FAIL", failed)
         self.assertIn("stub: checked", failed["reason"])
+
+    def test_a_named_checker_the_table_does_not_know_is_a_skip_never_a_pass(self):  # R2-named-checker-not-strict
+        self.with_python()
+        with mock.patch.dict(os.environ, {skill_build.CHECKER_ENV: str(self.stub(0, name="lenient-checker"))}):
+            result = self.target("py_type_test")
+        self.assertEqual(result["status"], "SKIP", result)
+        self.assertIn("lenient-checker", result["reason"])
+        self.assertIn("strict", result["reason"])
+        self.assertFalse((self.tmp / "checker.log").exists(), "a checker with no strict argv must not run")
+
+    def test_every_checker_of_the_table_runs_strict_and_its_pass_says_the_argv_is_unverified(self):  # R2-named-checker-not-strict
+        self.with_python()
+        log = self.tmp / "checker.log"
+        for name in skill_build.CHECKERS:
+            with self.subTest(checker=name):
+                log.unlink(missing_ok=True)
+                with mock.patch.dict(os.environ, {skill_build.CHECKER_ENV: str(self.stub(0, name=name))}):
+                    result = self.target("py_type_test")
+                self.assertEqual(result["status"], "PASS", result)
+                self.assertIn("unverified", result["reason"])
+                argv = log.read_text(encoding="utf-8").split()
+                self.assertEqual(argv[-1], "tool.py")
+                if name == "mypy":
+                    self.assertIn("--strict", argv)
+                elif name == "pytype":
+                    self.assertGreater(len(argv), 1)
+                    self.assertTrue(all(flag.startswith("--strict-") for flag in argv[:-1]), argv)
+                else:
+                    self.assertIn("--project", argv)
+                    project = json.loads((self.tmp / "project.json").read_text(encoding="utf-8"))
+                    self.assertEqual(project["typeCheckingMode"], "strict")
+
+    def test_a_new_version_of_the_checker_runs_the_target_again(self):  # R3-type-checker-cache-key-version
+        self.with_python()
+        (self.tmp / "checker.version").write_text("stub 1.0\n", encoding="utf-8")
+        with mock.patch.dict(os.environ, {skill_build.CHECKER_ENV: str(self.stub(0))}):
+            first = self.target("py_type_test", use_cache=True)
+            second = self.target("py_type_test", use_cache=True)
+            (self.tmp / "checker.version").write_text("stub 2.0\n", encoding="utf-8")
+            third = self.target("py_type_test", use_cache=True)
+        self.assertEqual([first["cached"], second["cached"], third["cached"]], [False, True, False])
 
 
 class PyTestTests(KitCase):
@@ -577,6 +625,169 @@ class CommandTests(KitCase):
                 self.assertNotIn("Traceback", err)
 
 
+class NestedSrcTests(KitCase):
+    def test_a_src_in_a_subfolder_is_a_problem_that_names_the_installers(self):
+        self.add_skill(build=all_targets(srcs=["SKILL.md", "refs/guide.md"]), files={"refs/guide.md": "guide\n"})
+        problems = self.problems()
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("'refs/guide.md'", problems[0])
+        self.assertIn("the installers copy only the top-level files of a skill", problems[0])
+        code, out, _err = self.cli("test", "demo")
+        self.assertEqual(code, 1)
+        self.assertIn("FAIL demo:BUILD ", out)
+
+    def test_a_top_level_src_is_still_a_valid_declaration(self):  # previous behavior of srcs
+        self.add_skill(build=all_targets(srcs=["SKILL.md", "guide.md"]), files={"guide.md": "guide\n"})
+        self.assertEqual(self.problems(), [])
+        self.assertEqual(self.target("agent_skill")["status"], "PASS")
+
+
+class ReviewFindingTests(KitCase):
+    """The findings the native review of this module left (feature skill-evals, L10)."""
+
+    def add_case(self, name="smoke-basic") -> None:
+        folder = self.root / "08-benchmark" / "evals" / "demo" / name
+        folder.mkdir(parents=True)
+        case = {"schema_version": 1, "skill": "demo", "tier": "smoke", "expected_skills": ["demo"]}
+        (folder / "case.json").write_text(json.dumps(case), encoding="utf-8")
+        (folder / "prompt.md").write_text("Do the demo.\n", encoding="utf-8")
+
+    def plant_validator(self, source: str) -> None:
+        """The kit's own case validator, which the executor prefers over the one beside this file."""
+        lib = self.root / "08-benchmark" / "lib"
+        shutil.rmtree(lib, ignore_errors=True)
+        lib.mkdir(parents=True)
+        (lib / "skill_eval.py").write_text(source, encoding="utf-8")
+
+    def test_a_case_validator_that_raises_is_a_fail_line_not_a_traceback(self):  # R3-eval-validator-exception-traceback
+        self.add_skill()
+        self.add_case()
+        for source, said in (("def validate_case(case_dir):\n    raise RuntimeError('boom in the validator')\n", "boom in the validator"),
+                             ("def validate_case(:\n", "cannot be imported")):
+            with self.subTest(said=said):
+                self.plant_validator(source)
+                result = self.target("eval_suite")
+                self.assertEqual(result["status"], "FAIL", result)
+                self.assertIn(said, result["reason"])
+        code, out, err = self.cli("test", "demo", "--no-cache")
+        self.assertEqual(code, 1, out + err)
+        self.assertNotIn("Traceback", out + err)
+
+    def test_a_case_validator_that_answers_still_decides(self):  # previous behavior of eval_suite
+        self.add_skill()
+        self.add_case()
+        self.plant_validator("def validate_case(case_dir):\n    return []\n")
+        self.assertEqual(self.target("eval_suite")["reason"], "1 case valid")
+        self.plant_validator("def validate_case(case_dir):\n    return ['prompt.md is missing']\n")
+        failed = self.target("eval_suite")
+        self.assertEqual(failed["status"], "FAIL", failed)
+        self.assertIn("prompt.md is missing", failed["reason"])
+
+    def test_a_py_test_that_declares_no_input_is_never_taken_from_the_cache(self):  # R3-py-test-cache-ignores-undeclared-inputs
+        declared = self.add_counting_tests()
+        declared.pop("inputs")
+        self.add_skill(build={**all_targets(), "py_test": declared})
+        first = self.target("py_test", use_cache=True)
+        second = self.target("py_test", use_cache=True)
+        self.assertEqual((first["status"], second["status"], second["cached"]), ("PASS", "PASS", False))
+        self.assertEqual(self.runs(), 2)
+        self.assertIn("not cached", second["reason"])
+
+    def test_the_declared_test_modules_are_always_part_of_the_hash(self):  # R3-py-test-cache-ignores-undeclared-inputs
+        declared = self.add_counting_tests()
+        (self.root / "pkg" / "notes.txt").write_text("read by the tests\n", encoding="utf-8")
+        declared["inputs"] = ["pkg/notes.txt"]  # the test file itself is not listed
+        self.add_skill(build={**all_targets(), "py_test": declared})
+        self.target("py_test", use_cache=True)
+        with open(self.root / "pkg" / "tests" / "test_count.py", "a", encoding="utf-8") as source:
+            source.write("# changed\n")
+        self.assertIs(self.target("py_test", use_cache=True)["cached"], False)
+        self.assertEqual(self.runs(), 2)
+        self.assertIs(self.target("py_test", use_cache=True)["cached"], True)  # previous behavior of the cache
+        self.assertEqual(self.runs(), 2)
+
+    def front_matter(self, description: str) -> str:
+        return (f"---\nname: demo\ndescription: {description}\nversion: 1.2.0\n"
+                f"allowed-tools: [Read, {DEMO_TOOL}]\n---\n\nBody.\n")
+
+    def test_a_block_scalar_is_read_as_its_text(self):  # R3-front-matter-block-scalar-literal
+        folder = self.add_skill(md=self.front_matter("|\n  Does a demo thing: twice.\n  Second line.\nfolded: >-\n  one\n  two"))
+        fields, problems = skill_build.read_front_matter(folder / "SKILL.md")
+        self.assertEqual(fields["description"], "Does a demo thing: twice.\nSecond line.")
+        self.assertEqual(fields["folded"], "one two")
+        self.assertEqual(fields["version"], "1.2.0")
+        self.assertEqual(problems, [])
+        with zipfile.ZipFile(skill_build.build_package(self.kit, "demo", self.tmp / "out")) as package:
+            plugin = json.loads(package.read(".claude-plugin/plugin.json"))
+        self.assertEqual(plugin["description"], "Does a demo thing: twice.\nSecond line.")
+
+    def test_a_block_scalar_indicator_with_no_text_is_an_empty_value(self):  # R2-block-scalar-indicator-as-value
+        self.add_skill(md=self.front_matter(">"))
+        result = self.target("validate_skill_test")
+        self.assertEqual(result["status"], "FAIL", result)
+        self.assertIn("description is empty or missing", result["reason"])
+        self.assertEqual(self.target("agent_skill")["status"], "FAIL")
+
+    def test_one_function_names_the_package_file(self):  # R2-build-skill-duplicates-package-path
+        self.add_skill()
+        expected = skill_build.package_path(self.tmp / "out", "demo", "1.2.0")
+        self.assertEqual(expected, self.tmp / "out" / "demo" / "demo-1.2.0.zip")
+        self.assertEqual(skill_build.build_package(self.kit, "demo", self.tmp / "out"), expected)
+        result = skill_build.build_skill(self.kit, "demo", self.tmp / "out")[0]
+        self.assertTrue(result["reason"].startswith(f"{expected} sha256:"), result)
+
+    def test_the_two_package_steps_have_names_that_cannot_be_swapped(self):  # R2-plan-package-vs-package-plan
+        self.assertFalse(hasattr(skill_build, "_plan_package") or hasattr(skill_build, "_package_plan"))
+        self.add_skill(build=False)
+        with self.assertRaises(skill_build.BuildError) as caught:
+            skill_build._require_package(self.kit, "demo")
+        self.assertEqual(str(caught.exception), "demo: no BUILD.json")
+        self.write_build("demo", {"schema_version": 1, **all_targets()})
+        declared = skill_build.load_build(self.kit, "demo")[0]["agent_skill"]
+        plan, problems = skill_build._inspect_package(self.kit, "demo", declared)
+        self.assertEqual((plan["name"], problems), ("demo", []))
+        self.assertEqual(skill_build._require_package(self.kit, "demo")["entries"], plan["entries"])
+
+    def test_a_build_file_that_cannot_be_read_is_not_called_invalid_json(self):  # R2-load-build-misleading-error
+        folder = self.add_skill(build=False)
+        (folder / "BUILD.json").mkdir()
+        self.assertEqual(len(self.problems()), 1, self.problems())
+        self.assertIn("cannot be read", self.problems()[0])
+        self.assertNotIn("not valid JSON", self.problems()[0])
+        (folder / "BUILD.json").rmdir()
+        (folder / "BUILD.json").write_bytes(b"\xff\xfe{")
+        self.assertIn("is not UTF-8 text", self.problems()[0])
+        self.write_build("demo", "{not json")
+        self.assertIn("is not valid JSON", self.problems()[0])  # previous behavior
+
+
+class LayoutForARunTests(KitCase):
+    """What the eval runner asks of the layout: the server's tools under the names a plugin gives them."""
+
+    def test_the_local_layout_names_the_mcp_tools_as_the_plugin_exposes_them(self):
+        self.add_skill(md=skill_md(body=f"Call `{DEMO_TOOL}` first.\n"))
+        exposed = "mcp__plugin_demo_metodo__demo_tool"
+        self.assertEqual(skill_build.plugin_tool_name("demo", DEMO_TOOL), exposed)
+        laid = skill_build.layout_plugin(self.kit, "demo", self.tmp / "local", local_mcp=True)
+        text = (self.tmp / "local" / "skills" / "demo" / "SKILL.md").read_text(encoding="utf-8")
+        self.assertEqual(laid["mcp_tools"], [exposed])
+        self.assertEqual(text.count(exposed), 2)  # the allowed-tools line and the body
+        self.assertNotIn(DEMO_TOOL, text)
+        plain = skill_build.layout_plugin(self.kit, "demo", self.tmp / "plain")  # previous behavior: the package's bytes
+        self.assertEqual(plain["mcp_tools"], [])
+        self.assertIn(DEMO_TOOL, (self.tmp / "plain" / "skills" / "demo" / "SKILL.md").read_text(encoding="utf-8"))
+
+    def test_the_tools_root_can_be_rendered_without_starting_a_server(self):
+        body = 'Run `POST="${METODO_TOOLS:-__TOOLS_DEFAULT__}/lib/post.py"`.\n'
+        self.add_skill(build=all_targets(deps=[DEMO_TOOL, "03-tools"]), md=skill_md(body=body))
+        laid = skill_build.layout_plugin(self.kit, "demo", self.tmp / "rendered", render_tools=True)
+        text = (self.tmp / "rendered" / "skills" / "demo" / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn(f"${{METODO_TOOLS:-{self.root / '03-tools'}}}/lib/post.py", text)
+        self.assertNotIn(".mcp.json", laid["files"])
+        self.assertIn(DEMO_TOOL, text)
+        self.assertEqual((laid["rendered_tools"], laid["local_mcp"]), (True, False))
+
+
 @unittest.skipUnless((KIT_ROOT / "02-skills").is_dir(), "kit only: the instance does not carry 02-skills/")
 class RealKitTests(unittest.TestCase):
     """The declarations the kit ships, and the wrapper, on this checkout; nothing is written to it."""
@@ -594,6 +805,16 @@ class RealKitTests(unittest.TestCase):
         for skill in shipped:
             with self.subTest(skill=skill):
                 self.assertEqual(skill_build.load_build(kit, skill)[1], [])
+
+    def test_every_skill_of_the_kit_declares_the_same_five_targets(self):  # S12: a BUILD per skill
+        kit = skill_build.Kit(KIT_ROOT)
+        skills = sorted(p.parent.name for p in (KIT_ROOT / "02-skills").glob("*/SKILL.md"))
+        self.assertGreaterEqual(len(skills), 17)
+        for skill in skills:
+            with self.subTest(skill=skill):
+                build, problems = skill_build.load_build(kit, skill)
+                self.assertEqual(problems, [])
+                self.assertEqual(tuple(build), skill_build.TARGETS)
 
     def test_the_wrapper_tests_a_shipped_skill_under_an_isolated_python(self):
         proc = subprocess.run(["bash", str(WRAPPER), "test", "change-card", "--no-cache"], capture_output=True, text=True)

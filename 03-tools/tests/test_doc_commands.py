@@ -1,18 +1,25 @@
 """The team-facing pages name only what this tree holds (team-adoption S6).
 
-A team lead copies commands out of docs/07-adoption.md, docs/09-measurement.md
-and docs/10-position.md. Every kit path those pages write in backticks or in a
+A team lead copies commands out of docs/07-adoption.md, docs/09-measurement.md,
+docs/10-position.md and docs/11-skill-evals.md. Every kit path those pages write in backticks or in a
 fenced block (a numbered folder, docs/, odd/ or a root entry file), every
 `<instance>/bin|lib|hooks|config/...` path (the instance is a copy of 03-tools)
 and every relative link must exist here, so a renamed script fails this test
 instead of failing the reader. The failure names the page and the path.
+
+The skill-evals page also names flags: every `--flag` it writes in a code span or
+a fenced block is one a command of the page defines (skill-evals S9).
 """
 import re
 import unittest
 from pathlib import Path
 
 KIT_ROOT = Path(__file__).resolve().parent.parent.parent
-PAGES = ("docs/07-adoption.md", "docs/09-measurement.md", "docs/10-position.md")
+PAGES = ("docs/07-adoption.md", "docs/09-measurement.md", "docs/10-position.md", "docs/11-skill-evals.md")
+SKILL_EVALS_PAGE = "docs/11-skill-evals.md"
+# Where the commands of the skill-evals page define their flags.
+FLAG_SOURCES = ("03-tools/lib/skill_build.py", "08-benchmark/lib/skill_eval.py", "08-benchmark/lib/skill_eval_native.py")
+FLAG_RE = re.compile(r"(?<![\w-])--[a-z][a-z-]*")
 CODE_RE = re.compile(r"```.*?```|`[^`\n]+`", re.S)
 # A kit path, never the tail of a longer one (<instance>/out/..., ~/.claude/..., <run>/report.md).
 PATH_RE = re.compile(r"(?<![\w./>~-])((?:0[0-8]-[\w-]+|docs|odd)/[\w./-]*|(?:AGENTS|CLAUDE|CONTEXT-PACK|README)\.md)")
@@ -44,6 +51,13 @@ def missing(page: str, text: str, root: Path = KIT_ROOT) -> list[str]:
                   if not where.exists())
 
 
+def undefined_flags(text: str, root: Path = KIT_ROOT) -> list[str]:
+    """The flags `text` names in code that no source of FLAG_SOURCES defines as a quoted string."""
+    sources = "".join((root / source).read_text(encoding="utf-8") for source in FLAG_SOURCES)
+    named = {flag for span in CODE_RE.findall(text) for flag in FLAG_RE.findall(span)}
+    return sorted(flag for flag in named if f'"{flag}"' not in sources)
+
+
 @unittest.skipUnless((KIT_ROOT / "01-roles").is_dir(), "kit only: an instance has no docs/")
 class DocCommandTests(unittest.TestCase):
     def test_every_path_the_team_pages_name_exists(self):
@@ -61,6 +75,27 @@ class DocCommandTests(unittest.TestCase):
         for script in ("03-tools/bin/init.sh", "03-tools/bin/doctor.sh", "03-tools/bin/smoke-loop.sh",
                        "03-tools/bin/bench.sh", "03-tools/bin/mark-fp.sh", "03-tools/lib/hooks_report.py"):
             self.assertIn(script, paths)
+
+    def test_the_skill_evals_page_names_its_commands_and_only_flags_they_define(self):
+        text = (KIT_ROOT / SKILL_EVALS_PAGE).read_text(encoding="utf-8")
+        paths = named_paths(text)
+        for named in ("03-tools/bin/skill-build.sh", "08-benchmark/lib/skill_eval.py", "08-benchmark/evals",
+                      "02-skills/change-card/BUILD.json"):
+            self.assertIn(named, paths)
+        for flag in ("--real", "--kit-mcp", "--no-publish"):
+            self.assertIn(flag, text)
+        self.assertEqual(undefined_flags(text), [])
+        self.assertLess(len(text.splitlines()), 120)
+
+    def test_negative_control_a_planted_flag_is_reported(self):
+        self.assertEqual(undefined_flags("Run `skill_eval.py run --real --no-such-flag` and `--kit-mcp`.\n"), ["--no-such-flag"])
+
+    def test_the_measurement_page_and_the_readme_send_the_reader_to_the_skill_evals_page(self):
+        measurement = (KIT_ROOT / "docs/09-measurement.md").read_text(encoding="utf-8")
+        self.assertIn("](11-skill-evals.md)", measurement)
+        readme = (KIT_ROOT / "README.md").read_text(encoding="utf-8")
+        table = readme[readme.index("## Start here"):readme.index("## ", readme.index("## Start here") + 3)]
+        self.assertIn("`docs/11-skill-evals.md`", table)
 
     def test_negative_control_a_planted_path_is_reported_with_its_page(self):
         text = ("Run `03-tools/bin/no-such-script.sh <repo>`, then `<instance>/bin/no-such-wrapper.sh status`.\n"

@@ -20,7 +20,10 @@ What a kit case becomes, in `<plugin>/evals/<case>/`:
 
 `testdata/` and `validators/` never enter the plugin. `allowed_tools` defaults to the list of the
 tool's own template, and `Skill` joins it when the case expects a skill; a tool that needs an
-operator grant (GATED_TOOLS, `mcp__*`) is passed to `--allow-tools`.
+operator grant (GATED_TOOLS, `mcp__*`) is passed to `--allow-tools`. When the runner gives a skill
+the kit's MCP server, the server's tools join every case's `allowed_tools` under the names the
+plugin exposes them by, and the command line carries `--allow-real-servers`: without it the tool
+starts no server of a plugin that has no mock.
 
 Every command line this module builds carries REQUIRED_FLAGS. `--no-publish` is the one that
 matters most: without it the tool publishes its HTML report to claude.ai. `--threshold 0` makes
@@ -32,7 +35,8 @@ when a result of this run names it through `tracePath` and it has that shape und
 folder; it is removed after it was read.
 
 Python 3 stdlib only. The only process this module starts is the binary named by CLAUDE_BIN
-(default `claude`), and only through `run_native`.
+(default `claude`), and only through `run_native`, in a process group of its own, so a run that
+outlives its timeout is stopped together with every process it started.
 """
 from __future__ import annotations
 
@@ -41,6 +45,7 @@ import os
 import pathlib
 import re
 import shutil
+import signal
 import subprocess
 import tempfile
 
@@ -71,6 +76,7 @@ cp -R "$here/files/." .
 # The keys of a tool input that name a path, a pattern or a command line.
 PATH_INPUT_KEYS = ("file_path", "path", "notebook_path", "pattern", "glob", "command")
 MAX_TRACE_BYTES = 64 * 1024 * 1024
+STOP_GRACE_SECONDS = 5  # between asking a run that timed out to end and killing it
 MAX_WORKSPACE_BYTES = 256 * 1024 * 1024
 _KEPT_RE = re.compile(r"^e-[A-Za-z0-9_-]{4,16}$")
 # What a path is made of inside a tool input; a quote is `\\"` in the trace, so a backslash ends it too.
@@ -142,16 +148,17 @@ def touched(globs: list[str], tool_uses: list[dict]) -> list[str]:
 
 # ------------------------------------------------------------------------------------ the suite
 
-def allowed_tools(case: dict) -> list[str]:
+def allowed_tools(case: dict, extra_tools=()) -> list[str]:
+    """The tools a run of the case may call; `extra_tools` are the MCP tools the runner serves."""
     tools = list(case["allowed_tools"]) or list(DEFAULT_ALLOWED_TOOLS)
     if case["expected_skills"] and "Skill" not in tools:
         tools.append("Skill")  # a skill cannot trigger in a run that may not call the Skill tool
-    return tools
+    return tools + [tool for tool in extra_tools if tool not in tools]
 
 
-def gated_tools(cases: list[dict]) -> list[str]:
+def gated_tools(cases: list[dict], extra_tools=()) -> list[str]:
     """The tools of these cases that the operator has to grant with `--allow-tools`, sorted."""
-    return sorted({tool for case in cases for tool in allowed_tools(case)
+    return sorted({tool for case in cases for tool in allowed_tools(case, extra_tools)
                    if tool.split("(", 1)[0] in GATED_TOOLS or tool.startswith("mcp__")})
 
 
@@ -172,9 +179,9 @@ def runs_of(case: dict, override: int | None = None) -> int:
     return override or case["runs"] or DEFAULT_RUNS
 
 
-def native_case(case: dict) -> dict:
+def native_case(case: dict, extra_tools=()) -> dict:
     """The `case.yaml` document of one kit case."""
-    execution = {"prompt": case["prompt"], "allowed_tools": allowed_tools(case)}
+    execution = {"prompt": case["prompt"], "allowed_tools": allowed_tools(case, extra_tools)}
     execution.update({key: case[key] for key in ("max_turns", "timeout_seconds") if case[key] is not None})
     document = {"schema_version": NATIVE_SCHEMA_VERSION, "name": case["name"],
                 "description": f"kit case {case['id']}, tier {case['tier']}", "tags": [case["tier"]],
@@ -184,13 +191,13 @@ def native_case(case: dict) -> dict:
     return document
 
 
-def write_suite(plugin_dir, cases: list[dict]) -> bool:
+def write_suite(plugin_dir, cases: list[dict], extra_tools=()) -> bool:
     """Write every case under `<plugin_dir>/evals/`; True when any of them has a scaffold script."""
     scaffold = False
     for case in cases:
         folder = pathlib.Path(plugin_dir) / "evals" / case["name"]
         folder.mkdir(parents=True)
-        (folder / "case.yaml").write_text(json.dumps(native_case(case), indent=2) + "\n", encoding="utf-8")
+        (folder / "case.yaml").write_text(json.dumps(native_case(case, extra_tools), indent=2) + "\n", encoding="utf-8")
         if case["setup"]["files"]:
             skill_eval.stage(case, folder / SCAFFOLD_FILES)  # the same refusals as any staging
             (folder / SCAFFOLD_SCRIPT).write_text(SCAFFOLD_TEXT, encoding="utf-8")
@@ -214,8 +221,12 @@ def unmatched_exempt_paths(case: dict) -> list[str]:
 
 def build_argv(claude: str, plugin_dir, out_dir, *, max_cost_usd: float, tier: str | None = None,
                runs: int | None = None, model: str | None = None, judge_model: str | None = None,
-               allow_tools=(), scaffold: bool = False) -> list[str]:
-    """The one command line of the runner. Every flag of REQUIRED_FLAGS is always in it."""
+               allow_tools=(), scaffold: bool = False, real_servers: bool = False) -> list[str]:
+    """The one command line of the runner. Every flag of REQUIRED_FLAGS is always in it.
+
+    `real_servers` lets the tool start the plugin's own MCP server (it has no mock): the server
+    runs as the user, outside the sandbox that confines the run's shell tools.
+    """
     argv = [claude, "plugin", "eval", str(plugin_dir), "--no-publish", "--trust-plugin", "--keep-temp",
             "--ablation", "with-without", "--threshold", "0", "--max-cost-usd", f"{max_cost_usd:g}",
             "--output-dir", str(out_dir), "--json", str(pathlib.Path(out_dir) / "result.json"),
@@ -223,20 +234,56 @@ def build_argv(claude: str, plugin_dir, out_dir, *, max_cost_usd: float, tier: s
     for flag, value in (("--tag", tier), ("--runs", runs), ("--model", model), ("--judge-model", judge_model)):
         if value:
             argv += [flag, str(value)]
+    if real_servers:
+        argv.append("--allow-real-servers")
     if allow_tools:
         argv += ["--allow-tools", *allow_tools]
     return argv
 
 
+def _stop_group(proc: subprocess.Popen) -> None:
+    """End a run and every process it started: ask first, kill what is still there after the grace."""
+    for sign, wait in ((signal.SIGTERM, STOP_GRACE_SECONDS), (signal.SIGKILL, STOP_GRACE_SECONDS)):
+        try:
+            os.killpg(proc.pid, sign)  # the run leads its own group (start_new_session)
+        except OSError:
+            pass  # the whole group is gone already
+        try:
+            proc.wait(timeout=wait)
+        except subprocess.TimeoutExpired:
+            continue
+        if sign == signal.SIGTERM:  # the tool ended; what it started may have ignored the request
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except OSError:
+                pass
+        return
+
+
 def run_native(argv: list[str], cwd, timeout: float) -> tuple[int, str, str]:
-    """Run the tool; (exit code, stdout, stderr). A NativeError when it cannot start or never ends."""
-    try:
-        proc = subprocess.run(argv, cwd=str(cwd), capture_output=True, text=True, timeout=timeout)
-    except subprocess.TimeoutExpired as exc:
-        raise NativeError(f"the native tool did not end within {timeout:g}s and was stopped") from exc
-    except OSError as exc:
-        raise NativeError(f"cannot start {argv[0]}: {exc.strerror or _one_line(exc)}") from exc
-    return proc.returncode, proc.stdout, proc.stderr
+    """Run the tool; (exit code, stdout, stderr). A NativeError when it cannot start or never ends.
+
+    Its output goes to two files, not to pipes: a process the tool started and left behind keeps a
+    pipe open, and reading that pipe to its end would hang the runner past any timeout.
+    """
+    with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
+        try:
+            proc = subprocess.Popen(argv, cwd=str(cwd), stdin=subprocess.DEVNULL, stdout=out, stderr=err,
+                                    start_new_session=True)
+        except OSError as exc:
+            raise NativeError(f"cannot start {argv[0]}: {exc.strerror or _one_line(exc)}") from exc
+        try:
+            code = proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired as exc:
+            _stop_group(proc)
+            raise NativeError(f"the native tool did not end within {timeout:g}s and was stopped, "
+                              f"with the processes it had started") from exc
+        except BaseException:  # an interrupt of the runner must not leave a paid run behind
+            _stop_group(proc)
+            raise
+        out.seek(0)
+        err.seek(0)
+        return code, out.read().decode("utf-8", "replace"), err.read().decode("utf-8", "replace")
 
 
 # ------------------------------------------------------------------------------------ the result

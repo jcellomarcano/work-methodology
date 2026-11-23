@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -291,6 +292,182 @@ class NativeFailures(RunnerTest):
     def test_result_that_lacks_a_case_is_not_measured(self):
         self.play(drop=["smoke-basic"], cases=BOTH_GOOD)
         self.assert_not_measured(self.run_real(), "has no case smoke-basic")
+
+
+class ReviewFindings(RunnerTest):
+    """The findings the native review of the runner left (feature skill-evals, L12)."""
+
+    def test_native_run_that_outlives_its_timeout_is_stopped_with_the_processes_it_started(self):  # R4-native-timeout-leaks-and-may-hang
+        slow = self.tmp / "slow"
+        slow.write_text(f'#!/bin/sh\nsleep 20 &\necho $! > "{self.tmp}/child.pid"\nwait\n')
+        slow.chmod(0o755)
+        started = time.monotonic()
+        with self.assertRaises(native.NativeError) as caught:
+            native.run_native([str(slow)], self.tmp, timeout=1)
+        self.assertLess(time.monotonic() - started, 12, "the runner waited for a process the tool had started")
+        self.assertIn("did not end within 1s", str(caught.exception))
+        child = int((self.tmp / "child.pid").read_text())
+        for _ in range(50):
+            try:
+                os.kill(child, 0)
+            except ProcessLookupError:
+                break
+            time.sleep(0.1)
+        else:
+            self.fail(f"process {child}, started by the stopped tool, is still running")
+
+    def test_native_run_that_ends_gives_its_exit_code_and_both_outputs(self):  # previous behavior of run_native
+        quick = self.tmp / "quick"
+        quick.write_text("#!/bin/sh\necho said\necho warned >&2\nexit 3\n")
+        quick.chmod(0o755)
+        self.assertEqual(native.run_native([str(quick)], self.tmp, timeout=30), (3, "said\n", "warned\n"))
+
+    def test_unexpected_error_in_one_skill_does_not_end_the_run(self):  # R4-run-loop-catches-only-native-error
+        (self.out / "native").mkdir(parents=True)
+        (self.out / "native" / "demo-skill").write_text("a file where the runner needs a folder\n")
+        self.play(cases=BOTH_GOOD)
+        res = self.cli("run", *self.where(), "--real")
+        self.assert_clean(res, 1)
+        self.assertIn("demo-skill: not measured", res.stdout)
+        errors = [line for line in res.stderr.splitlines() if line.startswith("skill-eval: demo-skill: unexpected error")]
+        self.assertEqual(len(errors), 1, res.stderr)
+        self.assertEqual(len(self.calls()), 1, "the other skill must still reach the tool")
+        self.assertTrue(any(line.startswith("other-skill: ") for line in res.stdout.splitlines()), res.stdout)
+        self.assertNotIn("other-skill: not measured - unexpected", res.stdout)
+
+    def test_stored_result_is_not_reused_for_another_model_or_run_count(self):  # R3-cache-ignores-run-settings
+        self.play(cases=BOTH_GOOD)
+        self.assert_clean(self.run_real("--model", "haiku"), 0)
+        self.assert_clean(self.run_real("--model", "haiku"), 0)
+        self.assertEqual(len(self.calls()), 1)  # previous behavior: the same settings are served from the store
+        self.assert_clean(self.run_real("--model", "sonnet"), 0)
+        self.assertEqual(len(self.calls()), 2)
+        self.assert_clean(self.run_real("--model", "sonnet", "--judge-model", "sonnet"), 0)
+        self.assertEqual(len(self.calls()), 3)
+        plan = self.cli("run", "--skill", "demo-skill", *self.where(), "--tier", "smoke", "--model", "sonnet",
+                        "--judge-model", "sonnet", "--runs", "2")
+        self.assert_clean(plan, 0)
+        self.assertIn("demo-skill/smoke-basic [smoke]: to run, 2 run(s) per arm", plan.stdout)
+        self.assertIn("the stored result used other settings: runs per arm 1, now 2", plan.stdout)
+        self.assertEqual(len(self.calls()), 3)
+        shown = self.report()  # previous behavior: the report shows what is stored, whatever it was run with
+        self.assert_clean(shown, 0)
+        self.assertIn("with: passed | without: passed", shown.stdout)
+
+    def test_run_the_tool_reports_as_errored_is_errored_also_when_it_left_no_trace(self):  # R3-errored-run-without-trace-unreadable
+        for trace in ("missing", None):  # None: previous behavior, an errored run with its trace
+            broken = {**GOOD_RUN, "error": "API error 529", **({"trace": trace} if trace else {})}
+            self.play(cases={"smoke-basic": {"with": broken, "without": GOOD_RUN}})
+            res = self.run_real("--no-cache")
+            self.assert_clean(res, 0)
+            self.assertEqual(self.statuses()["with"], ["errored"], trace)
+            self.assertIn("API error 529", res.stdout)
+            shutil.rmtree(self.out / "store")
+
+
+class WhatARunDid(RunnerTest):
+    """The trace is removed once it is scored, so the stored result keeps the tools a run called."""
+
+    def test_stored_run_lists_the_tools_it_called_in_order_and_the_report_shows_them_for_a_run_that_failed(self):
+        self.play(cases={"smoke-basic": {"with": {"bash": ["python3 render.py"], "skill_error": True}, "without": GOOD_RUN}})
+        res = self.run_real()
+        self.assert_clean(res, 0)
+        record = self.stored()
+        self.assertEqual(record["arms"]["with"][0]["tools_called"], ["Skill (error)", "Bash"])
+        self.assertEqual(record["arms"]["without"][0]["tools_called"], ["Edit"])
+        self.assertIn("    with run 1 called: Skill (error), Bash", res.stdout)
+        self.assertNotIn("without run 1 called", res.stdout)  # a run that passed needs no explaining
+
+
+class KitMcp(RunnerTest):
+    """A skill that declares tools of the kit's MCP server: with the opt-in flag and without it."""
+
+    TOOL = "mcp__metodo__demo_tool"
+    EXPOSED = "mcp__plugin_demo-skill_metodo__demo_tool"
+    BETTER = {"smoke-basic": {"with": {**GOOD_RUN, "mcp": [EXPOSED]}, "without": {}}}  # alone, this reads `works`
+
+    def setUp(self):
+        super().setUp()
+        self.play(cases=self.BETTER)
+
+    def declare(self, *deps, line=""):
+        """Make demo-skill need `deps`: its BUILD.json, its allowed-tools line and one line of its text."""
+        catalog = self.kit / "03-tools" / "mcp"
+        catalog.mkdir(parents=True)
+        (catalog / "__init__.py").write_text("")
+        (catalog / "catalog.py").write_text('BY_NAME = {"demo_tool": None}\n')
+        skill = self.kit / "02-skills" / "demo-skill"
+        (skill / "BUILD.json").write_text(json.dumps({"schema_version": 1, "agent_skill": {"srcs": ["SKILL.md"], "deps": list(deps)}}))
+        tools = ", ".join(["Read", "Edit", *(dep for dep in deps if dep.startswith("mcp__"))])
+        head, rest = (skill / "SKILL.md").read_text().split("\n---\n", 1)
+        (skill / "SKILL.md").write_text(f"{head}\nallowed-tools: [{tools}]\n---\n{rest}{line}")
+
+    def test_without_the_flag_the_plan_and_the_report_say_it_ran_without_its_tools_and_it_cannot_work(self):
+        self.declare(self.TOOL, line=f"4. Check the result with `{self.TOOL}`.\n")
+        plan = self.cli("run", "--skill", "demo-skill", *self.where(), "--tier", "smoke")
+        self.assert_clean(plan, 0)
+        said = "demo-skill declares 1 MCP tool(s) of the kit's server, which this run does not start: the skill runs without its tools"
+        self.assertIn(said, plan.stdout)
+        self.assertIn("--kit-mcp", plan.stdout)
+        res = self.run_real()
+        self.assert_clean(res, 0)
+        call = self.calls()[0]
+        self.assertNotIn(".mcp.json", call["files"])
+        self.assertNotIn("--allow-real-servers", call["argv"])
+        self.assertFalse([arg for arg in call["argv"] if "mcp__" in arg])
+        self.assertIn(self.TOOL, call["skill_text"])  # the skill is run as it is packed
+        for shown in (res, self.report()):
+            self.assertIn("demo-skill: not measured", shown.stdout)
+            self.assertIn("it ran without its MCP tools", shown.stdout)
+            self.assertNotIn("demo-skill: works", shown.stdout)
+            self.assertIn("score: with 1.00, without 0.00", shown.stdout)
+
+    def test_the_flag_gives_the_skill_the_kit_server_and_its_tools_under_the_plugin_names(self):
+        self.declare(self.TOOL, line=f"4. Check the result with `{self.TOOL}`.\n")
+        plan = self.cli("run", "--skill", "demo-skill", *self.where(), "--tier", "smoke", "--kit-mcp")
+        self.assertIn("--kit-mcp starts this checkout's MCP server", plan.stdout)
+        res = self.run_real("--kit-mcp")
+        self.assert_clean(res, 0)
+        call = self.calls()[0]
+        self.assertIn(".mcp.json", call["files"])
+        self.assertEqual(call["mcp"]["mcpServers"]["metodo"]["args"], [str(self.kit / "03-tools" / "mcp" / "server.py")])
+        self.assertIn("--allow-real-servers", call["argv"])
+        granted = call["argv"][call["argv"].index("--allow-tools") + 1:]
+        self.assertIn(self.EXPOSED, granted)
+        self.assertIn(self.EXPOSED, call["cases"]["smoke-basic"]["execution"]["allowed_tools"])
+        self.assertEqual(call["skill_text"].count(self.EXPOSED), 2)
+        self.assertNotIn(self.TOOL, call["skill_text"])
+        for flag in native.REQUIRED_FLAGS:
+            self.assertIn(flag, call["argv"])
+        self.assertIn("demo-skill: works", res.stdout)
+        self.assertIn("kit MCP server: started for 1 case(s); 1 call(s) to its tools", res.stdout)
+        self.assertTrue(self.stored()["mcp"]["served"])
+
+    def test_result_stored_without_the_server_is_not_reused_with_it(self):
+        self.declare(self.TOOL)
+        self.assert_clean(self.run_real(), 0)
+        self.assert_clean(self.run_real("--kit-mcp"), 0)
+        self.assertEqual(len(self.calls()), 2)
+        self.assert_clean(self.run_real("--kit-mcp"), 0)
+        self.assertEqual(len(self.calls()), 2)
+
+    def test_the_flag_starts_nothing_for_a_skill_that_declares_no_mcp_tool(self):  # previous behavior of a plain skill
+        res = self.run_real("--kit-mcp")
+        self.assert_clean(res, 0)
+        call = self.calls()[0]
+        self.assertNotIn(".mcp.json", call["files"])
+        self.assertNotIn("--allow-real-servers", call["argv"])
+        self.assertIn("demo-skill: works", res.stdout)
+        self.assertNotIn("without its", res.stdout)
+
+    def test_the_tools_root_a_skill_names_is_rendered_for_the_run_and_the_plan_says_so(self):
+        self.declare("03-tools", line='5. Run `python3 "${METODO_TOOLS:-__TOOLS_DEFAULT__}/lib/x.py"`.\n')
+        plan = self.cli("run", "--skill", "demo-skill", *self.where(), "--tier", "smoke")
+        self.assertIn(f"its files name the kit's tools root, rendered to {self.kit / '03-tools'} for the run", plan.stdout)
+        self.assert_clean(self.run_real(), 0)
+        text = self.calls()[0]["skill_text"]
+        self.assertIn(f"${{METODO_TOOLS:-{self.kit / '03-tools'}}}/lib/x.py", text)
+        self.assertNotIn("__TOOLS_DEFAULT__", text)
 
 
 class Cascade(RunnerTest):

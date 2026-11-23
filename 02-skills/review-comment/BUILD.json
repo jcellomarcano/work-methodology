@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "agent_skill": {
+    "srcs": ["SKILL.md"],
+    "deps": [
+      "mcp__metodo__pr_scope",
+      "mcp__metodo__review_comment_lint",
+      "03-tools/config/review-comment.json",
+      "03-tools/config/project.json"
+    ]
+  },
+  "validate_skill_test": {},
+  "py_type_test": {},
+  "py_test": {},
+  "eval_suite": {}
+}

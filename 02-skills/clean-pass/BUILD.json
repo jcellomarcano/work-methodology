@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "agent_skill": {
+    "srcs": ["SKILL.md"],
+    "deps": [
+      "mcp__metodo__clean_pass",
+      "mcp__metodo__change_card_validate",
+      "03-tools/config/project.json"
+    ]
+  },
+  "validate_skill_test": {},
+  "py_type_test": {},
+  "py_test": {},
+  "eval_suite": {}
+}

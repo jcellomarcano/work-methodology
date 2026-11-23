@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "skill": "post-review-comment",
+  "tier": "smoke",
+  "expected_skills": [
+    "post-review-comment"
+  ],
+  "setup": {
+    "files": [
+      {
+        "from": "setup/comment.md",
+        "to": "comment.md"
+      }
+    ]
+  },
+  "validators": [
+    "validators/check_posted.py"
+  ],
+  "expectations": [
+    "The answer says the comment was rendered and that nothing was posted to the pull request."
+  ],
+  "max_turns": 10,
+  "timeout_seconds": 240,
+  "allowed_tools": [
+    "Read",
+    "Bash",
+    "Write",
+    "Skill"
+  ],
+  "runs": 1
+}

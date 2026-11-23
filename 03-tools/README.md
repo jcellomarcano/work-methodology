@@ -57,6 +57,9 @@ bin/bench.sh collect|report|status|adopt <repo> [--tools D]   # measurement inst
                                          # Code only); only bench.enabled: false in config/project.json stops it
                                          # `report` is also the MCP tool bench_report (a job)
 bin/bench.sh ab <repo> <run|judge|report> [args] [--tools D]   # the A/B runner of <instance>/bench/lib
+bin/skill-build.sh test|build [SKILL ...] [--all] [--no-cache]   # kit only: each skill's BUILD.json, five targets, one
+                                         # PASS, FAIL or SKIP line each; `build` writes the plugin zip the skill evals
+                                         # run (08-benchmark/lib/skill_eval.py; docs/11-skill-evals.md)
 bin/init.sh <repo> --uninstall [--instance D] [--audit D] [--purge] [--runtime claude|pi|agy|all] [--dry-run]
                                          # unplug: report <instance>/out/uninstall/<repo_sha>.json; instance and
                                          # audit stay; --purge deletes them only if untouched; exit 1 = kit left

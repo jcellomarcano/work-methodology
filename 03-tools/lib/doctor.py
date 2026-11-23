@@ -854,7 +854,8 @@ def _absent_skills(repo: Path, check_id: str, dst_rel: str, runtime: str) -> dic
                       "bin/doctor.sh <repo> --absent")
     left = []
     for skill in skills:
-        names = sorted(p.name for p in (src / skill).glob("*")) if (src / skill).is_dir() else []
+        # A skill's BUILD.json is a kit source file the installers never copy: one found in a repo is the owner's.
+        names = sorted(p.name for p in (src / skill).glob("*") if p.name != "BUILD.json") if (src / skill).is_dir() else []
         left += [f"{dst_rel}/{skill}/{n}" for n in names if os.path.lexists(repo / dst_rel / skill / n)]
     if left:
         return _check(check_id, "FAIL", "kit skill files remain: " + ", ".join(left), _uninstall_fix(runtime))

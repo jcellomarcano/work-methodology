@@ -9,7 +9,8 @@ run, `e-XXXXXX/` at mode 500 with `out/trace.jsonl` readable and the workspace u
 
 Environment:
   STUB_KEPT      folder the kept directories are created in (required to play a run)
-  STUB_LOG       file that gets one JSON line per call: argv, cwd, the plugin's files and its cases
+  STUB_LOG       file that gets one JSON line per call: argv, cwd, the plugin's files, its cases,
+                 the text of its SKILL.md and its .mcp.json (null when it has none)
   STUB_SCENARIO  JSON file, every key optional:
     exit      exit code (default 0)            stderr   text printed on stderr
     result    "none": no result file; "garbage": not JSON; "shape": JSON of the wrong shape
@@ -19,7 +20,8 @@ Environment:
               object per run (the last one repeats)
   RUN keys: skill (with arm: the Skill tool is called; default true), skill_error (that call
     comes back as an error, as for a skill that is not loaded), touch (paths read),
-    bash (commands run), write ({path: content} edited in the workspace), judge (true, false or a
+    bash (commands run), mcp (names of MCP tools called), write ({path: content} edited in the
+    workspace), judge (true, false or a
     list, one per llm grader; default true), cost, judge_cost, answer, error,
     native_forbidden (forces the verdict of the forbidden-path graders), skipped_paid,
     trace ("missing" or "garbage"), trace_path (the path the result names instead of the real one),
@@ -74,6 +76,8 @@ def play(target, plugin, skill, case, arm, spec, kept, scaffold):
         use("Read", {"file_path": str(cwd / path)})
     for command in spec.get("bash", []):
         use("Bash", {"command": command})
+    for name in spec.get("mcp", []):
+        use(name, {"card_text": "stub"})
     for path, content in spec.get("write", {}).items():
         (cwd / path).parent.mkdir(parents=True, exist_ok=True)
         (cwd / path).write_text(content)
@@ -145,6 +149,8 @@ def main():
         record["files"] = sorted(p.relative_to(target).as_posix() for p in target.rglob("*") if p.is_file())
         cases = {p.parent.name: json.loads(p.read_text()) for p in sorted(target.glob("evals/*/case.yaml"))}
         record["cases"] = cases
+        record["skill_text"] = "".join(p.read_text() for p in sorted(target.glob("skills/*/SKILL.md")))
+        record["mcp"] = json.loads((target / ".mcp.json").read_text()) if (target / ".mcp.json").is_file() else None
     if os.environ.get("STUB_LOG"):
         with open(os.environ["STUB_LOG"], "a", encoding="utf-8") as handle:
             handle.write(json.dumps(record) + "\n")

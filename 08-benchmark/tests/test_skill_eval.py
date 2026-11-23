@@ -477,6 +477,35 @@ class ReviewFindings(CaseTest):
         self.assertIn(f"{CASE_ID}: ", str(caught.exception))
         self.assertEqual(self.files_under(dest) if dest.exists() else [], [])
 
+    def test_failed_staging_puts_back_the_file_it_replaced(self):  # R3-stage-rollback-overwrites (L12)
+        self.set_files(("setup/notes.txt", "a.txt"), ("setup/src/app.py", "blocked/b.py"))
+        case = skill_eval.load_case(self.case)
+        dest = self.tmp / "work"
+        dest.mkdir()
+        (dest / "a.txt").write_text("the file that was there\n")
+        (dest / "blocked").write_text("a file where the staging needs a folder\n")
+        with self.assertRaises(skill_eval.CaseError):
+            skill_eval.stage(case, dest)
+        self.assertEqual((dest / "a.txt").read_text(), "the file that was there\n")
+        self.assertEqual(self.files_under(dest), ["a.txt", "blocked"])
+
+    def test_staging_still_replaces_a_file_when_every_file_lands(self):  # previous behavior of stage
+        self.set_files(("setup/notes.txt", "a.txt"))
+        dest = self.tmp / "work"
+        dest.mkdir()
+        (dest / "a.txt").write_text("the file that was there\n")
+        skill_eval.stage(skill_eval.load_case(self.case), dest)
+        self.assertEqual((dest / "a.txt").read_bytes(), (self.case / "setup" / "notes.txt").read_bytes())
+        self.assertEqual(self.files_under(dest), ["a.txt"])
+
+    def test_two_setup_files_with_one_destination_are_a_problem(self):  # open since L7
+        self.set_files(("setup/notes.txt", "a.txt"), ("setup/src/app.py", "a.txt"))
+        self.assert_problem("setup.files[1].to: 'a.txt' is also the destination of setup.files[0]: "
+                            "two files cannot land on one path")
+        self.set_files(("setup/src", "code"), ("setup/notes.txt", "code/app.py"))
+        self.assert_problem("setup.files[1].to: 'code/app.py' is also the destination of setup.files[0]: "
+                            "two files cannot land on one path")
+
     def test_stage_still_copies_every_file_when_all_can_be(self):  # previous behavior of stage
         self.set_files(("setup/notes.txt", "a.txt"), ("setup/src/app.py", "deep/b.py"))
         dest = self.tmp / "work"
