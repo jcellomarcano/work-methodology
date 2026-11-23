@@ -1,0 +1,213 @@
+#!/usr/bin/env python3
+"""Stub of `claude plugin eval` for the skill-eval tests. No model, no network, no spend.
+
+It reads the suite the runner wrote (`evals/<case>/case.yaml`, in JSON syntax), plays every run
+from a scenario, and leaves what the real tool leaves (shapes measured on Claude Code 2.1.330):
+a result JSON at `--json` and `<--output-dir>/aggregate-result.json`, and one kept directory per
+run, `e-XXXXXX/` at mode 500 with `out/trace.jsonl` readable and the workspace under
+`sealed/home/cwd` behind a `sealed/` folder at mode 000.
+
+Environment:
+  STUB_KEPT      folder the kept directories are created in (required to play a run)
+  STUB_LOG       file that gets one JSON line per call: argv, cwd, the plugin's files and its cases
+  STUB_SCENARIO  JSON file, every key optional:
+    exit      exit code (default 0)            stderr   text printed on stderr
+    result    "none": no result file; "garbage": not JSON; "shape": JSON of the wrong shape
+    partial   true marks the result partial    stray    true leaves a kept directory no result names
+    drop      list of case names the result leaves out
+    cases     {case name: {"with": RUN, "without": RUN}}; RUN is one object, or a list with one
+              object per run (the last one repeats)
+  RUN keys: skill (with arm: the Skill tool is called; default true), skill_error (that call
+    comes back as an error, as for a skill that is not loaded), touch (paths read),
+    bash (commands run), write ({path: content} edited in the workspace), judge (true, false or a
+    list, one per llm grader; default true), cost, judge_cost, answer, error,
+    native_forbidden (forces the verdict of the forbidden-path graders), skipped_paid,
+    trace ("missing" or "garbage"), trace_path (the path the result names instead of the real one),
+    workspace ("gone": the sealed folder holds no workspace)
+"""
+import json
+import os
+import pathlib
+import re
+import shutil
+import subprocess
+import sys
+
+
+def flag(argv, name, default=None):
+    return argv[argv.index(name) + 1] if name in argv and argv.index(name) + 1 < len(argv) else default
+
+
+def spec_for(case_spec, arm, index):
+    spec = case_spec.get(arm, {})
+    if isinstance(spec, list):
+        spec = spec[min(index, len(spec) - 1)] if spec else {}
+    return spec
+
+
+def play(target, plugin, skill, case, arm, spec, kept, scaffold):
+    cwd = kept / "home" / "cwd"
+    cwd.mkdir(parents=True)
+    (kept / "out").mkdir()
+    error = spec.get("error")
+    script = case.get("context", {}).get("scaffold_script")
+    if script and scaffold:
+        staged = subprocess.run(["bash", str(target / "evals" / case["name"] / script)], cwd=cwd,
+                                capture_output=True, text=True)
+        if staged.returncode != 0:
+            error = "scaffold failed"
+    lines = [{"type": "system", "subtype": "init", "cwd": str(cwd),
+              "tools": ["Read", "Edit", "Glob", "Grep", "Skill"],
+              "skills": [f"{plugin}:{skill}"] if arm == "with" else []}]
+
+    def use(name, tool_input, failed=False):
+        number = len(lines)
+        lines.append({"type": "assistant", "message": {"role": "assistant", "content": [
+            {"type": "tool_use", "id": f"toolu_{number}", "name": name, "input": tool_input}]}})
+        lines.append({"type": "user", "message": {"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": f"toolu_{number}", "content": "ok", "is_error": failed}]}})
+
+    fired = arm == "with" and spec.get("skill", True)
+    if fired:
+        use("Skill", {"skill": f"{plugin}:{skill}", "args": ""}, failed=bool(spec.get("skill_error")))
+    for path in spec.get("touch", []):
+        use("Read", {"file_path": str(cwd / path)})
+    for command in spec.get("bash", []):
+        use("Bash", {"command": command})
+    for path, content in spec.get("write", {}).items():
+        (cwd / path).parent.mkdir(parents=True, exist_ok=True)
+        (cwd / path).write_text(content)
+        use("Edit", {"file_path": str(cwd / path), "old_string": "", "new_string": content})
+    answer = spec.get("answer", "Done.")
+    cost = spec.get("cost", 0.01)
+    lines.append({"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": answer}]}})
+    lines.append({"type": "result", "subtype": "success", "is_error": False, "result": answer,
+                  "num_turns": len(lines), "total_cost_usd": cost,
+                  "usage": {"input_tokens": 10, "cache_creation_input_tokens": 100,
+                            "cache_read_input_tokens": 1000, "output_tokens": 50}})
+    trace_text = "".join(json.dumps(line) + "\n" for line in lines)
+    if spec.get("trace") == "garbage":
+        (kept / "out" / "trace.jsonl").write_text("{not json\n")
+    elif spec.get("trace") != "missing":
+        (kept / "out" / "trace.jsonl").write_text(trace_text)
+
+    graders, llm_index = [], 0
+    for grader in case.get("graders", []):
+        verdict = {"name": grader["name"], "weight": 1, "explanation": "stub", "withOnly": False, "scored": True}
+        if grader["type"] == "tool_used" and grader.get("tool") == "Skill":
+            if arm != "with":
+                continue  # the real tool reports it in the with arm only, and never scores it
+            called = json.dumps({"skill": f"{plugin}:{skill}"}) if fired else ""
+            verdict.update(passed=bool(fired) and re.search(grader.get("input_match", ""), called) is not None,
+                           withOnly=True, scored=False)
+        elif grader["type"] == "regex" and grader.get("target") == "trace":
+            found = re.search(grader["pattern"], trace_text) is not None
+            verdict["passed"] = (not found) if grader.get("match") == "not_contains" else found
+            if grader["name"].startswith("forbidden") and spec.get("native_forbidden") is not None:
+                verdict["passed"] = bool(spec["native_forbidden"])
+        elif grader["type"] == "llm":
+            votes = spec.get("judge", True)
+            passed = bool(votes[min(llm_index, len(votes) - 1)] if isinstance(votes, list) else votes)
+            llm_index += 1
+            if spec.get("skipped_paid"):
+                continue
+            verdict.update(passed=passed, judgeVotes=[passed] * 3)
+        else:
+            verdict["passed"] = True
+        graders.append(verdict)
+    scored = [g for g in graders if g["scored"]] or graders
+    score = sum(1 for g in scored if g["passed"]) / len(scored) if scored else 0
+    judge_cost = spec.get("judge_cost", 0.001) if llm_index else 0
+
+    sealed = kept / "sealed"
+    sealed.mkdir()
+    if spec.get("workspace") == "gone":
+        shutil.rmtree(kept / "home")
+    else:
+        os.rename(kept / "home", sealed / "home")
+    os.chmod(sealed, 0)
+    os.chmod(kept, 0o500)
+    return {"score": score, "passed": score >= 1, "turns": len(lines), "costUsd": cost + judge_cost,
+            "judgeCostUsd": judge_cost, "durationSeconds": 1, "startedAt": "2026-01-01T00:00:00.000Z",
+            "error": error, "tracePath": spec.get("trace_path") or str(kept / "out" / "trace.jsonl"),
+            "skippedPaidGraders": bool(spec.get("skipped_paid")), "graders": graders}
+
+
+def main():
+    argv = sys.argv[1:]
+    scenario = {}
+    if os.environ.get("STUB_SCENARIO") and os.path.isfile(os.environ["STUB_SCENARIO"]):
+        scenario = json.loads(pathlib.Path(os.environ["STUB_SCENARIO"]).read_text())
+    target = pathlib.Path(argv[2]) if len(argv) > 2 else None
+    record = {"argv": argv, "cwd": os.getcwd()}
+    cases = {}
+    if argv[:2] == ["plugin", "eval"] and target is not None and target.is_dir():
+        record["files"] = sorted(p.relative_to(target).as_posix() for p in target.rglob("*") if p.is_file())
+        cases = {p.parent.name: json.loads(p.read_text()) for p in sorted(target.glob("evals/*/case.yaml"))}
+        record["cases"] = cases
+    if os.environ.get("STUB_LOG"):
+        with open(os.environ["STUB_LOG"], "a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record) + "\n")
+    if argv[:2] != ["plugin", "eval"] or target is None:
+        print("stub: only `plugin eval <dir>` is played", file=sys.stderr)
+        return 64
+    if scenario.get("stderr"):
+        print(scenario["stderr"], file=sys.stderr)
+    code = scenario.get("exit", 0)
+    out_dir, json_path = flag(argv, "--output-dir"), flag(argv, "--json")
+    if scenario.get("result") == "none":
+        return code
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+    if scenario.get("result") in ("garbage", "shape"):
+        if json_path:
+            pathlib.Path(json_path).write_text("{not json" if scenario["result"] == "garbage" else '{"cases": "none"}')
+        return code
+
+    plugin = json.loads((target / ".claude-plugin" / "plugin.json").read_text())["name"]
+    skill = sorted(p.name for p in (target / "skills").iterdir())[0]
+    kept_root = pathlib.Path(os.environ["STUB_KEPT"])
+    kept_root.mkdir(parents=True, exist_ok=True)
+    taken = len(list(kept_root.glob("e-*")))
+    tag, runs_override = flag(argv, "--tag"), flag(argv, "--runs")
+    played = []
+    for name, case in cases.items():
+        if (tag and tag not in case.get("tags", [])) or name in scenario.get("drop", []):
+            continue
+        runs = int(runs_override or case.get("runs", 3))
+        arms = {}
+        for arm in ("with", "without"):
+            arms[arm] = []
+            for index in range(runs):
+                taken += 1
+                kept = kept_root / f"e-{taken:06d}"
+                spec = spec_for(scenario.get("cases", {}).get(name, {}), arm, index)
+                arms[arm].append(play(target, plugin, skill, case, arm, spec, kept, "--scaffold" in argv))
+        mean = {arm: sum(run["score"] for run in arms[arm]) / len(arms[arm]) for arm in arms}
+        played.append({"name": name, "dir": f"evals/{name}", "source": "case_yaml",
+                       "promptMarkdown": case["execution"]["prompt"], "runsPerCase": runs,
+                       "timeoutSeconds": case["execution"].get("timeout_seconds", 300),
+                       "maxTurns": case["execution"].get("max_turns", 10), "graders": case.get("graders", []),
+                       "arms": arms,
+                       "aggregates": {"score": mean["with"], "scoreWithout": mean["without"],
+                                      "delta": mean["with"] - mean["without"]}})
+    if scenario.get("stray"):
+        stray = kept_root / "e-stray0"
+        (stray / "out").mkdir(parents=True)
+        (stray / "out" / "trace.jsonl").write_text("{}\n")
+    result = {"schemaVersion": 1, "claudeVersion": "stub", "startedAt": "2026-01-01T00:00:00.000Z",
+              "durationSeconds": 1, "partial": bool(scenario.get("partial")),
+              "costUsd": sum(run["costUsd"] for case in played for runs in case["arms"].values() for run in runs),
+              "suite": {"root": str(target), "ablation": "with-without"}, "cases": played}
+    if scenario.get("partial"):
+        result["partialReason"] = "cost_ceiling"
+    text = json.dumps(result, indent=2)
+    if json_path:
+        pathlib.Path(json_path).write_text(text)
+    if out_dir:
+        (pathlib.Path(out_dir) / "aggregate-result.json").write_text(text)
+    return code
+
+
+if __name__ == "__main__":
+    sys.exit(main())

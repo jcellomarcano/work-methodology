@@ -438,5 +438,107 @@ class ContentHash(CaseTest):
         self.assertIn("skill folder", str(caught.exception))
 
 
+@unittest.skipIf(hasattr(os, "geteuid") and os.geteuid() == 0, "root reads what mode 000 hides")
+class ReviewFindings(CaseTest):
+    """The seven findings of the native review of T1 (feature document, L8), one test each."""
+
+    def lock(self, path):
+        os.chmod(path, 0)
+        self.addCleanup(os.chmod, path, 0o755)
+
+    def test_another_spelling_of_testdata_is_never_staged(self):  # R1-testdata-case-fold
+        # On a case-insensitive file system "TESTDATA/expected.txt" opens the answer key.
+        self.set_files(("TESTDATA/expected.txt", "answer.txt"))
+        self.assert_problem("setup.files[0].from: 'TESTDATA/expected.txt' stages testdata/, "
+                            "the answer key, which is never staged")
+
+    def test_answer_key_folder_under_another_spelling_is_a_problem(self):  # R1-testdata-case-fold
+        os.rename(self.case / "testdata", self.case / "answer-key")
+        os.rename(self.case / "answer-key", self.case / "TestData")
+        self.assert_problem("the answer key folder must be spelled 'testdata', found 'TestData'")
+
+    def test_unreadable_setup_folder_is_a_problem_line_not_a_traceback(self):  # R3-validate-listdir-traceback
+        self.lock(self.case / "setup" / "src")
+        problems = skill_eval.validate_case(self.case)
+        self.assertEqual([p for p in problems if "cannot be read" in p][:1],
+                         [p for p in problems if p.startswith("setup.files[1].from: 'setup/src' cannot be read")])
+        self.assertTrue(any("cannot be read" in p for p in problems), problems)
+        res = cli("validate", str(self.root))
+        self.assertEqual(res.returncode, 1, res.stdout + res.stderr)
+        self.assertNotIn("Traceback", res.stderr)
+
+    def test_stage_writes_nothing_when_a_later_file_cannot_be_copied(self):  # R3-stage-partial-write
+        self.set_files(("setup/notes.txt", "a.txt"), ("setup/src/app.py", "b.py"))
+        case = skill_eval.load_case(self.case)
+        self.lock(self.case / "setup" / "src" / "app.py")
+        dest = self.tmp / "work"
+        with self.assertRaises(skill_eval.CaseError) as caught:
+            skill_eval.stage(case, dest)
+        self.assertIn(f"{CASE_ID}: ", str(caught.exception))
+        self.assertEqual(self.files_under(dest) if dest.exists() else [], [])
+
+    def test_stage_still_copies_every_file_when_all_can_be(self):  # previous behavior of stage
+        self.set_files(("setup/notes.txt", "a.txt"), ("setup/src/app.py", "deep/b.py"))
+        dest = self.tmp / "work"
+        self.assertEqual(skill_eval.stage(skill_eval.load_case(self.case), dest), ["a.txt", "deep/b.py"])
+        self.assertEqual(self.files_under(dest), ["a.txt", "deep/b.py"])
+        self.assertEqual((dest / "deep" / "b.py").read_bytes(), (self.case / "setup" / "src" / "app.py").read_bytes())
+
+    def test_case_hash_refuses_a_folder_it_cannot_walk(self):  # R3-hash-silent-walk-errors
+        skill = self.tmp / "skills" / "demo-skill"
+        (skill / "hidden").mkdir(parents=True)
+        (skill / "SKILL.md").write_text("demo\n")
+        (skill / "hidden" / "part.md").write_text("part\n")
+        case = skill_eval.load_case(self.case)
+        before = skill_eval.case_hash(case, skill)
+        self.lock(skill / "hidden")
+        with self.assertRaises(skill_eval.CaseError) as caught:
+            skill_eval.case_hash(case, skill)
+        self.assertIn("cannot hash", str(caught.exception))
+        os.chmod(skill / "hidden", 0o755)
+        self.assertEqual(skill_eval.case_hash(case, skill), before)  # previous behavior: same bytes, same hash
+
+    def test_case_reached_through_a_link_keeps_the_name_it_was_given(self):  # R2-case-identity-from-realpath
+        store = self.tmp / "store" / "elsewhere" / "real-case"
+        store.parent.mkdir(parents=True)
+        shutil.move(str(self.case), str(store))
+        os.symlink(store, self.root / "demo-skill" / "linked")
+        linked = self.root / "demo-skill" / "linked"
+        self.assertEqual(skill_eval.validate_case(linked), [])
+        case = skill_eval.load_case(linked)
+        self.assertEqual((case["id"], case["name"]), ("demo-skill/linked", "linked"))
+        self.assertEqual(case["paths"]["case_dir"], str(store))  # the files are still read where they are
+
+    def test_case_json_that_is_a_link_out_of_the_case_is_rejected(self):  # R3-case-json-symlink
+        outside = self.outside / "case.json"
+        shutil.copy(self.case / "case.json", outside)
+        os.remove(self.case / "case.json")
+        os.symlink(outside, self.case / "case.json")
+        self.assert_problem("case.json leaves the case folder through a symlink")
+
+    def test_every_refusal_of_a_case_is_worded_by_one_helper(self):  # R2-duplicated-error-join
+        self.assertEqual(str(skill_eval._case_error("a/b", ["first", "second"])), "a/b: first; second")
+        self.assertIsInstance(skill_eval._case_error("a/b", ["x"]), skill_eval.CaseError)
+        # Previous behavior at the three places that raise it: the case id, then the problems.
+        self.edit(tier="nightly", max_turns=0)
+        with self.assertRaises(skill_eval.CaseError) as caught:
+            skill_eval.load_case(self.case)
+        self.assertTrue(str(caught.exception).startswith(f"{CASE_ID}: "), caught.exception)
+        self.assertIn("; ", str(caught.exception))
+        self.edit()
+        case = skill_eval.load_case(self.case)
+        os.symlink(self.outside, self.case / "setup" / "src" / "escape")
+        with self.assertRaises(skill_eval.CaseError) as caught:
+            skill_eval.stage(case, self.tmp / "work")
+        self.assertTrue(str(caught.exception).startswith(f"{CASE_ID}: setup.files[1].from"), caught.exception)
+        os.remove(self.case / "setup" / "src" / "escape")
+        dest = self.tmp / "linked-dest"
+        dest.mkdir()
+        os.symlink(self.outside, dest / "src")
+        with self.assertRaises(skill_eval.CaseError) as caught:
+            skill_eval.stage(case, dest)
+        self.assertTrue(str(caught.exception).startswith(f"{CASE_ID}: setup.files[1].to"), caught.exception)
+
+
 if __name__ == "__main__":
     unittest.main()

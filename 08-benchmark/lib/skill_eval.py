@@ -53,12 +53,18 @@ A CaseError is raised for a case that is not valid or a path that cannot be read
 
 Usage:
     lib/skill_eval.py validate [ROOT]
+    lib/skill_eval.py run [--skill NAME ...] [--tier TIER] [--real] ...
+    lib/skill_eval.py report [--skill NAME ...] [--tier TIER] ...
 
 `validate` prints `<skill>/<case>: <problem>` lines, sorted, then one summary line.
 Exit 0 every case is valid; 1 any problem; 2 a usage error or an unreadable path, as one
 `skill-eval:` line on stderr.
 
-Python 3 stdlib only. No network, no model call, no `claude` process.
+`run` and `report` live in lib/skill_eval_run.py, which documents their flags, the scoring and the
+verdict. `run` prints a plan and spends nothing unless `--real` is given; `report` never spends.
+
+Python 3 stdlib only. This module makes no network or model call and starts no `claude` process;
+the only command that does is `run --real`.
 """
 from __future__ import annotations
 
@@ -70,6 +76,7 @@ import pathlib
 import re
 import shutil
 import sys
+import tempfile
 
 SCHEMA_VERSION = 1
 HERE = pathlib.Path(__file__).resolve().parent
@@ -120,6 +127,33 @@ def _join(base: str, relative: str) -> str:
     return os.path.join(base, *pathlib.PurePosixPath(relative).parts)
 
 
+def _case_error(case_id: str, problems: list[str]) -> CaseError:
+    """The one wording of a refused case: its id, then every problem."""
+    return CaseError(f"{case_id}: " + "; ".join(problems))
+
+
+def _reaches_testdata(real: str, case_real: str, testdata: str) -> bool:
+    """True when `real` is the answer key, sits in it or holds it, under any spelling of its name.
+
+    The spelling is compared case-folded on every machine: a file system that ignores case opens
+    `TESTDATA/` as the answer key, and a case must mean the same thing on the others.
+    """
+    first = pathlib.PurePath(os.path.relpath(real, case_real)).parts[:1]
+    if first and first[0].casefold() == TESTDATA_DIR:
+        return True
+    return _inside(real, testdata) or (os.path.isdir(testdata) and _inside(testdata, real))
+
+
+def _answer_key_spellings(case_real: str) -> list[str]:
+    """One problem per folder entry that names the answer key under another spelling."""
+    try:
+        names = sorted(os.listdir(case_real))
+    except OSError:
+        return []
+    return [f"the answer key folder must be spelled {TESTDATA_DIR!r}, found {name!r}"
+            for name in names if name != TESTDATA_DIR and name.casefold() == TESTDATA_DIR]
+
+
 def _plan_entry(case_real: str, index: int, entry: dict) -> tuple[list[tuple[str, str]], list[str]]:
     """Every (resolved source file, relative destination) one `setup.files` entry stages, and its problems.
 
@@ -135,7 +169,7 @@ def _plan_entry(case_real: str, index: int, entry: dict) -> tuple[list[tuple[str
         real = os.path.realpath(path)
         if not _inside(real, case_real):
             problems.append(f"{label}.from: {shown!r} leaves the case folder through a symlink")
-        elif _inside(real, testdata) or (os.path.isdir(testdata) and _inside(testdata, real)):
+        elif _reaches_testdata(real, case_real, testdata):
             problems.append(f"{label}.from: {shown!r} stages testdata/, the answer key, which is never staged")
         elif not os.path.exists(real):
             problems.append(f"{label}.from: {shown!r} does not exist")
@@ -143,7 +177,12 @@ def _plan_entry(case_real: str, index: int, entry: dict) -> tuple[list[tuple[str
             if os.path.islink(path):
                 problems.append(f"{label}.from: {shown!r} is a symlink to a folder, which is not staged")
                 return
-            for name in sorted(os.listdir(real)):
+            try:
+                names = sorted(os.listdir(real))
+            except OSError as exc:  # a folder the user cannot list is their error to read, in one line
+                problems.append(f"{label}.from: {shown!r} cannot be read: {exc.strerror or _one_line(exc)}")
+                return
+            for name in names:
                 visit(os.path.join(path, name), f"{shown.rstrip('/')}/{name}", target / name, False)
         elif not os.path.isfile(real):
             problems.append(f"{label}.from: {shown!r} is not a regular file")
@@ -216,10 +255,15 @@ def _check_prompt(case_real: str, problems: list[str]) -> str:
 def _inspect(case_dir) -> tuple[list[str], dict | None]:
     """The problems of a case and, when there is none, the loaded case."""
     case_real = os.path.realpath(case_dir)
-    folder, name = os.path.basename(os.path.dirname(case_real)), os.path.basename(case_real)
+    # A case is named by where it was found, not by where a link leads: `<skill>/<case>` is the
+    # path the owner sees and the one `skill` is checked against. Its files are read where they are.
+    given = os.path.abspath(case_dir)
+    folder, name = os.path.basename(os.path.dirname(given)), os.path.basename(given)
     path = os.path.join(case_real, "case.json")
     if not os.path.isfile(path):
         return ["case.json is missing"], None
+    if not _inside(os.path.realpath(path), case_real):
+        return ["case.json leaves the case folder through a symlink"], None
     try:
         raw = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, ValueError) as exc:
@@ -258,6 +302,7 @@ def _inspect(case_dir) -> tuple[list[str], dict | None]:
     if not any(raw.get(key) for key in SCORER_KEYS):
         problems.append(f"no scorer: needs at least one of {', '.join(SCORER_KEYS)}")
     prompt = _check_prompt(case_real, problems)
+    problems += _answer_key_spellings(case_real)
     if problems:
         return problems, None
 
@@ -289,8 +334,8 @@ def load_case(case_dir) -> dict:
     """The validated case with its absolute paths resolved; a CaseError names every problem."""
     problems, case = _inspect(case_dir)
     if case is None:
-        path = pathlib.Path(os.path.realpath(case_dir))
-        raise CaseError(f"{path.parent.name}/{path.name}: " + "; ".join(problems))
+        path = pathlib.Path(os.path.abspath(case_dir))
+        raise _case_error(f"{path.parent.name}/{path.name}", problems)
     return case
 
 
@@ -329,7 +374,8 @@ def stage(case: dict, dest) -> list[str]:
         pairs += [(source, target, index) for source, target in found]
         problems += faults
     if problems:  # before dest is even created
-        raise CaseError(f"{case['id']}: " + "; ".join(problems))
+        raise _case_error(case["id"], problems)
+    created = not os.path.lexists(dest)
     os.makedirs(dest, exist_ok=True)
     dest_real = os.path.realpath(dest)
     for _source, target, index in pairs:
@@ -337,11 +383,44 @@ def stage(case: dict, dest) -> list[str]:
         if landing == dest_real or not _inside(landing, dest_real):
             problems.append(f"setup.files[{index}].to: {target!r} would be written outside the working directory")
     if problems:
-        raise CaseError(f"{case['id']}: " + "; ".join(problems))
-    for source, target, _index in pairs:
-        landing = _join(dest_real, target)
-        os.makedirs(os.path.dirname(landing), exist_ok=True)
-        shutil.copy(source, landing)  # the bytes and the permission bits, not the times
+        raise _case_error(case["id"], problems)
+    # Every source is copied into a holding folder first, so one that cannot be read stops the
+    # staging before any file lands; what did land is taken back if a later move fails.
+    holding = tempfile.mkdtemp(prefix=".staging-", dir=dest_real)
+    placed: list[str] = []
+    made: list[str] = []
+    try:
+        held = []
+        for number, (source, target, _index) in enumerate(pairs):
+            copy = os.path.join(holding, str(number))
+            shutil.copy(source, copy)  # the bytes and the permission bits, not the times
+            held.append((copy, target))
+        for copy, target in held:
+            landing = _join(dest_real, target)
+            missing, parent = [], os.path.dirname(landing)
+            while not os.path.isdir(parent):
+                missing.append(parent)
+                parent = os.path.dirname(parent)
+            for folder in reversed(missing):
+                os.mkdir(folder)
+                made.append(folder)
+            existed = os.path.lexists(landing)
+            os.replace(copy, landing)
+            if not existed:
+                placed.append(landing)
+    except OSError as exc:
+        for undo, paths in ((os.remove, placed), (os.rmdir, reversed(made))):
+            for path in paths:
+                try:
+                    undo(path)
+                except OSError:
+                    pass
+        shutil.rmtree(holding, ignore_errors=True)
+        if created:
+            shutil.rmtree(dest_real, ignore_errors=True)
+        raise _case_error(case["id"], [f"cannot stage setup.files, no file of it was left behind: "
+                                       f"{exc.strerror or _one_line(exc)}"]) from exc
+    shutil.rmtree(holding, ignore_errors=True)
     return sorted({target for _source, target, _index in pairs})
 
 
@@ -349,8 +428,11 @@ def stage(case: dict, dest) -> list[str]:
 
 def _tree_entries(folder: str) -> list[tuple[str, bytes, bytes]]:
     """(relative POSIX path, kind, bytes) of every file under `folder`, sorted; a link is its target text."""
+    def refuse(error: OSError) -> None:  # os.walk skips what it cannot list unless told otherwise
+        raise error
+
     entries = []
-    for current, dirnames, filenames in os.walk(folder):
+    for current, dirnames, filenames in os.walk(folder, onerror=refuse):
         dirnames[:] = sorted(d for d in dirnames if d not in HASH_SKIP)
         links = [d for d in dirnames if os.path.islink(os.path.join(current, d))]
         for name in sorted(f for f in filenames if f not in HASH_SKIP) + links:
@@ -403,18 +485,59 @@ class _Parser(argparse.ArgumentParser):
         raise UsageError(message)
 
 
+def _runner(name: str):
+    """A command of lib/skill_eval_run.py, imported only when it is asked for."""
+    def call(args) -> int:
+        if str(HERE) not in sys.path:  # `python3 -I` leaves the script's folder out of sys.path
+            sys.path.insert(0, str(HERE))
+        import skill_eval_run
+        return getattr(skill_eval_run, name)(args)
+    return call
+
+
+def _above_zero(kind):
+    def parse(text: str):
+        try:
+            value = kind(text)
+        except ValueError:
+            value = 0
+        if not value > 0:
+            raise argparse.ArgumentTypeError(f"must be {'a whole number' if kind is int else 'a number'} above 0, got {text!r}")
+        return value
+    return parse
+
+
 def main(argv: list[str] | None = None) -> int:
-    parser = _Parser(prog="skill_eval.py", description="Skill evals: check the kit's eval cases.")
+    parser = _Parser(prog="skill_eval.py", description="Skill evals: check, run and report the kit's eval cases.")
     commands = parser.add_subparsers(dest="command", metavar="COMMAND", required=True)
     validate = commands.add_parser("validate", help="check every case under ROOT; exit 1 on any problem")
     validate.add_argument("root", nargs="?", default=str(DEFAULT_ROOT), metavar="ROOT",
                           help="folder of <skill>/<case>/ folders (default: the kit's 08-benchmark/evals)")
     validate.set_defaults(run=cmd_validate)
+    run = commands.add_parser("run", help="plan the evals of each skill; with --real, run them on `claude plugin eval`")
+    report = commands.add_parser("report", help="the verdict per skill from the stored results; starts nothing")
+    for command in (run, report):
+        command.add_argument("--skill", action="append", metavar="NAME", help="only this skill (repeatable)")
+        command.add_argument("--tier", choices=TIERS, help="only the cases of this tier (a native tag)")
+        command.add_argument("--root", metavar="DIR", help="folder of <skill>/<case>/ folders (default: <kit>/08-benchmark/evals)")
+        command.add_argument("--kit", metavar="DIR", help="the checkout whose 02-skills is evaluated (default: this one)")
+        command.add_argument("--out", metavar="DIR", help="results and store (default: <kit>/03-tools/out/skill-evals)")
+        command.add_argument("--json", metavar="FILE", help="also write the report as JSON")
+    run.add_argument("--real", action="store_true", help="spend: start the native tool (without it only the plan is printed)")
+    run.add_argument("--no-cache", action="store_true", help="run a case again even when its hash has a stored result")
+    run.add_argument("--runs", type=_above_zero(int), metavar="N", help="runs per arm, instead of each case's own")
+    run.add_argument("--model", metavar="M", help="model of the agent under test (default: the session's)")
+    run.add_argument("--judge-model", metavar="M", help="model of the judge (default: the tool's)")
+    run.add_argument("--max-cost-usd", type=_above_zero(float), default=0.50, metavar="USD",
+                     help="cost ceiling of each skill's invocation (default: 0.50)")
+    run.set_defaults(run=_runner("cmd_run"))
+    report.set_defaults(run=_runner("cmd_report"))
     try:
         args = parser.parse_args(argv)
         return args.run(args)
     except UsageError as exc:
-        print(f"skill-eval: {_one_line(exc)} (usage: skill_eval.py validate [ROOT])", file=sys.stderr)
+        print(f"skill-eval: {_one_line(exc)} (usage: skill_eval.py validate [ROOT] | run [--real] ... | report ...)",
+              file=sys.stderr)
         return 2
     except CaseError as exc:
         print(f"skill-eval: {_one_line(exc)}", file=sys.stderr)
@@ -423,4 +546,8 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     sys.dont_write_bytecode = True
-    raise SystemExit(main())
+    sys.path.insert(0, str(HERE))
+    # Run the one importable copy of this module: the runner imports it by name, and an error it
+    # raises has to be the CaseError that main() catches.
+    import skill_eval as _module
+    raise SystemExit(_module.main())
