@@ -153,6 +153,8 @@ PY
     [ -d "$src_dir" ] || continue
     if [ ! -d "$dst_dir" ]; then item . "$(rel "$dst_dir")/" "not found"; continue; fi
     for f in "$src_dir"/*; do
+      # BUILD.json is the kit's build declaration of the skill, not a skill file
+      [ "$(basename "$f")" = "BUILD.json" ] && continue
       dst="$dst_dir/$(basename "$f")"
       { [ -e "$dst" ] || [ -L "$dst" ]; } || continue
       cands=(); i=0
@@ -270,6 +272,8 @@ for skill in "${SKILLS[@]}"; do
   dst_dir="$SKILLS_DST/$skill"
   mkdir -p "$dst_dir"
   for f in "$src_dir"/*; do
+    # BUILD.json is the kit's build declaration of the skill, not a skill file
+    [ "$(basename "$f")" = "BUILD.json" ] && continue
     # A skill file that calls a kit script carries __TOOLS_DEFAULT__, rendered
     # to the tools root like the agents; the rest are copied byte for byte.
     if grep -q "__TOOLS_DEFAULT__" "$f" 2>/dev/null; then

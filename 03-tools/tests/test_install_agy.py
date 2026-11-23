@@ -122,11 +122,23 @@ class InstallAgyTests(unittest.TestCase):
             with self.subTest(role=role.name):
                 self.assertEqual((self.plugin / "agents" / role.name).read_text(encoding="utf-8"), want)
         for skill in _skills():
-            for src in sorted(p for p in (SKILLS_SRC / skill).iterdir() if p.is_file()):
+            # BUILD.json is the kit's build declaration of the skill, not one of its files
+            for src in sorted(p for p in (SKILLS_SRC / skill).iterdir() if p.is_file() and p.name != "BUILD.json"):
                 data = src.read_bytes()
                 with self.subTest(skill=skill, file=src.name):
                     self.assertEqual((self.plugin / "skills" / skill / src.name).read_bytes(),
                                      data.replace(b"__TOOLS_DEFAULT__", str(TOOLS_ROOT).encode()))
+
+    def test_a_build_file_never_enters_the_plugin(self):
+        skill = "change-card"
+        self.assertTrue((SKILLS_SRC / skill / "BUILD.json").is_file())
+        proc = self._run()
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertNotIn("BUILD.json", proc.stdout)
+        self.assertEqual([path for path in self._files() if path.endswith("BUILD.json")], [])
+        # negative control: the skill itself is in the plugin as before
+        self.assertEqual((self.plugin / "skills" / skill / "SKILL.md").read_bytes(),
+                         (SKILLS_SRC / skill / "SKILL.md").read_bytes())
 
     def test_contracts_ship_in_a_folder_of_their_own_byte_for_byte(self):
         self.assertEqual(self._run().returncode, 0)

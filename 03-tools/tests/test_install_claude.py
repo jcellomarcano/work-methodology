@@ -215,6 +215,31 @@ class InstallClaudeTests(unittest.TestCase):
         self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
         _assert_second_pass_unchanged(self, second.stdout)
 
+    def test_a_build_file_is_never_installed_compared_or_removed(self):
+        """02-skills/<skill>/BUILD.json says how the kit builds a skill: it is not a skill file."""
+        skill = "change-card"
+        self.assertTrue((SKILLS_SRC / skill / "BUILD.json").is_file())
+
+        def pi(*extra):
+            return subprocess.run(["bash", str(PI_INSTALLER), str(self.repo), *extra], capture_output=True, text=True)
+
+        for proc in (self._run(), pi()):
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            self.assertNotIn("BUILD.json", proc.stdout)
+        self.assertEqual(sorted(p.relative_to(self.repo).as_posix() for p in self.repo.rglob("BUILD.json")), [])
+        installed = [self.repo / runtime / "skills" / skill for runtime in (".claude", ".pi")]
+        for folder in installed:
+            # negative control: the skill itself is installed as before
+            self.assertEqual((folder / "SKILL.md").read_bytes(), (SKILLS_SRC / skill / "SKILL.md").read_bytes())
+            # a file of that name the owner put there is not the kit's to compare or remove
+            (folder / "BUILD.json").write_text('{"mine": true}\n', encoding="utf-8")
+        for proc in (self._run("--uninstall"), pi("--uninstall")):
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            self.assertNotIn("BUILD.json", proc.stdout)
+        for folder in installed:
+            self.assertEqual(sorted(p.name for p in folder.iterdir()), ["BUILD.json"])
+            self.assertEqual((folder / "BUILD.json").read_text(encoding="utf-8"), '{"mine": true}\n')
+
     def test_tools_flag_renders_instance_path(self):
         instance = self.tmp / "instance-tools"
         shutil.copytree(TOOLS_ROOT / "mcp", instance / "mcp")

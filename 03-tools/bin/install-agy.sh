@@ -115,6 +115,8 @@ render_plugin() {
     [ -d "$SKILLS_SRC/$skill" ] || continue
     mkdir -p "$out/skills/$skill"
     for f in "$SKILLS_SRC/$skill"/*; do
+      # BUILD.json is the kit's build declaration of the skill, not a skill file
+      [ "$(basename "$f")" = "BUILD.json" ] && continue
       # A skill file that calls a kit script carries __TOOLS_DEFAULT__, rendered
       # to the tools root like the agents; the rest are copied byte for byte.
       if grep -q "__TOOLS_DEFAULT__" "$f" 2>/dev/null; then

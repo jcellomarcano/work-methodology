@@ -13,7 +13,7 @@ over the repo they analyze: they never write or `git add` there). Python
   `verify-commit.sh`, `verify-sectors.sh`, `benchmark-release.sh`,
   `install.sh` (picks the runtimes), `install-claude.sh`, `install-pi.sh`,
   `install-agy.sh` (both read the skill list out of `install-claude.sh`),
-  `sync-instance.sh`, `adopt.sh`, `bench.sh` (the benchmark inside an
+  `sync-instance.sh`, `adopt.sh`, `skill-build.sh`, `bench.sh` (the benchmark inside an
   instance: this repo's Claude Code sessions, measured).
 - `mcp/`: `metodo` MCP server (JSON-RPC over stdio, stdlib): `catalog.py` is
   the tool table; each one wraps a script from `lib/` or `bin/`.
@@ -79,6 +79,9 @@ bin/install-pi.sh <repo> [--tools D] [--uninstall]     # .pi/agents, .pi/skills,
 bin/install-agy.sh <repo> [--tools D] [--uninstall]    # one agy workspace plugin: .agents/plugins/metodo/
                                          # (opt-in: --runtime agy, never part of all; 00-principles/agy-adapter.md)
 bin/sync-instance.sh <instance>          # code to an instance; config/ only what is missing; personal assets never
+bin/skill-build.sh test [<skill>...] [--all] [--no-cache] [--json FILE]   # 02-skills/<skill>/BUILD.json: one line
+                                         # per target, PASS | FAIL | SKIP and why; a PASS is cached by input hash
+bin/skill-build.sh build [<skill>...] [--all] [--out DIR]   # <out>/<skill>/<skill>-<version>.zip, same bytes each time
 python3 lib/suggest.py <repo> [--tools D] [--runtime claude|pi|agy|all] [--read-global-config]   # never installs
 python3 lib/detect_repo.py <repo>        # language, build files, base ref, ticket keys (JSON)
 python3 lib/base_ref.py <repo> [--config project.json] [--base REF]

@@ -100,6 +100,9 @@ SKILLS=(
   harness-benchmark
 )
 SKILLS_EXCLUDED=()
+# 02-skills/<skill>/BUILD.json declares how the kit builds and tests the skill
+# (bin/skill-build.sh). It is not a skill file: never copied, compared or removed.
+BUILD_FILE="BUILD.json"
 
 # What the kit writes under .claude/ stays out of commits, like .mcp.json: the
 # files are rendered for this checkout and the settings carry absolute local
@@ -227,6 +230,7 @@ PY
     [ -d "$src_dir" ] || continue
     if [ ! -d "$dst_dir" ]; then item . "$(rel "$dst_dir")/" "not found"; continue; fi
     for f in "$src_dir"/*; do
+      [ "$(basename "$f")" = "$BUILD_FILE" ] && continue
       dst="$dst_dir/$(basename "$f")"
       { [ -e "$dst" ] || [ -L "$dst" ]; } || continue
       cands=(); i=0
@@ -332,6 +336,7 @@ for skill in "${SKILLS[@]}"; do
   dst_dir="$SKILLS_DST/$skill"
   mkdir -p "$dst_dir"
   for f in "$src_dir"/*; do
+    [ "$(basename "$f")" = "$BUILD_FILE" ] && continue
     copy_one "$(render_skill_file "$f" "$skill")" "$dst_dir/$(basename "$f")"
   done
 done

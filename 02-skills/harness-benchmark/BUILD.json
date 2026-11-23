@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "agent_skill": {
+    "srcs": ["SKILL.md", "bench.py", "bench_ab.py", "bench_session.py", "transcript_metrics.py"],
+    "deps": ["mcp__metodo__bench_report", "mcp__metodo__job_status"]
+  },
+  "validate_skill_test": {},
+  "py_type_test": {},
+  "py_test": {
+    "cwd": "08-benchmark",
+    "modules": ["tests.test_skill_sync", "tests.test_transcript_metrics", "tests.test_bench_session", "tests.test_bench_ab"],
+    "inputs": ["08-benchmark/lib", "08-benchmark/bin/sync-skill.sh", "08-benchmark/tests"]
+  },
+  "eval_suite": {}
+}
