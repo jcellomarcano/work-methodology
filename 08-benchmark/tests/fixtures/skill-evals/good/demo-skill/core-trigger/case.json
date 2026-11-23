@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "skill": "demo-skill",
+  "tier": "core",
+  "expected_skills": ["demo-skill"]
+}

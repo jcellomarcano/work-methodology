@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "skill": "other-skill",
+  "tier": "smoke",
+  "expectations": ["The answer is one paragraph.", "The answer states a next step."]
+}

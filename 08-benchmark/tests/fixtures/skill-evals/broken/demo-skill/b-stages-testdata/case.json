@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "skill": "demo-skill",
+  "tier": "smoke",
+  "expected_skills": ["demo-skill"],
+  "setup": {"files": [{"from": "testdata/expected.txt", "to": "expected.txt"}]}
+}

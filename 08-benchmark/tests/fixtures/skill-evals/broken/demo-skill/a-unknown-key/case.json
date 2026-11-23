@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "skill": "demo-skill",
+  "tier": "fast",
+  "expected_skills": ["demo-skill"],
+  "retries": 3
+}

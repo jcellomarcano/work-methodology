@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "skill": "demo-skill",
+  "tier": "smoke",
+  "expected_skills": ["demo-skill"],
+  "setup": {
+    "files": [
+      {"from": "setup/notes.txt", "to": "notes.txt"},
+      {"from": "setup/src", "to": "src"}
+    ]
+  },
+  "forbidden_paths": ["secrets/**"],
+  "ablation_exempt_paths": ["notes.txt"],
+  "validators": ["validators/check_output.py"],
+  "expectations": ["The answer names the function that was changed."],
+  "max_turns": 8,
+  "timeout_seconds": 300,
+  "allowed_tools": ["Read", "Edit", "Skill"],
+  "runs": 1
+}
