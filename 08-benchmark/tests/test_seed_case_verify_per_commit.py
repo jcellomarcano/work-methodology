@@ -199,5 +199,71 @@ class Rules(ValidatorTest):
                            f"3 problems, rules broken: commit-missing ({DOCS}), verdict-changed ({ROUNDING}, {SUSPECT})")
 
 
+MOCKS = CASE / "mocks" / "metodo"
+SCRATCH_MARKS = ("/private/", "/var/", "/Users/", "tmp.")  # a path of the scratch kit the answers were taken on
+
+
+def staged_paths() -> set[str]:
+    """Every file the case stages, by the path the run sees it at."""
+    paths = set()
+    for entry in json.loads((CASE / "case.json").read_text(encoding="utf-8"))["setup"]["files"]:
+        source = CASE / entry["from"]
+        if source.is_file():
+            paths.add(entry["to"])
+        paths |= {f"{entry['to']}/{found.relative_to(source).as_posix()}" for found in source.rglob("*") if found.is_file()}
+    return paths
+
+
+def mock(tool: str) -> dict:
+    """What the mock of a tool answers: the whole file is the JSON text the kit's server answers."""
+    text = (MOCKS / f"{tool}.md").read_text(encoding="utf-8")
+    for mark in SCRATCH_MARKS:
+        assert mark not in text, f"{tool}.md holds {mark!r}: a path outside the workspace of the run"
+    return json.loads(text)
+
+
+def prompt_text() -> str:
+    return (CASE / "prompt.md").read_text(encoding="utf-8").lower()
+
+
+SUMMARY_FILE = next((CASE / "setup" / "out" / "verify").glob("*.json"))
+SUMMARY = json.loads(SUMMARY_FILE.read_text(encoding="utf-8"))
+
+
+class Mocks(unittest.TestCase):
+    """Each mock is the answer of the kit's server on the scenario: pinned to the answer key and the staged files."""
+
+    def test_the_mock_of_verify_commit_starts_the_battery_over_the_range_of_the_staged_summary(self):
+        started = mock("verify_commit")
+        self.assertEqual(sorted(started), ["log_path", "run_id", "status", "summary_candidates"])
+        self.assertEqual(started["status"], "running")
+        self.assertEqual(started["log_path"], f"out/jobs/{started['run_id']}/stdout.log")
+        # the server looks for the summary under the bare range and the battery saves it with the tip's short
+        # sha, so the name this answer gives is the name of no file: the mock keeps what the server answers
+        self.assertEqual(started["summary_candidates"], [f"out/verify/{SUMMARY['range']}.json"])
+        self.assertNotIn(started["summary_candidates"][0], staged_paths())
+
+    def test_the_mock_of_job_status_answers_the_verdict_lines_of_the_answer_key_and_no_summary(self):
+        done = mock("job_status")
+        self.assertEqual((done["run_id"], done["tool"], done["status"], done["exit_code"]),
+                         (mock("verify_commit")["run_id"], "verify_commit", "done", 1))
+        self.assertEqual((done["summary"], done["summary_path"]), (None, None))  # as the server answers this job
+        self.assertEqual([line for line in done["log_tail"] if line.startswith("-- ")],
+                         [f"-- {c['sha']} ({c['verdict']}): {c['subject']}" for c in COMMITS])
+        fails = sum(1 for c in COMMITS if c["verdict"] == "FAIL")
+        self.assertEqual(done["log_tail"][-2:], [f"output at: out/verify/{SUMMARY_FILE.name}", f"{fails} commit(s) FAILED"])
+        # the summary the log names and every log that summary names are where the run finds them
+        self.assertLessEqual({f"out/verify/{SUMMARY_FILE.name}"} | {c["log"] for c in SUMMARY["commits"]}, staged_paths())
+
+
+class Prompt(unittest.TestCase):
+    def test_the_prompt_asks_for_the_whole_job_and_names_no_skill_tool_or_validator(self):
+        for name in ("verify-per-commit", "verify_commit", "verify-commit", "job_status", "mcp__", "skill", "validator", "check_"):
+            self.assertNotIn(name, prompt_text())
+        for said in ("finished overnight", "its summary and the logs are under"):  # the battery is no longer handed over
+            self.assertNotIn(said, prompt_text())
+        self.assertIn("range-files.txt", staged_paths())  # what no tool answers stays a file
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -166,5 +166,85 @@ class Rules(ValidatorTest):
                            "5 problems, rules broken: median-missing (A, B), simulation-unstated, operator-missing (A, B)")
 
 
+MOCKS = CASE / "mocks" / "metodo"
+SCRATCH_MARKS = ("/private/", "/var/", "/Users/", "tmp.")  # a path of the scratch kit the answers were taken on
+
+
+def staged_paths() -> set[str]:
+    """Every file the case stages, by the path the run sees it at."""
+    paths = set()
+    for entry in json.loads((CASE / "case.json").read_text(encoding="utf-8"))["setup"]["files"]:
+        source = CASE / entry["from"]
+        if source.is_file():
+            paths.add(entry["to"])
+        paths |= {f"{entry['to']}/{found.relative_to(source).as_posix()}" for found in source.rglob("*") if found.is_file()}
+    return paths
+
+
+def mock(tool: str) -> dict:
+    """What the mock of a tool answers: the whole file is the JSON text the kit's server answers."""
+    text = (MOCKS / f"{tool}.md").read_text(encoding="utf-8")
+    for mark in SCRATCH_MARKS:
+        assert mark not in text, f"{tool}.md holds {mark!r}: a path outside the workspace of the run"
+    return json.loads(text)
+
+
+def prompt_text() -> str:
+    return (CASE / "prompt.md").read_text(encoding="utf-8").lower()
+
+
+KIT_TOOLS = ROOT.parent / "03-tools"
+STATIC = next((CASE / "setup" / "out" / "benchmark").glob("*.json"))
+STAGED = json.loads(STATIC.read_text(encoding="utf-8"))
+
+
+class Mocks(unittest.TestCase):
+    """Each mock is the answer of the kit's server on the scenario: pinned to the files the case stages."""
+
+    def test_the_mock_of_benchmark_release_starts_the_job_of_the_two_refs_of_the_arms(self):
+        started = mock("benchmark_release")
+        self.assertEqual(sorted(started), ["log_path", "run_id", "status", "summary_candidates"])
+        self.assertEqual(started["status"], "running")
+        self.assertEqual(started["log_path"], f"out/jobs/{started['run_id']}/stdout.log")
+        self.assertEqual(started["summary_candidates"], [f"out/benchmark/{STATIC.name}"])
+        self.assertIn(started["summary_candidates"][0], staged_paths())
+
+    def test_the_mock_of_job_status_answers_the_staged_static_benchmark(self):
+        done = mock("job_status")
+        self.assertEqual((done["run_id"], done["tool"], done["status"], done["exit_code"]),
+                         (mock("benchmark_release")["run_id"], "benchmark_release", "done", 0))
+        self.assertEqual(done["summary"], STAGED)
+        self.assertEqual((STAGED["ref_a"], STAGED["ref_b"]), (ARM_A["ref"], ARM_B["ref"]))  # the refs of the two arms
+        self.assertEqual(done["summary_path"], f"out/benchmark/{STATIC.name}")
+        self.assertEqual(done["log_tail"][-1], f"output at: {done['summary_path']} and .md")
+        self.assertLessEqual({done["summary_path"], done["summary_path"][:-len(".json")] + ".md"}, staged_paths())
+
+    def test_the_mock_of_domain_invariants_answers_the_candidate_as_the_static_benchmark_counted_it(self):
+        presence = mock("domain_invariants")
+        self.assertEqual((presence["repo_sha"], presence["tool_sha"], presence["tool_versions"], presence["repo_dirty"]),
+                         (STAGED["sha_b"], STAGED["tool_sha"], STAGED["tool_versions"], False))
+        self.assertEqual(presence["files_scanned"], STAGED["totals_delta"]["changed"]["totals.files_count"]["after"])
+        self.assertEqual({name: len(found["evidence"]) for name, found in presence["by_invariant"].items()},
+                         {name: row["after"] for name, row in STAGED["domain_invariants_delta"].items()})
+
+    def test_the_mock_of_change_card_extract_is_what_the_kit_answers_on_the_staged_card(self):
+        res = subprocess.run([sys.executable, str(KIT_TOOLS / "lib" / "change_card_validator.py"), "--config",
+                              str(KIT_TOOLS / "config" / "project.json"), "--extract", str(CASE / "setup" / "card.md")],
+                             capture_output=True, text=True, cwd=KIT_TOOLS)
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertEqual(mock("change_card_extract"), json.loads(res.stdout))
+        self.assertIn("card.md", staged_paths())  # the answer does not carry the card's text, so the card stays
+
+
+class Prompt(unittest.TestCase):
+    def test_the_prompt_asks_for_the_whole_job_and_names_no_skill_tool_or_validator(self):
+        for name in ("real-environment-minutes", "benchmark_release", "benchmark-release", "job_status", "domain_invariants",
+                     "change_card_extract", "mcp__", "skill", "validator", "check_"):
+            self.assertNotIn(name, prompt_text())
+        for said in ("the static benchmark is under", "work from those files"):  # the static side is no longer handed over
+            self.assertNotIn(said, prompt_text())
+        self.assertLessEqual({"bench/samples.csv", "bench/session-notes.md", "bench/summary.txt"}, staged_paths())
+
+
 if __name__ == "__main__":
     unittest.main()
