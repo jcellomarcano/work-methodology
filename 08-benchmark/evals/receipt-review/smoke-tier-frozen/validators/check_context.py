@@ -31,8 +31,12 @@ under it, up to a blank line or the next of the three labels, so a value laid ou
 counts. The tier a RISK line gives is the first tier name in its value: "high (the owner asked
 for low)" gives high, "low (the script said high)" gives low. Every RISK line is read, since a
 second one that lowers the tier changes it as much as the first. A lens is looked for by its name
-anywhere in the value of the first LENSES line. The tree is looked for by its first twelve
-characters in the value of the first RECEIPT line.
+anywhere in the value of the first LENSES line. The tree is looked for in the value of the first
+RECEIPT line, by any abbreviation of its id: a run of seven hex digits or more, git's usual short
+form, that stands on its own (no letter or digit on either side), that the id of the tree starts
+with and the id of the commit does not. The first twelve characters of the tree anywhere in that
+value count too, as before. The skill sets no length for the id. The commit is looked for by its
+first twelve characters, and only when the tree is not named.
 
 What it cannot see: whether the reasons beside the tier are the script's, a lens added to the
 four, a lower tier written in prose outside a RISK line, and anything of what the answer tells the
@@ -48,6 +52,8 @@ import sys
 LABELS = ("RISK", "LENSES", "RECEIPT")
 LABEL_LINE = re.compile(r"^[\s\-*#>`_|]*(?P<label>" + "|".join(LABELS) + r")[\s*_`]*:[\s*_`]*(?P<rest>.*)$", re.IGNORECASE)
 WORD = re.compile(r"[a-z]+")
+MIN_SHA_CHARS = 7  # the shortest abbreviation git prints by default
+SHA_TOKEN = re.compile(r"(?<![0-9a-z])[0-9a-f]{%d,40}(?![0-9a-z])" % MIN_SHA_CHARS)
 
 
 def values(text: str) -> dict[str, list[str]]:
@@ -64,6 +70,12 @@ def values(text: str) -> dict[str, list[str]]:
         elif open_value is not None:
             open_value.append(line)
     return {label: ["\n".join(lines) for lines in entries] for label, entries in found.items()}
+
+
+def names_tree(value: str, key: dict) -> bool:
+    """True when `value` holds an abbreviation of the tree's id that is not one of the commit's too."""
+    tree, commit = key["tree_sha"].casefold(), key["commit_sha"].casefold()
+    return any(tree.startswith(token) and not commit.startswith(token) for token in SHA_TOKEN.findall(value.casefold()))
 
 
 def broken_rules(text: str, key: dict) -> list[tuple[str, str]]:
@@ -91,7 +103,7 @@ def broken_rules(text: str, key: dict) -> list[tuple[str, str]]:
     tied = "the receipt is tied to the tree, not the commit"
     if not found["RECEIPT"]:
         broken.append(("receipt-line-missing", "no line starts with RECEIPT:"))
-    elif tree not in found["RECEIPT"][0]:
+    elif tree not in found["RECEIPT"][0] and not names_tree(found["RECEIPT"][0], key):
         if commit in found["RECEIPT"][0]:
             broken.append(("receipt-not-the-tree", f"the RECEIPT line names the commit {commit}, not the tree {tree}; {tied}"))
         else:

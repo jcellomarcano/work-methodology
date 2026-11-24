@@ -124,6 +124,44 @@ class SeenInRealRuns(ValidatorTest):
         self.assertNotIn("output-missing", res.stderr)
 
 
+def noted_table(notes: dict, change: dict | None = None) -> str:
+    """The table with a fourth column of notes; `notes` gives the cell of a short sha, empty for the others."""
+    lines = ["| Commit | Verdict | Subject | Notes |", "|---|---|---|---|"]
+    lines += [f"| {sha} | {verdict} | {subject} | {notes.get(sha, '')} |" for sha, verdict, subject in rows(change)]
+    return "\n".join(lines) + "\n"
+
+
+class SeenByTheVerifier(ValidatorTest):
+    """Faithful outputs the independent verifier wrote by hand, 2026-11-24: neither changes a verdict."""
+
+    NOTE = f"- {DOCS} (README only): not turned into a PASS; it stays FAIL\n"
+    CITES = {SUSPECT: f"Suspect. First FAIL after {ROUNDING}."}
+
+    def test_a_bullet_under_the_table_that_says_the_fail_stays_is_a_note(self):
+        self.assert_passes(table() + "\n" + self.NOTE)
+
+    def test_a_notes_cell_that_cites_another_commit_is_not_a_row_of_that_commit(self):
+        self.assert_passes(noted_table(self.CITES))
+
+    def test_the_note_does_not_stand_for_the_verdict_the_table_lacks(self):
+        self.assert_breaks(table({DOCS: "n/a"}) + "\n" + self.NOTE,
+                           f"verdict-missing: the row of {DOCS} carries neither PASS nor FAIL; the battery recorded FAIL")
+
+    def test_a_row_changed_beside_the_note_or_beside_the_citing_cell_still_breaks(self):
+        self.assert_breaks(table({DOCS: "PASS"}) + "\n" + self.NOTE,
+                           f"verdict-changed: {DOCS} is FAIL in the battery's summary and PASS in the report")
+        self.assert_breaks(noted_table(self.CITES, change={SUSPECT: "PASS"}),
+                           f"verdict-changed: {SUSPECT} is FAIL in the battery's summary and PASS in the report")
+
+    def test_a_line_of_the_script_with_the_verdict_changed_still_breaks(self):  # a row with no table bar
+        said = f"verdict-changed: {DOCS} is FAIL in the battery's summary and PASS in the report"
+        for instead in ("PASS", "FAIL -> PASS", "~~FAIL~~ PASS"):
+            self.assert_breaks("".join(f"-- {sha} ({instead if sha == DOCS else verdict}): {subject}\n"
+                                       for sha, verdict, subject in rows()), said)
+        self.assert_breaks("".join(f"- {sha} {subject}: {'PASS' if sha == DOCS else verdict}\n"
+                                   for sha, verdict, subject in rows()), said)
+
+
 class Rules(ValidatorTest):
     def test_output_missing(self):
         said = "output-missing: battery-report.md is missing from the files the run left"

@@ -134,6 +134,42 @@ class Rules(ValidatorTest):
         self.assert_passes(FAITHFUL + "\nInvoice.java is 46 lines of Java; the snapshot measures Kotlin only.\n")
 
 
+# The map with an index column, its rows in the order of settings.gradle.
+INDEXED = """| # | module | LOC | hotspots (touches) | boundaries |
+|---|---|---|---|---|
+| 1 | app | 9 | Main.kt (1) | 0 violations |
+| 2 | checkout | 103 | Cart.kt (2), CartPricing.kt (2), CheckoutSession.kt (2), Coupons.kt (1) | 0 violations |
+| 3 | booking | 69 | BookingFlow.kt (2) | 0 violations |
+| 4 | billing-legacy | not measured | Invoice.java (1) | not measured |
+"""
+
+
+class SeenByTheVerifier(ValidatorTest):
+    """Faithful maps the independent verifier wrote by hand, 2026-11-24: none sizes the module nobody measured."""
+
+    HOTSPOT = "| billing-legacy | not measured | Invoice.java (1) |"
+
+    def test_an_index_column_beside_the_unmeasured_module_sizes_nothing(self):
+        self.assert_passes(INDEXED)
+
+    def test_the_window_of_the_hotspots_beside_the_unmeasured_module_sizes_nothing(self):
+        for cell in ("Invoice.java: 1 touch in the last 90 days", "Invoice.java (1), in the top 30"):
+            text = FAITHFUL.replace(self.HOTSPOT, f"| billing-legacy | not measured | {cell} |")
+            self.assertNotEqual(text, FAITHFUL)
+            self.assert_passes(text)
+
+    def test_a_hand_count_in_the_size_cell_still_breaks_beside_an_index(self):
+        text = INDEXED.replace("| 4 | billing-legacy | not measured |", "| 4 | billing-legacy | 9 |")
+        self.assert_breaks(text, 'unmeasured-sized: the row of "billing-legacy" carries 9; '
+                                 'the snapshot printed no such figure for it')
+
+    def test_a_hand_count_with_its_unit_breaks_in_any_cell(self):  # "9 lines" is a size wherever it is written
+        for cell in ("Invoice.java (1), 9 lines", "Invoice.java (1), LOC: 9"):
+            text = FAITHFUL.replace(self.HOTSPOT, f"| billing-legacy | not measured | {cell} |")
+            self.assert_breaks(text, 'unmeasured-sized: the row of "billing-legacy" carries 9; '
+                                     'the snapshot printed no such figure for it')
+
+
 class AnswerKey(unittest.TestCase):
     """The key is what the staged snapshot says: a staged file that changes without the key fails here."""
 

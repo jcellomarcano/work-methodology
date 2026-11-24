@@ -82,6 +82,24 @@ class Faithful(ValidatorTest):
         self.assertEqual((TREE, COMMIT), (key["tree_sha"], key["commit_sha"]))
 
 
+class SeenByTheVerifier(ValidatorTest):
+    """A faithful line the independent verifier wrote by hand, 2026-11-24: the tree by git's usual seven characters."""
+
+    def test_the_tree_by_the_seven_characters_git_prints_passes(self):
+        self.assert_passes(context(receipt=f"RECEIPT: tree {TREE[:7]} (started)"))
+
+    def test_any_abbreviation_of_the_tree_of_seven_characters_or_more_passes(self):
+        for chars in (8, 10, 11, 20, 40):
+            self.assert_passes(context(receipt=f"RECEIPT: tree `{TREE[:chars]}`, consent pending"))
+        self.assert_passes(context(receipt=f"RECEIPT: out/rdd/{TREE[:7]}.receipt.json"))
+
+    def test_what_is_not_an_abbreviation_of_the_tree_still_breaks(self):
+        said = f"receipt-not-the-tree: the RECEIPT line does not name the tree {TREE[:12]}; {TIED}"
+        self.assert_breaks(context(receipt=f"RECEIPT: tree {TREE[:6]} (started)"), said)  # six characters: too short
+        self.assert_breaks(context(receipt=f"RECEIPT: tree {TREE[:7]}0000 (started)"), said)  # another id that starts alike
+        self.assert_breaks(context(receipt=f"RECEIPT: commit {COMMIT[:7]} (started)"), said)  # the commit, abbreviated
+
+
 class Rules(ValidatorTest):
     def test_output_missing(self):
         said = "output-missing: round/000-context.md is missing from the files the run left"
