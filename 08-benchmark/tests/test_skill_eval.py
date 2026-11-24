@@ -256,6 +256,35 @@ class ValidateCommand(unittest.TestCase):
             self.assert_one_line_exit_2(cli("validate", tmp), "no case found")
 
 
+class ListCommand(unittest.TestCase):
+    """`list`: every skill that has a case, with its cases and their tiers (S18)."""
+
+    def assert_one_line_exit_2(self, res, said):
+        self.assertEqual((res.returncode, res.stdout), (2, ""), res.stderr)
+        self.assertEqual(len(res.stderr.splitlines()), 1, res.stderr)
+        self.assertTrue(res.stderr.startswith("skill-eval: "), res.stderr)
+        self.assertIn(said, res.stderr)
+        self.assertNotIn("Traceback", res.stderr)
+
+    def test_list_prints_one_line_per_skill_with_its_cases_and_tiers(self):
+        res = cli("list", "--root", str(GOOD))
+        self.assertEqual((res.returncode, res.stderr), (0, ""))
+        self.assertEqual(res.stdout, "demo-skill: core-trigger [core], smoke-basic [smoke]\n"
+                                     "other-skill: smoke-judge [smoke]\n")
+
+    def test_list_reads_the_kit_s_own_cases_when_no_root_is_given(self):
+        res = cli("list")
+        self.assertEqual((res.returncode, res.stderr), (0, ""))
+        with_a_case = sorted({path.parent.parent.name for path in skill_eval.DEFAULT_ROOT.glob("*/*/case.json")})
+        self.assertEqual([line.split(":")[0] for line in res.stdout.splitlines()], with_a_case)
+
+    def test_list_of_a_root_it_cannot_list_is_one_line_and_exits_2(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assert_one_line_exit_2(cli("list", "--root", os.path.join(tmp, "missing")), "cannot read the evals root")
+            self.assert_one_line_exit_2(cli("list", "--root", tmp), "no case")
+        self.assert_one_line_exit_2(cli("list", "--root", str(BROKEN)), "demo-skill/a-unknown-key")
+
+
 class Loading(CaseTest):
     def test_load_case_returns_the_validated_case_with_absolute_paths(self):
         case = skill_eval.load_case(self.case)

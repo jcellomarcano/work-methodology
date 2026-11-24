@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Skill evals, the runner: one skill's package on Claude Code's own eval tool, scored by the kit.
 
-Usage (through lib/skill_eval.py, which owns the command line):
-    lib/skill_eval.py run    [--skill NAME ...] [--tier smoke|core|deep] [--root DIR] [--kit DIR]
+Usage (through lib/skill_eval.py, which owns the command line; bin/skill-eval.sh is its short form):
+    lib/skill_eval.py run    [SKILL ... | --all] [--skill NAME ...] [--tier smoke|core|deep] [--root DIR] [--kit DIR]
                              [--out DIR] [--runs N] [--model M] [--judge-model M]
                              [--max-cost-usd USD] [--no-cache] [--kit-mcp | --kit-plugin]
                              [--json FILE] [--real]

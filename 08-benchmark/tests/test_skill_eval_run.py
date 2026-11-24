@@ -179,6 +179,107 @@ class Plan(RunnerTest):
         self.assertNotIn("'notes.txt' matches no staged file", res.stdout)
 
 
+PLAN_OF_DEMO = ("demo-skill: 2 case(s), 2 to run, 0 cached; arms with, without; 8 native run(s); ceiling USD 0.50\n"
+                "  demo-skill/core-trigger [core]: to run, 3 run(s) per arm\n"
+                "  demo-skill/smoke-basic [smoke]: to run, 1 run(s) per arm\n"
+                "skill-eval: plan only: nothing was run and nothing was spent; a real run has a ceiling of USD 0.50 "
+                "(add --real to run it)\n")
+
+
+class Selection(RunnerTest):
+    """Which skills `run` takes: names as arguments, `--skill NAME`, `--all`, or none for every skill (S18)."""
+
+    def setUp(self):
+        super().setUp()
+        third = self.root / "third-skill"  # a third skill, so "exactly those" is not "every skill"
+        shutil.copytree(self.root / "other-skill", third)
+        case_json = third / "smoke-judge" / "case.json"
+        case_json.write_text(json.dumps({**json.loads(case_json.read_text()), "skill": "third-skill"}))
+
+    def plan(self, *args):
+        return self.cli("run", *args, *self.where())
+
+    def planned(self, res):
+        """The skills a plan names, in the order printed: one head line per skill, its cases indented under it."""
+        self.assert_clean(res, 0)
+        self.assertEqual(res.stderr, "")
+        self.assertIn("plan only: nothing was run and nothing was spent", res.stdout.splitlines()[-1])
+        self.assertEqual(self.calls(), [], "a plan must not start the tool")
+        return [line.split(":")[0] for line in res.stdout.splitlines() if not line.startswith((" ", "skill-eval:"))]
+
+    def assert_one_line_exit_2(self, res, said):
+        self.assertEqual((res.returncode, res.stdout), (2, ""), res.stderr)
+        self.assertEqual(len(res.stderr.splitlines()), 1, res.stderr)
+        self.assertTrue(res.stderr.startswith("skill-eval: "), res.stderr)
+        self.assertIn(said, res.stderr)
+        self.assertEqual(self.calls(), [])
+
+    def test_a_name_given_as_an_argument_plans_that_skill_only(self):
+        res = self.plan("demo-skill")
+        self.assertEqual(self.planned(res), ["demo-skill"])
+        self.assertEqual(res.stdout, PLAN_OF_DEMO)
+
+    def test_several_names_plan_exactly_those_skills(self):
+        self.assertEqual(self.planned(self.plan("third-skill", "demo-skill")), ["demo-skill", "third-skill"])
+
+    def test_names_given_as_arguments_and_with_the_skill_flag_are_joined(self):
+        self.assertEqual(self.planned(self.plan("third-skill", "--skill", "demo-skill")), ["demo-skill", "third-skill"])
+
+    def test_all_plans_every_skill_as_no_name_does(self):
+        res = self.plan("--all")
+        self.assertEqual(self.planned(res), ["demo-skill", "other-skill", "third-skill"])
+        self.assertEqual(res.stdout, self.plan().stdout)
+
+    def test_names_together_with_all_are_a_usage_error(self):
+        for args in (["demo-skill", "--all"], ["--all", "demo-skill", "other-skill"], ["--all", "--skill", "demo-skill"]):
+            with self.subTest(args=args):
+                self.assert_one_line_exit_2(self.plan(*args), "--all, not both")
+
+    def test_a_skill_named_twice_counts_once(self):
+        res = self.plan("demo-skill", "demo-skill", "--skill", "demo-skill")
+        self.assertEqual(self.planned(res), ["demo-skill"])
+        self.assertEqual(res.stdout, PLAN_OF_DEMO)
+
+    def test_a_named_skill_with_no_case_is_one_line_that_names_it(self):
+        self.assert_one_line_exit_2(self.plan("no-such-skill"), "'no-such-skill'")
+        self.assert_one_line_exit_2(self.plan("demo-skill", "no-such-skill"), "'no-such-skill'")
+
+    def test_a_name_given_as_an_argument_runs_for_real_only_with_real(self):
+        self.play(cases=BOTH_GOOD)
+        res = self.cli("run", "demo-skill", *self.where(), "--tier", "smoke", "--real")
+        self.assert_clean(res, 0)
+        self.assertEqual(len(self.calls()), 1)
+        self.assertEqual(self.statuses(), {"with": ["passed"], "without": ["passed"]})
+        self.assertFalse((self.out / "store" / "other-skill").exists())
+
+    # What the command already did, and still does.
+    def test_the_skill_flag_still_plans_only_the_skills_it_names(self):
+        res = self.plan("--skill", "demo-skill")
+        self.assertEqual(self.planned(res), ["demo-skill"])
+        self.assertEqual(res.stdout, PLAN_OF_DEMO)
+        self.assertEqual(self.planned(self.plan("--skill", "third-skill", "--skill", "demo-skill", "--skill", "demo-skill")),
+                         ["demo-skill", "third-skill"])
+
+    def test_run_with_no_name_still_plans_every_skill(self):
+        res = self.plan()
+        self.assertEqual(self.planned(res), ["demo-skill", "other-skill", "third-skill"])
+        self.assertIn("a real run has a ceiling of USD 1.50", res.stdout)
+
+    def test_run_on_an_evals_root_that_does_not_exist_is_still_one_line_and_exit_2(self):
+        shutil.rmtree(self.root)
+        self.assert_one_line_exit_2(self.plan(), "cannot read the evals root")
+        self.assert_one_line_exit_2(self.plan("--skill", "demo-skill"), "cannot read the evals root")
+
+    def test_report_still_takes_the_skill_flag_and_reports_every_skill_without_it(self):
+        heads = lambda res: [line.split(":")[0] for line in res.stdout.splitlines()[1:-1] if not line.startswith(" ")]
+        res = self.report()
+        self.assert_clean(res, 0)
+        self.assertEqual(heads(res), ["demo-skill"])
+        res = self.cli("report", *self.where())
+        self.assert_clean(res, 0)
+        self.assertEqual(heads(res), ["demo-skill", "other-skill", "third-skill"])
+
+
 class NativeSuite(RunnerTest):
     def setUp(self):
         super().setUp()

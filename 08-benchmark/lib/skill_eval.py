@@ -52,14 +52,22 @@ Functions the runner builds on:
                                          files and the skill's files: no mtime, no absolute path
 A CaseError is raised for a case that is not valid or a path that cannot be read.
 
-Usage:
+Usage (bin/skill-eval.sh is the short form: it passes its arguments to this file):
+    lib/skill_eval.py list [--root DIR]
     lib/skill_eval.py validate [ROOT]
-    lib/skill_eval.py run [--skill NAME ...] [--tier TIER] [--kit-mcp | --kit-plugin] [--real] ...
+    lib/skill_eval.py run [SKILL ... | --all] [--skill NAME ...] [--tier TIER] [--kit-mcp | --kit-plugin] [--real] ...
     lib/skill_eval.py report [--skill NAME ...] [--tier TIER] ...
+
+`list` prints one line per skill that has a case, sorted: `<skill>: <case> [<tier>], ...`.
+Exit 0; 2 a root that cannot be read, that holds no case, or that holds a case that is not valid.
 
 `validate` prints `<skill>/<case>: <problem>` lines, sorted, then one summary line.
 Exit 0 every case is valid; 1 any problem; 2 a usage error or an unreadable path, as one
 `skill-eval:` line on stderr.
+
+`run` takes the skills to evaluate as arguments, with `--skill NAME`, or both; a skill named twice
+counts once. `--all` is every skill that has a case, and so is no name at all. Skills named
+together with `--all` are a usage error (exit 2).
 
 `run` and `report` live in lib/skill_eval_run.py, which documents their flags, the scoring and the
 verdict. `run` prints a plan and spends nothing unless `--real` is given; `report` never spends.
@@ -522,6 +530,18 @@ def cmd_validate(args) -> int:
     return 1 if lines else 0
 
 
+def cmd_list(args) -> int:
+    """One line per skill that has a case: its cases in folder order, each with its tier."""
+    groups: dict[str, list[str]] = {}
+    for case in iter_cases(args.root):
+        groups.setdefault(case["skill"], []).append(f"{case['name']} [{case['tier']}]")
+    if not groups:
+        raise CaseError(f"no case under {args.root} (a case is <skill>/<case>/case.json)")
+    for skill, cases in groups.items():
+        print(f"{skill}: {', '.join(cases)}")
+    return 0
+
+
 class _Parser(argparse.ArgumentParser):
     def error(self, message):  # argparse would print a usage block and exit; the contract is one line
         raise UsageError(message)
@@ -535,6 +555,15 @@ def _runner(name: str):
         import skill_eval_run
         return getattr(skill_eval_run, name)(args)
     return call
+
+
+def cmd_run(args) -> int:
+    """`run`: join the skills named as arguments with the ones `--skill` names, then hand over to the runner."""
+    named = (args.skill or []) + args.skills
+    if args.all and named:
+        raise UsageError(f"name the skills or pass --all, not both (named: {', '.join(sorted(set(named)))})")
+    args.skill = named or None  # none named, with --all or without it: every skill that has a case
+    return _runner("cmd_run")(args)
 
 
 def _above_zero(kind):
@@ -552,14 +581,23 @@ def _above_zero(kind):
 def main(argv: list[str] | None = None) -> int:
     parser = _Parser(prog="skill_eval.py", description="Skill evals: check, run and report the kit's eval cases.")
     commands = parser.add_subparsers(dest="command", metavar="COMMAND", required=True)
+    listing = commands.add_parser("list", help="one line per skill that has a case: its cases and their tiers")
+    listing.add_argument("--root", default=str(DEFAULT_ROOT), metavar="DIR",
+                         help="folder of <skill>/<case>/ folders (default: the kit's 08-benchmark/evals)")
+    listing.set_defaults(run=cmd_list)
     validate = commands.add_parser("validate", help="check every case under ROOT; exit 1 on any problem")
     validate.add_argument("root", nargs="?", default=str(DEFAULT_ROOT), metavar="ROOT",
                           help="folder of <skill>/<case>/ folders (default: the kit's 08-benchmark/evals)")
     validate.set_defaults(run=cmd_validate)
-    run = commands.add_parser("run", help="plan the evals of each skill; with --real, run them on `claude plugin eval`")
+    run = commands.add_parser("run", help="plan the evals of the named skills, or of every skill; with --real, run "
+                                          "them on `claude plugin eval`")
+    run.add_argument("skills", nargs="*", metavar="SKILL",
+                     help="a skill to evaluate (several may be named; none means every skill that has a case)")
+    run.add_argument("--all", action="store_true", help="every skill that has a case; not together with a named skill")
     report = commands.add_parser("report", help="the verdict per skill from the stored results; starts nothing")
     for command in (run, report):
-        command.add_argument("--skill", action="append", metavar="NAME", help="only this skill (repeatable)")
+        command.add_argument("--skill", action="append", metavar="NAME",
+                             help="only this skill (repeatable)" + ("; the same as naming it as SKILL" if command is run else ""))
         command.add_argument("--tier", choices=TIERS, help="only the cases of this tier (a native tag)")
         command.add_argument("--root", metavar="DIR", help="folder of <skill>/<case>/ folders (default: <kit>/08-benchmark/evals)")
         command.add_argument("--kit", metavar="DIR", help="the checkout whose 02-skills is evaluated (default: this one)")
@@ -581,13 +619,13 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--max-cost-usd", type=_above_zero(float), default=0.50, metavar="USD",
                      help="cost ceiling of each skill, shared by its two invocations when it runs with the kit's "
                           "MCP server (default: 0.50)")
-    run.set_defaults(run=_runner("cmd_run"))
+    run.set_defaults(run=cmd_run)
     report.set_defaults(run=_runner("cmd_report"))
     try:
         args = parser.parse_args(argv)
         return args.run(args)
     except UsageError as exc:
-        print(f"skill-eval: {_one_line(exc)} (usage: skill_eval.py validate [ROOT] | run [--kit-mcp | --kit-plugin] [--real] ... | report ...)",
+        print(f"skill-eval: {_one_line(exc)} (usage: skill_eval.py list | validate [ROOT] | run [SKILL ... | --all] [--kit-mcp | --kit-plugin] [--real] ... | report ...)",
               file=sys.stderr)
         return 2
     except CaseError as exc:

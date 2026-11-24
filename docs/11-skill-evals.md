@@ -51,10 +51,11 @@ Both seed cases, `post-review-comment/smoke-render` and `change-card/smoke-missi
 ## 4. The commands
 
 ```bash
-python3 08-benchmark/lib/skill_eval.py validate            # every case is valid
-python3 08-benchmark/lib/skill_eval.py run --tier smoke    # the plan and its ceiling
-python3 08-benchmark/lib/skill_eval.py run --skill change-card --kit-mcp --real --max-cost-usd 0.25
-python3 08-benchmark/lib/skill_eval.py report              # the verdicts from stored results
+08-benchmark/bin/skill-eval.sh list             # each skill, its cases and tiers
+08-benchmark/bin/skill-eval.sh validate         # every case is valid
+08-benchmark/bin/skill-eval.sh run change-card  # its plan; several names, or --all
+08-benchmark/bin/skill-eval.sh run change-card --kit-mcp --real --max-cost-usd 0.25
+08-benchmark/bin/skill-eval.sh report           # the verdicts from stored results
 ```
 
 - `--real` is the only flag that spends. It prints its ceiling first; the default is USD 0.50 per skill [Measured: `08-benchmark/lib/skill_eval_run.py`].
