@@ -1,0 +1,70 @@
+{
+  "saved_file": "round/004-routing.json",
+  "destinations": {
+    "mechanic": "generic-mechanic",
+    "judge": "generic-judge",
+    "owner": "the owner"
+  },
+  "routes": [
+    {
+      "path": "src/main/kotlin/billing/Ledger.kt",
+      "line": 5,
+      "verdict": "MAKE-SELF-EXPLANATORY",
+      "must": ["owner"],
+      "never": ["mechanic"],
+      "why": "a MAKE-SELF-EXPLANATORY on a critical path is escalated to the owner and never goes to generic-mechanic"
+    },
+    {
+      "path": "src/main/kotlin/export/RetryPolicy.kt",
+      "line": 3,
+      "verdict": "KDOC-INTERFACE",
+      "must": ["mechanic"],
+      "never": ["judge"],
+      "why": "a KDOC-INTERFACE with proposed_text goes to generic-mechanic"
+    },
+    {
+      "path": "src/main/kotlin/export/RetryPolicy.kt",
+      "line": 14,
+      "verdict": "UNNECESSARY",
+      "must": ["mechanic"],
+      "never": ["judge"],
+      "why": "an UNNECESSARY (delete) goes to generic-mechanic"
+    },
+    {
+      "path": "src/main/kotlin/export/RetryPolicy.kt",
+      "line": 16,
+      "verdict": "NECESSARY",
+      "must": ["mechanic"],
+      "never": ["judge"],
+      "why": "a NECESSARY with proposed_text goes to generic-mechanic"
+    },
+    {
+      "path": "src/main/kotlin/export/RetryPolicy.kt",
+      "line": 19,
+      "verdict": "MAKE-SELF-EXPLANATORY",
+      "must": ["judge"],
+      "never": ["mechanic"],
+      "why": "a MAKE-SELF-EXPLANATORY touches statements, so it goes to generic-judge and never to generic-mechanic"
+    },
+    {
+      "path": "src/main/kotlin/export/RetryPolicy.kt",
+      "line": 21,
+      "verdict": "NECESSARY",
+      "must": ["owner"],
+      "never": [],
+      "why": "a NEEDS-COMMENT the gate could not word (epistemic Unknown, no proposed_text) is escalated to the owner"
+    },
+    {
+      "path": "src/main/kotlin/export/RetryPolicy.kt",
+      "line": 25,
+      "verdict": "UNNECESSARY",
+      "must": ["mechanic"],
+      "never": ["judge"],
+      "why": "an UNNECESSARY (delete) goes to generic-mechanic"
+    }
+  ],
+  "sources": {
+    "src/main/kotlin/billing/Ledger.kt": "51647c6f5afb749adee7c3e8c2586c2e0bc642b1740940b0a61ca348bed823d5",
+    "src/main/kotlin/export/RetryPolicy.kt": "d9174992ec790b8b7c4922f0e04e450276a7c40a8be6156dc3ce7ee12692a7e1"
+  }
+}

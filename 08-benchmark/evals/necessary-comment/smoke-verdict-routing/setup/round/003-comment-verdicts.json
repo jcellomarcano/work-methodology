@@ -1,0 +1,68 @@
+{
+  "findings": [
+    {
+      "path": "src/main/kotlin/billing/Ledger.kt",
+      "line": 5,
+      "statement": "val d = (now - entries.first().dueAt) / 86_400_000L",
+      "verdict": "MAKE-SELF-EXPLANATORY",
+      "proposed_text": "rename d to daysPastDue and f to lateFeeCentsPerDay",
+      "rules": ["DOC-001", "ISO-24495-CODE-2"],
+      "epistemic": "Inferred"
+    },
+    {
+      "path": "src/main/kotlin/export/RetryPolicy.kt",
+      "line": 3,
+      "statement": "interface RetryPolicy {",
+      "verdict": "KDOC-INTERFACE",
+      "proposed_text": "Decides how long an export waits before it calls a partner again.",
+      "rules": ["DOC-002"],
+      "epistemic": "Measured"
+    },
+    {
+      "path": "src/main/kotlin/export/RetryPolicy.kt",
+      "line": 14,
+      "statement": "attempts += 1",
+      "verdict": "UNNECESSARY",
+      "proposed_text": null,
+      "rules": ["DOC-001"],
+      "epistemic": "Measured"
+    },
+    {
+      "path": "src/main/kotlin/export/RetryPolicy.kt",
+      "line": 16,
+      "statement": "val floor = 300L",
+      "verdict": "NECESSARY",
+      "proposed_text": "The partner bans a key for an hour after four calls inside one second (INC-031), so the wait never drops under 300 ms.",
+      "rules": ["DOC-001", "ISO-24495-CODE-1"],
+      "epistemic": "Measured"
+    },
+    {
+      "path": "src/main/kotlin/export/RetryPolicy.kt",
+      "line": 19,
+      "statement": "val wait = minOf(floor * (1L shl attempt), 30_000L)",
+      "verdict": "MAKE-SELF-EXPLANATORY",
+      "proposed_text": "extract doubledWait(attempt) and name the cap MAX_WAIT_MILLIS",
+      "rules": ["DOC-001", "ISO-24495-CODE-2"],
+      "epistemic": "Inferred"
+    },
+    {
+      "path": "src/main/kotlin/export/RetryPolicy.kt",
+      "line": 21,
+      "statement": "return wait + clock.millis() % 50",
+      "verdict": "NECESSARY",
+      "proposed_text": null,
+      "rules": ["DOC-001"],
+      "epistemic": "Unknown"
+    },
+    {
+      "path": "src/main/kotlin/export/RetryPolicy.kt",
+      "line": 25,
+      "statement": "fun reset() {",
+      "verdict": "UNNECESSARY",
+      "proposed_text": null,
+      "rules": ["DOC-001"],
+      "epistemic": "Measured"
+    }
+  ],
+  "pass": false
+}

@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "skill": "necessary-comment",
+  "tier": "smoke",
+  "expected_skills": [
+    "necessary-comment"
+  ],
+  "setup": {
+    "files": [
+      {
+        "from": "setup/round/002-comments.json",
+        "to": "round/002-comments.json"
+      },
+      {
+        "from": "setup/round/003-comment-verdicts.json",
+        "to": "round/003-comment-verdicts.json"
+      },
+      {
+        "from": "setup/config/project.json",
+        "to": "config/project.json"
+      },
+      {
+        "from": "setup/src/main/kotlin/export/RetryPolicy.kt",
+        "to": "src/main/kotlin/export/RetryPolicy.kt"
+      },
+      {
+        "from": "setup/src/main/kotlin/billing/Ledger.kt",
+        "to": "src/main/kotlin/billing/Ledger.kt"
+      }
+    ]
+  },
+  "validators": [
+    "validators/check_routing.py"
+  ],
+  "expectations": [
+    "The answer says the rename in src/main/kotlin/billing/Ledger.kt needs the owner (a decision or a sign-off) because that file is on a critical path.",
+    "The answer says the comment asked for at line 21 of RetryPolicy.kt has no wording from the review and is left to the owner.",
+    "The answer tells the owner that the change adds more than five new comments (the script counted 7) and that this is a sign the code does not explain itself."
+  ],
+  "max_turns": 10,
+  "timeout_seconds": 240,
+  "allowed_tools": [
+    "Read",
+    "Write",
+    "Skill"
+  ],
+  "runs": 1
+}

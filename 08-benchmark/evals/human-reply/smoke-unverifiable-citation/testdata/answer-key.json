@@ -1,0 +1,54 @@
+{
+  "saved_file": "reply-final.md",
+  "long_dash": "\u2014",
+  "measured_tags": [
+    "Measured",
+    "Tested",
+    "Medido",
+    "Probado"
+  ],
+  "staged_files": {
+    "src/export/retry.py": {
+      "lines": 24
+    }
+  },
+  "technical_headings": [
+    "## detalle t\u00e9cnico",
+    "## technical detail"
+  ],
+  "epistemic_tags": [
+    "Medido",
+    "Measured",
+    "Probado",
+    "Tested",
+    "Inferido",
+    "Inferred",
+    "Asumido",
+    "Assumed",
+    "Desconocido",
+    "Unknown"
+  ],
+  "untagged_markers": [
+    "no probado:",
+    "no se prob\u00f3:",
+    "lo que no se prob\u00f3:",
+    "lo que no es:",
+    "no medido:",
+    "lo que no se midi\u00f3:",
+    "not tested:",
+    "what was not tested:",
+    "what it is not:",
+    "not measured:",
+    "what was not measured:",
+    "siguiente paso:",
+    "siguientes pasos:",
+    "next step:",
+    "next steps:",
+    "necesito de ti:",
+    "i need from you:",
+    "qu\u00e9 necesito de ti:",
+    "what i need from you:",
+    "decisi\u00f3n pendiente:",
+    "decision needed:"
+  ]
+}

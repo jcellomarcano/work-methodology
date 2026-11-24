@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "skill": "human-reply",
+  "tier": "smoke",
+  "expected_skills": [
+    "human-reply"
+  ],
+  "setup": {
+    "files": [
+      {
+        "from": "setup/reply.md",
+        "to": "reply.md"
+      },
+      {
+        "from": "setup/src/export/retry.py",
+        "to": "src/export/retry.py"
+      }
+    ]
+  },
+  "validators": [
+    "validators/check_final_reply.py"
+  ],
+  "expectations": [
+    "The answer says the citation of line 88 of src/export/retry.py could not be confirmed (the file has no such line, or the reference was not verified) and says what was done about it: the line was corrected, or that claim no longer carries the Measured tag.",
+    "The answer reports what a check of the saved reply returned, not only what was reworded: the verdict of the form lint (PASS, WARN or FAIL) and the result of the citation check."
+  ],
+  "max_turns": 14,
+  "timeout_seconds": 240,
+  "allowed_tools": [
+    "Read",
+    "Write",
+    "Skill"
+  ],
+  "runs": 1
+}

@@ -1,0 +1,130 @@
+{
+  "comments": [
+    {
+      "action_tags": [],
+      "flags": [],
+      "inline": false,
+      "kdoc_candidate": true,
+      "kind": "line",
+      "line": 5,
+      "max_sentence_words": 18,
+      "path": "src/main/kotlin/billing/Ledger.kt",
+      "sentences": 1,
+      "statement": "val d = (now - entries.first().dueAt) / 86_400_000L",
+      "text": "d is the number of days past due and f is the late fee in cents per day",
+      "words": 18
+    },
+    {
+      "action_tags": [],
+      "block_tags": [],
+      "empty_block_tags": [],
+      "flags": [
+        "kdoc_banned_opener",
+        "restates_code"
+      ],
+      "inline": false,
+      "kdoc_candidate": true,
+      "kind": "kdoc",
+      "line": 3,
+      "max_sentence_words": 9,
+      "path": "src/main/kotlin/export/RetryPolicy.kt",
+      "sentences": 1,
+      "statement": "interface RetryPolicy {",
+      "summary": "This interface is the retry policy of an export.",
+      "text": "This interface is the retry policy of an export.",
+      "words": 9
+    },
+    {
+      "action_tags": [],
+      "flags": [],
+      "inline": false,
+      "kdoc_candidate": false,
+      "kind": "line",
+      "line": 14,
+      "max_sentence_words": 4,
+      "path": "src/main/kotlin/export/RetryPolicy.kt",
+      "sentences": 1,
+      "statement": "attempts += 1",
+      "text": "increment the attempt counter",
+      "words": 4
+    },
+    {
+      "action_tags": [],
+      "flags": [],
+      "inline": false,
+      "kdoc_candidate": true,
+      "kind": "line",
+      "line": 16,
+      "max_sentence_words": 30,
+      "path": "src/main/kotlin/export/RetryPolicy.kt",
+      "sentences": 1,
+      "statement": "val floor = 300L",
+      "text": "The partner bans a key for an hour after four calls inside one second, and we saw that happen twice in March, so the wait never drops under 300 ms.",
+      "words": 30
+    },
+    {
+      "action_tags": [],
+      "flags": [],
+      "inline": false,
+      "kdoc_candidate": true,
+      "kind": "line",
+      "line": 19,
+      "max_sentence_words": 12,
+      "path": "src/main/kotlin/export/RetryPolicy.kt",
+      "sentences": 1,
+      "statement": "val wait = minOf(floor * (1L shl attempt), 30_000L)",
+      "text": "1 shl attempt doubles the wait each time, capped at 30 seconds",
+      "words": 12
+    },
+    {
+      "action_tags": [],
+      "flags": [],
+      "inline": false,
+      "kdoc_candidate": false,
+      "kind": "marker",
+      "line": 21,
+      "max_sentence_words": 13,
+      "path": "src/main/kotlin/export/RetryPolicy.kt",
+      "sentences": 1,
+      "statement": "return wait + clock.millis() % 50",
+      "text": "NEEDS-COMMENT: why the jitter comes from the clock and not from Random",
+      "words": 13
+    },
+    {
+      "action_tags": [],
+      "flags": [
+        "narrates_diff"
+      ],
+      "inline": false,
+      "kdoc_candidate": true,
+      "kind": "line",
+      "line": 25,
+      "max_sentence_words": 6,
+      "path": "src/main/kotlin/export/RetryPolicy.kt",
+      "sentences": 1,
+      "statement": "fun reset() {",
+      "text": "Removed the old linear backoff here.",
+      "words": 6
+    }
+  ],
+  "range": "HEAD~1..HEAD",
+  "repo_dirty": false,
+  "repo_sha": "fde4684ed86a6bfa77e7a88c27aee3028a9d0914",
+  "schema_version": "1.0.0",
+  "summary": {
+    "action_tags": 0,
+    "flagged": 2,
+    "kdoc": 1,
+    "kdoc_flagged": 1,
+    "markers": 1,
+    "total": 7
+  },
+  "tool_sha": "870fba1338994fd149832ce257bde5e66671eb71",
+  "tool_versions": {
+    "detekt": "1.23.8",
+    "java": "21.0.12",
+    "ktlint": "1.8.0",
+    "pmd": "7.27.0",
+    "python": "3.11.9"
+  }
+}

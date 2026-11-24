@@ -1,0 +1,146 @@
+{
+  "allow": [],
+  "audience": "public",
+  "config_sha": "d80ef498bac1",
+  "lang": "en",
+  "layers": {
+    "code_fence_lines": 0,
+    "human_lines": 9,
+    "technical_heading": true,
+    "technical_lines": 2
+  },
+  "rules": [
+    {
+      "detector": "script",
+      "evidence": [],
+      "id": "COM-01",
+      "status": "PASS"
+    },
+    {
+      "detector": "script",
+      "evidence": [],
+      "id": "COM-02",
+      "status": "PASS"
+    },
+    {
+      "detector": "script",
+      "evidence": [],
+      "id": "COM-03",
+      "status": "PASS"
+    },
+    {
+      "detector": "script",
+      "evidence": [],
+      "id": "COM-04",
+      "note": "not required for pregunta",
+      "status": "SKIP"
+    },
+    {
+      "detector": "script",
+      "evidence": [],
+      "id": "COM-05",
+      "status": "PASS"
+    },
+    {
+      "detector": "script",
+      "evidence": [],
+      "id": "COM-06",
+      "status": "PASS"
+    },
+    {
+      "detector": "reviewer",
+      "evidence": [],
+      "id": "COM-07",
+      "note": "plain words; technical term defined once",
+      "status": "SKIP"
+    },
+    {
+      "detector": "script",
+      "evidence": [],
+      "id": "COM-08",
+      "note": "stopwords ca=1 de=2 en=58 es=0",
+      "status": "PASS"
+    },
+    {
+      "detector": "script",
+      "evidence": [],
+      "id": "COM-09",
+      "status": "PASS"
+    },
+    {
+      "detector": "script",
+      "evidence": [],
+      "id": "COM-10",
+      "note": "not required for pregunta",
+      "status": "SKIP"
+    },
+    {
+      "detector": "script",
+      "evidence": [],
+      "id": "COM-11",
+      "status": "PASS"
+    },
+    {
+      "detector": "script",
+      "evidence": [],
+      "id": "COM-12",
+      "status": "PASS"
+    },
+    {
+      "detector": "reviewer",
+      "evidence": [],
+      "id": "COM-13",
+      "note": "one explicit analogy at a time, familiar base",
+      "status": "SKIP"
+    },
+    {
+      "detector": "script",
+      "evidence": [],
+      "id": "COM-14",
+      "note": "no list of personal terms (--personal): not checked",
+      "status": "SKIP"
+    },
+    {
+      "detector": "script",
+      "evidence": [],
+      "id": "COM-15",
+      "status": "PASS"
+    },
+    {
+      "detector": "reviewer",
+      "evidence": [],
+      "id": "COM-16",
+      "note": "list only for discrete items or steps",
+      "status": "SKIP"
+    },
+    {
+      "detector": "reviewer",
+      "evidence": [],
+      "id": "COM-17",
+      "note": "dependent things, kept together",
+      "status": "SKIP"
+    },
+    {
+      "detector": "script",
+      "evidence": [],
+      "id": "COM-18",
+      "status": "PASS"
+    },
+    {
+      "detector": "script",
+      "evidence": [],
+      "id": "COM-20",
+      "note": "no done claim",
+      "status": "SKIP"
+    }
+  ],
+  "summary": {
+    "FAIL": 0,
+    "PASS": 11,
+    "SKIP": 8,
+    "WARN": 0
+  },
+  "tool_sha": "f137f7983869",
+  "type": "pregunta",
+  "verdict": "PASS"
+}

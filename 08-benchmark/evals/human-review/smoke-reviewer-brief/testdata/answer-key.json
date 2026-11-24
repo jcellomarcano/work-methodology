@@ -1,0 +1,45 @@
+{
+  "saved_file": "round/004-brief.md",
+  "role": "generic-human-reviewer",
+  "brief_fields": [
+    "ROLE",
+    "OBJECTIVE",
+    "SPECS",
+    "ACCEPTANCE",
+    "INPUTS",
+    "SCOPE",
+    "ALREADY READ",
+    "CONSTRAINTS",
+    "OUTPUT",
+    "STOP",
+    "BUDGET",
+    "EVIDENCE"
+  ],
+  "fields_the_skill_fills": [
+    "INPUTS",
+    "CONSTRAINTS",
+    "OUTPUT",
+    "BUDGET"
+  ],
+  "inputs": [
+    "round/003-reply.md",
+    "rules.md"
+  ],
+  "rules": [
+    "COM-07",
+    "COM-12",
+    "COM-13",
+    "COM-16",
+    "COM-17"
+  ],
+  "reader": "public",
+  "output_dir": "round",
+  "budget": {
+    "tokens": 15000,
+    "calls": 10
+  },
+  "reply": {
+    "path": "round/003-reply.md",
+    "sha256": "33083903d1d8ccaf3e5d91833381fccb3a37870eb4d84efc7790041ceead20ce"
+  }
+}

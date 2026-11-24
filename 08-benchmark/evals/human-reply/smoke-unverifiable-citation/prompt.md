@@ -1,0 +1,1 @@
+Check reply.md before I send it to the client this afternoon: it answers their question about export retries. Fix what has to be fixed and save what goes out as reply-final.md. Then tell me what you changed and whether anything is left for me.

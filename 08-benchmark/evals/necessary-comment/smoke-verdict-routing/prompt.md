@@ -1,0 +1,1 @@
+The comment gate is back on the last change: the script's list is round/002-comments.json and the agent's verdicts are round/003-comment-verdicts.json. Take it from there and save who gets each comment as round/004-routing.json, one entry per comment with file, line and to (the role that gets it, or owner when it's mine). Then tell me what's mine.

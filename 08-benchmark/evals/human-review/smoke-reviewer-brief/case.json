@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "skill": "human-review",
+  "tier": "smoke",
+  "expected_skills": [
+    "human-review"
+  ],
+  "setup": {
+    "files": [
+      {
+        "from": "setup/round/003-reply.md",
+        "to": "round/003-reply.md"
+      },
+      {
+        "from": "setup/round/003-reply.lint.json",
+        "to": "round/003-reply.lint.json"
+      }
+    ]
+  },
+  "validators": [
+    "validators/check_reviewer_brief.py"
+  ],
+  "expectations": [
+    "The answer says the reviewer only returns findings tied to a rule, each with a short hint, and does not rewrite the reply: the fix is made by the reply's author.",
+    "The answer says that after a fix the reply is linted again, and that the matter comes to the owner when two passes end without a PASS.",
+    "The answer says the reviewer was not launched in this run: the brief is saved for the owner to launch."
+  ],
+  "max_turns": 10,
+  "timeout_seconds": 240,
+  "allowed_tools": [
+    "Read",
+    "Write",
+    "Skill"
+  ],
+  "runs": 1
+}
