@@ -1,0 +1,3989 @@
+{
+  "runner_version": 5,
+  "skills": [
+    {
+      "cached": 1,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "not invoked: adversarial-round",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_adversarial-round_metodo__change_card_validate",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "not invoked: adversarial-round",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "not invoked: adversarial-round",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_adversarial-round_metodo__output_validate",
+                  "mcp__plugin_adversarial-round_metodo__output_validate",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "not invoked: adversarial-round",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "not invoked: adversarial-round",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_round_status.py: exit 1: status-not-incomplete: \"NOT READY: blind-spot pass truncated; concurrent refunds on ...\" names no status of a round; out/blindspots.json arrived truncated, so the round is INCOMPLETE",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Grep (error)",
+                  "Glob (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_round_status.py: exit 1: status-not-incomplete: \"OPEN\" names no status of a round; out/blindspots.json arrived truncated, so the round is INCOMPLETE",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Grep (error)",
+                  "Glob (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_round_status.py: exit 1: status-not-incomplete: \"NOT READY: blind-spot pass truncated; not covered: concurren...\" names no status of a round; out/blindspots.json arrived truncated, so the round is INCOMPLETE",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_round_status.py: exit 1: status-not-incomplete: \"OPEN\" names no status of a round; out/blindspots.json arrived truncated, so the round is INCOMPLETE",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_round_status.py: exit 1: status-not-incomplete: \"OPEN\" names no status of a round; out/blindspots.json arrived truncated, so the round is INCOMPLETE",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "adversarial-round/smoke-truncated-round",
+          "hash": "2e5f96d2a07af6a18595403e2190b13b4cf719f76cacd43fd7f98793b9f79bf1",
+          "state": "cached",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package adversarial-round 1.0.0, invoked as adversarial-round:adversarial-round"
+      ],
+      "reasons": [
+        "it does not trigger when it should (look at the description)"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 904,
+      "skill": "adversarial-round",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 5,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 5
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": null,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.008434200000000001,
+        "judge_uncounted_usd": 0.0175304,
+        "judge_usd": 0.0175304,
+        "mcp_calls": 3,
+        "mcp_calls_without": 0,
+        "mcp_served": 1,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.05522628,
+        "triggered": 0,
+        "validated": 0,
+        "with_score": null,
+        "without_score": 0.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "review",
+      "without_arm": [
+        "the same plugin with only skills/adversarial-round/ removed, in a second invocation of the tool: its MCP server and tools stay; 0 call(s) to its tools in the runs without the skill"
+      ]
+    },
+    {
+      "cached": 1,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Write"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Glob (error)",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "Write",
+                  "Edit"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Grep",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Grep (error)",
+                  "ToolSearch",
+                  "Read (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "Grep (error)",
+                  "Glob",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob (error)",
+                  "Grep",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "Grep (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "benchmark-release/smoke-base-is-the-tag",
+          "hash": "2a45a4e6ba0b6fec094d9ff76ccb69964bb1a6c6f4f941bbbd10b1a5874a666a",
+          "state": "cached",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package benchmark-release 1.0.0, invoked as benchmark-release:benchmark-release"
+      ],
+      "reasons": [
+        "it triggers and changes nothing (dead weight: cut or shrink)"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 368,
+      "skill": "benchmark-release",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 5,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 5,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": 0.0,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0,
+        "judge_uncounted_usd": 0.0,
+        "judge_usd": 0.007955900000000002,
+        "mcp_calls": 0,
+        "mcp_calls_without": 0,
+        "mcp_served": 1,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.08984829999999999,
+        "triggered": 5,
+        "validated": 5,
+        "with_score": 1.0,
+        "without_score": 1.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "review",
+      "without_arm": [
+        "the same plugin with only skills/benchmark-release/ removed, in a second invocation of the tool: its MCP server and tools stay; 0 call(s) to its tools in the runs without the skill"
+      ]
+    },
+    {
+      "cached": 1,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_cartography_metodo__cartography",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_cartography_metodo__cartography",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write",
+                  "Edit"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_cartography_metodo__cartography",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Grep",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_cartography_metodo__cartography",
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_cartography_metodo__cartography",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Bash (error)",
+                  "Read",
+                  "Write"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_module_map.py: exit 1: broken rules: unmeasured-sized, number-not-printed",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "ToolSearch",
+                  "Read",
+                  "mcp__plugin_cartography_metodo__cartography",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Grep",
+                  "Glob",
+                  "Glob",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_module_map.py: exit 1: broken rules: unmeasured-sized, number-not-printed",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash (error)",
+                  "ToolSearch",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "mcp__plugin_cartography_metodo__cartography",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Grep",
+                  "Read",
+                  "Grep",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_module_map.py: exit 1: broken rules: unmeasured-sized, number-not-printed",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "ToolSearch",
+                  "mcp__plugin_cartography_metodo__cartography",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_module_map.py: exit 1: broken rules: unmeasured-sized, number-not-printed",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "ToolSearch",
+                  "mcp__plugin_cartography_metodo__cartography",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Grep",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write",
+                  "Edit"
+                ]
+              },
+              {
+                "detail": "validators/check_module_map.py: exit 1: broken rules: unmeasured-sized, number-not-printed",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "ToolSearch",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "mcp__plugin_cartography_metodo__cartography",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read (error)",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "cartography/smoke-unmeasured-module",
+          "hash": "720ef6177e814a4d23504ffa544a76e23af504235cfefa31b3ad5af9984f456f",
+          "state": "cached",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package cartography 1.0.0, invoked as cartography:cartography"
+      ],
+      "reasons": [
+        "it triggers and the result is better than without it"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 425,
+      "skill": "cartography",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 5,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 5
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": 1.0,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0,
+        "judge_uncounted_usd": 0.0032234,
+        "judge_usd": 0.006916899999999999,
+        "mcp_calls": 5,
+        "mcp_calls_without": 5,
+        "mcp_mocked": 1,
+        "mcp_served": 0,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.08466447,
+        "triggered": 5,
+        "validated": 5,
+        "with_score": 1.0,
+        "without_score": 0.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "works",
+      "without_arm": [
+        "the same plugin with only skills/cartography/ removed, in a second invocation of the tool: the mocked tools stay; 5 call(s) to its tools in the runs without the skill"
+      ]
+    },
+    {
+      "cached": 1,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Skill",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "mcp__plugin_change-card_metodo__change_card_extract",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Skill",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Skill",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "mcp__plugin_change-card_metodo__change_card_extract",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Skill",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "mcp__plugin_change-card_metodo__change_card_extract",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "rejected: expect-02",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "Glob",
+                  "Skill",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "mcp__plugin_change-card_metodo__change_card_extract",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_filled_card.py: exit 1: drafted-field-missing: \"How we'll know\" is absent or empty; it is the field a draft may fill",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "ToolSearch",
+                  "Read",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "Grep",
+                  "Grep (error)",
+                  "Grep",
+                  "mcp__plugin_change-card_metodo__change_card_extract",
+                  "mcp__plugin_change-card_metodo__role_contract_validate (error)",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "validators/check_filled_card.py: exit 1: never-filled: \"What it risks\" is in the file; only the author writes it",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Bash (error)",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "mcp__plugin_change-card_metodo__domain_invariants (error)",
+                  "mcp__plugin_change-card_metodo__change_card_extract",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "rejected: expect-03",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "Glob",
+                  "ToolSearch",
+                  "Read",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "Grep (error)",
+                  "mcp__plugin_change-card_metodo__change_card_extract",
+                  "Glob",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "validators/check_filled_card.py: exit 1: never-filled: \"What it risks\" is in the file; only the author writes it",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "mcp__plugin_change-card_metodo__domain_invariants (error)",
+                  "Grep (error)",
+                  "mcp__plugin_change-card_metodo__change_card_extract",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "validators/check_filled_card.py: exit 1: never-filled: \"What it risks\" is in the file; only the author writes it",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Glob",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "mcp__plugin_change-card_metodo__domain_invariants (error)",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              }
+            ]
+          },
+          "case": "change-card/smoke-missing-field",
+          "hash": "f173ec4ff02546a03a63e8b460a6a08adc63d06cf2af9214c176a003f05ca259",
+          "state": "cached",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package change-card 1.0.0, invoked as change-card:change-card"
+      ],
+      "reasons": [
+        "it triggers and the result is better than without it"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 385,
+      "skill": "change-card",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 1,
+            "not_triggered": 0,
+            "passed": 4,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 1,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 4
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": 0.8,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0,
+        "judge_uncounted_usd": 0.004160200000000001,
+        "judge_usd": 0.009714200000000003,
+        "mcp_calls": 14,
+        "mcp_calls_without": 14,
+        "mcp_served": 1,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.05951324000000001,
+        "triggered": 5,
+        "validated": 5,
+        "with_score": 0.8,
+        "without_score": 0.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "works",
+      "without_arm": [
+        "the same plugin with only skills/change-card/ removed, in a second invocation of the tool: its MCP server and tools stay; 14 call(s) to its tools in the runs without the skill"
+      ]
+    },
+    {
+      "cached": 1,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_clean-pass_metodo__clean_pass",
+                  "Glob",
+                  "Grep",
+                  "Read",
+                  "Grep",
+                  "Grep",
+                  "Glob",
+                  "Write",
+                  "Edit"
+                ]
+              },
+              {
+                "detail": "validators/check_cards.py: exit 1: broken rules: critical-item-carded, unflagged-item",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_clean-pass_metodo__clean_pass",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "ToolSearch",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "rejected: expect-02",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_clean-pass_metodo__clean_pass",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "ToolSearch",
+                  "Grep",
+                  "Grep",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_clean-pass_metodo__clean_pass",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "Glob",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "rejected: expect-01",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_clean-pass_metodo__clean_pass",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "ToolSearch",
+                  "Grep",
+                  "Grep",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Write",
+                  "Edit"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_cards.py: exit 1: broken rules: critical-item-carded, unflagged-item",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "ToolSearch",
+                  "mcp__plugin_clean-pass_metodo__clean_pass",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Grep",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_cards.py: exit 1: broken rules: critical-item-carded, unflagged-item",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash (error)",
+                  "ToolSearch",
+                  "mcp__plugin_clean-pass_metodo__clean_pass",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Write",
+                  "Edit"
+                ]
+              },
+              {
+                "detail": "validators/check_cards.py: exit 1: broken rules: critical-item-carded, unflagged-item",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash (error)",
+                  "ToolSearch",
+                  "Glob",
+                  "Grep",
+                  "mcp__plugin_clean-pass_metodo__clean_pass",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Grep",
+                  "Glob",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_cards.py: exit 1: broken rules: critical-item-carded, unflagged-item",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "ToolSearch",
+                  "mcp__plugin_clean-pass_metodo__clean_pass",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Grep",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_cards.py: exit 1: broken rules: critical-item-carded, unflagged-item",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "ToolSearch",
+                  "mcp__plugin_clean-pass_metodo__clean_pass",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Grep",
+                  "Read",
+                  "Grep",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "clean-pass/smoke-unflagged-item",
+          "hash": "ae8251c592ab0edf220a9e6299e00e6ecc1d2667b6f3bb9ca10809458f7cac22",
+          "state": "cached",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package clean-pass 1.0.0, invoked as clean-pass:clean-pass"
+      ],
+      "reasons": [
+        "the judge rejects it"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 337,
+      "skill": "clean-pass",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 2,
+            "not_triggered": 0,
+            "passed": 2,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 1
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 5
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": 0.4,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0,
+        "judge_uncounted_usd": 0.0048722,
+        "judge_usd": 0.007606199999999999,
+        "mcp_absent": {
+          "cases": 1,
+          "tools": [
+            "change_card_validate"
+          ]
+        },
+        "mcp_calls": 5,
+        "mcp_calls_without": 5,
+        "mcp_mocked": 1,
+        "mcp_served": 0,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.08665934,
+        "triggered": 5,
+        "validated": 4,
+        "with_score": 0.4,
+        "without_score": 0.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "review",
+      "without_arm": [
+        "the same plugin with only skills/clean-pass/ removed, in a second invocation of the tool: the mocked tools stay; 5 call(s) to its tools in the runs without the skill"
+      ]
+    },
+    {
+      "cached": 1,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "validators/check_summary.py: exit 1: number-not-in-report: 2.3, 0.50, 1.01, 0.44, 0.57 and 4 more are not numbers run/report.md prints; a summary relays its numbers, it does not recompute or round them",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Skill",
+                  "Glob",
+                  "Bash (error)",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_summary.py: exit 1: number-not-in-report: 0.57, 0.569, 0.52, 0.61, 1.01 and 4 more are not numbers run/report.md prints; a summary relays its numbers, it does not recompute or round them",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Skill",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_summary.py: exit 1: 2 rules broken: invalid-arm-dropped, number-not-in-report",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Skill",
+                  "Glob",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_summary.py: exit 1: number-not-in-report: 0.57, 0.52, 0.61 are not numbers run/report.md prints; a summary relays its numbers, it does not recompute or round them",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Skill",
+                  "Read",
+                  "Glob",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_summary.py: exit 1: number-not-in-report: 2.3, 0.50, 0.44, 1.01, 0.57 and 4 more are not numbers run/report.md prints; a summary relays its numbers, it does not recompute or round them",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Skill",
+                  "Read",
+                  "Write"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_summary.py: exit 1: 2 rules broken: invalid-arm-dropped, number-not-in-report",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Glob",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_summary.py: exit 1: number-not-in-report: 0.50, 1.01, 0.44, 2.3, 0.57 and 4 more are not numbers run/report.md prints; a summary relays its numbers, it does not recompute or round them",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Glob",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_summary.py: exit 1: 2 rules broken: invalid-arm-dropped, number-not-in-report",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_summary.py: exit 1: 2 rules broken: invalid-arm-dropped, number-not-in-report",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_summary.py: exit 1: 2 rules broken: invalid-arm-dropped, number-not-in-report",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "harness-benchmark/smoke-one-run-report",
+          "hash": "fc0974d002e508dc300fc1380f95146e8d7abb2f96ac30050cc35eaae7262a06",
+          "state": "cached",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package harness-benchmark 1.0.0, invoked as harness-benchmark:harness-benchmark"
+      ],
+      "reasons": [
+        "its output fails a validator"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 30630,
+      "skill": "harness-benchmark",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 5
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 5
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": 0.0,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0,
+        "judge_uncounted_usd": 0.015965,
+        "judge_usd": 0.015965,
+        "mcp_calls": 0,
+        "mcp_calls_without": 0,
+        "mcp_served": 1,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.061327139999999995,
+        "triggered": 5,
+        "validated": 0,
+        "with_score": 0.0,
+        "without_score": 0.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "review",
+      "without_arm": [
+        "the same plugin with only skills/harness-benchmark/ removed, in a second invocation of the tool: its MCP server and tools stay; 0 call(s) to its tools in the runs without the skill"
+      ]
+    },
+    {
+      "cached": 1,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Skill",
+                  "Read",
+                  "Glob",
+                  "ToolSearch",
+                  "mcp__plugin_human-reply_metodo__reply_lint",
+                  "Read",
+                  "Write",
+                  "mcp__plugin_human-reply_metodo__reply_lint",
+                  "Bash (error)"
+                ]
+              },
+              {
+                "detail": "rejected: expect-02",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "Glob",
+                  "Skill",
+                  "Read",
+                  "Glob",
+                  "ToolSearch",
+                  "mcp__plugin_human-reply_metodo__reply_lint",
+                  "Read",
+                  "Grep (error)",
+                  "Glob",
+                  "Write",
+                  "mcp__plugin_human-reply_metodo__reply_lint",
+                  "Edit",
+                  "mcp__plugin_human-reply_metodo__reply_lint",
+                  "Edit",
+                  "mcp__plugin_human-reply_metodo__reply_lint"
+                ]
+              },
+              {
+                "detail": "validators/check_final_reply.py: exit 1: untagged-claim: line 8 of the technical layer carries no epistemic tag; COM-09 fails it and nothing ships with FAIL",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Skill",
+                  "Glob",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_human-reply_metodo__reply_lint",
+                  "Glob",
+                  "Grep",
+                  "Read",
+                  "Grep",
+                  "Glob",
+                  "Write",
+                  "mcp__plugin_human-reply_metodo__reply_lint",
+                  "Edit",
+                  "mcp__plugin_human-reply_metodo__reply_lint",
+                  "Edit",
+                  "mcp__plugin_human-reply_metodo__reply_lint",
+                  "Edit",
+                  "mcp__plugin_human-reply_metodo__reply_lint"
+                ]
+              },
+              {
+                "detail": "rejected: expect-02",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "Glob",
+                  "Skill",
+                  "Read",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read (error)",
+                  "Grep",
+                  "Write",
+                  "ToolSearch",
+                  "mcp__plugin_human-reply_metodo__reply_lint",
+                  "Glob (error)",
+                  "mcp__plugin_human-reply_metodo__reply_lint"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Skill",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_human-reply_metodo__reply_lint",
+                  "Glob",
+                  "Grep",
+                  "Read",
+                  "Read (error)",
+                  "Write",
+                  "mcp__plugin_human-reply_metodo__reply_lint",
+                  "Bash (error)"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_final_reply.py: exit 1: 3 rules broken: untagged-claim, untagged-claim, untagged-claim",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Grep",
+                  "Glob",
+                  "Grep",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "rejected: expect-02",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "Glob",
+                  "Grep (error)",
+                  "Read",
+                  "Glob",
+                  "Read",
+                  "Grep",
+                  "Glob",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "rejected: expect-02",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Glob",
+                  "Read",
+                  "Read (error)",
+                  "Grep",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "rejected: expect-02",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Glob",
+                  "Read",
+                  "Read (error)",
+                  "Grep",
+                  "Glob",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_final_reply.py: exit 1: 2 rules broken: untagged-claim, untagged-claim",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Glob",
+                  "Read",
+                  "Glob",
+                  "Grep",
+                  "Glob",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "human-reply/smoke-unverifiable-citation",
+          "hash": "ace3dbe538bc9f4efbb8eb04496481e732f8e6354a22bffef3f14da1612880ca",
+          "state": "cached",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package human-reply 1.0.0, invoked as human-reply:human-reply"
+      ],
+      "reasons": [
+        "the judge rejects it"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 896,
+      "skill": "human-reply",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 2,
+            "not_triggered": 0,
+            "passed": 2,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 1
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 3,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 2
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": 0.4,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0,
+        "judge_uncounted_usd": 0.0025625000000000005,
+        "judge_usd": 0.0085784,
+        "mcp_calls": 15,
+        "mcp_calls_without": 0,
+        "mcp_served": 1,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.07736975000000001,
+        "triggered": 5,
+        "validated": 4,
+        "with_score": 0.4,
+        "without_score": 0.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "review",
+      "without_arm": [
+        "the same plugin with only skills/human-reply/ removed, in a second invocation of the tool: its MCP server and tools stay; 0 call(s) to its tools in the runs without the skill"
+      ]
+    },
+    {
+      "cached": 1,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Glob (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Read (error)",
+                  "Read (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Skill",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Read (error)",
+                  "Read (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "rejected: expect-01, expect-03",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Skill",
+                  "Glob (error)",
+                  "Glob",
+                  "Read (error)",
+                  "Read (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Skill",
+                  "Read",
+                  "Read",
+                  "Glob (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "Write"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_reviewer_brief.py: exit 1: 4 rules broken: field-missing, field-missing, field-missing, role-missing",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Grep",
+                  "Glob",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_reviewer_brief.py: exit 1: 5 rules broken: field-missing, field-missing, field-missing, field-missing, role-missing",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_reviewer_brief.py: exit 1: 10 rules broken: field-missing, field-missing, field-missing, role-missing, rules-missing, rules-missing, rules-missing, rules-missing, rules-missing, reader-missing",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Grep",
+                  "Glob",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_reviewer_brief.py: exit 1: 5 rules broken: field-missing, field-missing, field-missing, field-missing, role-missing",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Grep",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_reviewer_brief.py: exit 1: 4 rules broken: field-missing, field-missing, field-missing, role-missing",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "human-review/smoke-reviewer-brief",
+          "hash": "14231ff2948701bc52fb8cf294485e2ed8205041a156e805aa10d8b33b2c24f3",
+          "state": "cached",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package human-review 1.0.0, invoked as human-review:human-review"
+      ],
+      "reasons": [
+        "it triggers and the result is better than without it"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 587,
+      "skill": "human-review",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 1,
+            "not_triggered": 0,
+            "passed": 4,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 5
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": 0.8,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0,
+        "judge_uncounted_usd": 0.008789499999999999,
+        "judge_usd": 0.015533299999999998,
+        "mcp_calls": 0,
+        "mcp_calls_without": 0,
+        "mcp_served": 0,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.07003703,
+        "triggered": 5,
+        "validated": 5,
+        "with_score": 0.8,
+        "without_score": 0.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "works",
+      "without_arm": [
+        "the tool's own ablation, which removes the whole plugin"
+      ]
+    },
+    {
+      "cached": 1,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Read (error)",
+                  "Glob",
+                  "Read",
+                  "Skill",
+                  "Grep (error)",
+                  "Glob (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Read",
+                  "Skill",
+                  "Glob (error)",
+                  "Glob (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Glob (error)",
+                  "Glob",
+                  "Read",
+                  "Skill",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "rejected: expect-03",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Glob (error)",
+                  "Glob (error)",
+                  "Glob",
+                  "Read",
+                  "Skill",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "rejected: expect-03",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob (error)",
+                  "Glob (error)",
+                  "Read",
+                  "Read (error)",
+                  "Skill",
+                  "Write"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_answers.py: exit 1: 2 rules broken: unknown-key, answer-missing",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob (error)",
+                  "Glob (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "Read",
+                  "Grep (error)",
+                  "Read (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_answers.py: exit 1: 4 rules broken: unknown-key, wrong-type, unconfirmed-key, answer-missing",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Glob (error)",
+                  "Read",
+                  "Bash (error)",
+                  "Glob (error)",
+                  "Glob",
+                  "Glob (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_answers.py: exit 1: 2 rules broken: unknown-key, answer-missing",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Glob",
+                  "Glob (error)",
+                  "Read (error)",
+                  "Read",
+                  "Glob",
+                  "Glob (error)",
+                  "Glob (error)",
+                  "Read (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_answers.py: exit 1: 2 rules broken: unknown-key, answer-missing",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Glob",
+                  "Glob (error)",
+                  "Glob (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_answers.py: exit 1: 2 rules broken: unknown-key, answer-missing",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Glob (error)",
+                  "Glob (error)",
+                  "Glob (error)",
+                  "Read",
+                  "Read (error)",
+                  "Grep (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "init-kit/smoke-unanswered-key",
+          "hash": "2d87d968d5675e974dc92e6fc530158f1764bd2b7dd7fc9eab1403f7cc1bc560",
+          "state": "cached",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package init-kit 1.0.0, invoked as init-kit:init-kit"
+      ],
+      "reasons": [
+        "the judge rejects it"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 1123,
+      "skill": "init-kit",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 2,
+            "not_triggered": 0,
+            "passed": 3,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 5
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": 0.6,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0,
+        "judge_uncounted_usd": 0.0065599000000000005,
+        "judge_usd": 0.0131806,
+        "mcp_calls": 0,
+        "mcp_calls_without": 0,
+        "mcp_served": 0,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.06047757000000001,
+        "triggered": 5,
+        "validated": 5,
+        "with_score": 0.6,
+        "without_score": 0.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "review",
+      "without_arm": [
+        "the tool's own ablation, which removes the whole plugin"
+      ]
+    },
+    {
+      "cached": 1,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "Bash (error)",
+                  "ToolSearch",
+                  "Glob",
+                  "Read",
+                  "mcp__plugin_necessary-comment_metodo__comment_gate_measure",
+                  "Glob",
+                  "Read",
+                  "Write",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "Glob",
+                  "Bash (error)",
+                  "ToolSearch",
+                  "Read",
+                  "mcp__plugin_necessary-comment_metodo__comment_gate_measure",
+                  "Read",
+                  "Glob",
+                  "Write",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "Bash (error)",
+                  "ToolSearch",
+                  "Glob",
+                  "Read",
+                  "mcp__plugin_necessary-comment_metodo__comment_gate_measure",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "not invoked: necessary-comment",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "ToolSearch",
+                  "mcp__plugin_necessary-comment_metodo__comment_gate_measure",
+                  "Read",
+                  "Grep (error)",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "not invoked: necessary-comment",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Bash (error)",
+                  "ToolSearch",
+                  "Glob",
+                  "mcp__plugin_necessary-comment_metodo__comment_gate_measure",
+                  "Read",
+                  "Grep",
+                  "Write"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_routing.py: exit 1: 6 rules broken: route-wrong, route-wrong, route-wrong, route-wrong, route-wrong, route-wrong",
+                "status": "validator_failed",
+                "tools_called": [
+                  "ToolSearch",
+                  "Bash (error)",
+                  "mcp__plugin_necessary-comment_metodo__comment_gate_measure",
+                  "Glob",
+                  "Read",
+                  "Grep",
+                  "Glob",
+                  "Glob",
+                  "Grep (error)",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_routing.py: exit 1: 6 rules broken: route-wrong, route-wrong, route-wrong, route-wrong, route-wrong, route-wrong",
+                "status": "validator_failed",
+                "tools_called": [
+                  "ToolSearch",
+                  "Glob",
+                  "Bash (error)",
+                  "mcp__plugin_necessary-comment_metodo__comment_gate_measure",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_routing.py: exit 1: 6 rules broken: route-wrong, route-wrong, route-wrong, route-wrong, route-wrong, route-wrong",
+                "status": "validator_failed",
+                "tools_called": [
+                  "ToolSearch",
+                  "Glob",
+                  "Bash (error)",
+                  "mcp__plugin_necessary-comment_metodo__comment_gate_measure",
+                  "Read",
+                  "Grep",
+                  "Glob",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_routing.py: exit 1: 6 rules broken: route-wrong, route-wrong, route-wrong, route-wrong, route-wrong, route-wrong",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash (error)",
+                  "ToolSearch",
+                  "Glob",
+                  "mcp__plugin_necessary-comment_metodo__comment_gate_measure",
+                  "Read",
+                  "Glob",
+                  "Glob",
+                  "Read (error)",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_routing.py: exit 1: 6 rules broken: route-wrong, route-wrong, route-wrong, route-wrong, route-wrong, route-wrong",
+                "status": "validator_failed",
+                "tools_called": [
+                  "ToolSearch",
+                  "Bash (error)",
+                  "mcp__plugin_necessary-comment_metodo__comment_gate_measure",
+                  "Glob",
+                  "Read",
+                  "Grep",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "necessary-comment/smoke-verdict-routing",
+          "hash": "15ad764694cd600dcb4b880c5711e3e2075446fad8f82caf6ad4494cb3647aef",
+          "state": "cached",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package necessary-comment 1.0.0, invoked as necessary-comment:necessary-comment"
+      ],
+      "reasons": [
+        "it does not trigger when it should (look at the description)"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 688,
+      "skill": "necessary-comment",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 2,
+            "passed": 3,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 5
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": 1.0,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.002679799999999998,
+        "judge_uncounted_usd": 0.008668499999999999,
+        "judge_usd": 0.013080299999999998,
+        "mcp_absent": {
+          "cases": 1,
+          "tools": [
+            "comment_gate_verify"
+          ]
+        },
+        "mcp_calls": 5,
+        "mcp_calls_without": 5,
+        "mcp_mocked": 1,
+        "mcp_served": 0,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.07430592,
+        "triggered": 3,
+        "validated": 3,
+        "with_score": 1.0,
+        "without_score": 0.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "review",
+      "without_arm": [
+        "the same plugin with only skills/necessary-comment/ removed, in a second invocation of the tool: the mocked tools stay; 5 call(s) to its tools in the runs without the skill"
+      ]
+    },
+    {
+      "cached": 1,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "validators/check_posted.py: exit 1: posted.md is missing from the files the run left",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob (error)",
+                  "Glob (error)",
+                  "Bash",
+                  "Bash",
+                  "Read",
+                  "Skill",
+                  "Bash",
+                  "Bash"
+                ]
+              },
+              {
+                "detail": "not invoked: post-review-comment",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Bash",
+                  "Read",
+                  "Bash",
+                  "Bash",
+                  "Bash",
+                  "Bash",
+                  "ToolSearch",
+                  "TaskStop",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_posted.py: exit 1: posted.md is missing from the files the run left",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob (error)",
+                  "Glob",
+                  "Read",
+                  "Grep (error)",
+                  "Bash",
+                  "Skill",
+                  "Bash",
+                  "Bash"
+                ]
+              },
+              {
+                "detail": "not invoked: post-review-comment",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Bash",
+                  "Read",
+                  "Bash",
+                  "Bash",
+                  "Read",
+                  "Bash (error)",
+                  "Bash",
+                  "ToolSearch",
+                  "TaskStop",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_posted.py: exit 1: posted.md is missing from the files the run left",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob (error)",
+                  "Glob",
+                  "Read",
+                  "Bash",
+                  "Bash",
+                  "Skill",
+                  "Bash",
+                  "Bash"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: ",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash",
+                  "Read",
+                  "Bash",
+                  "Bash (error)",
+                  "Bash (error)",
+                  "Write",
+                  "Bash",
+                  "Bash"
+                ]
+              },
+              {
+                "detail": "validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: ",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash",
+                  "Read",
+                  "Bash",
+                  "Bash"
+                ]
+              },
+              {
+                "detail": "validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: ",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash",
+                  "Bash",
+                  "Bash",
+                  "Bash",
+                  "Bash"
+                ]
+              },
+              {
+                "detail": "validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: ",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash",
+                  "Read",
+                  "Bash",
+                  "Bash",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: ",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash",
+                  "Read",
+                  "Bash",
+                  "Bash (error)",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "post-review-comment/smoke-render",
+          "hash": "72c7ed13f55c7a6efc727f977e086e1249f361b80967ffdc71a39f85054ca761",
+          "state": "cached",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package post-review-comment 1.0.0, invoked as post-review-comment:post-review-comment"
+      ],
+      "reasons": [
+        "it does not trigger when it should (look at the description)",
+        "its output fails a validator"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 603,
+      "skill": "post-review-comment",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 2,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 3
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 5
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": 0.0,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0009083000000000001,
+        "judge_uncounted_usd": 0.0039433,
+        "judge_usd": 0.0039433,
+        "mcp_calls": 0,
+        "mcp_calls_without": 0,
+        "mcp_served": 0,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.058880289999999995,
+        "triggered": 3,
+        "validated": 0,
+        "with_score": 0.0,
+        "without_score": 0.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "review",
+      "without_arm": [
+        "the tool's own ablation, which removes the whole plugin"
+      ]
+    },
+    {
+      "cached": 1,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_pr-message_metodo__change_card_validate",
+                  "mcp__plugin_pr-message_metodo__receipt_status",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "Glob",
+                  "Glob",
+                  "ToolSearch",
+                  "Read",
+                  "Read",
+                  "mcp__plugin_pr-message_metodo__change_card_validate",
+                  "mcp__plugin_pr-message_metodo__receipt_status",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "Glob",
+                  "mcp__plugin_pr-message_metodo__change_card_validate",
+                  "Read",
+                  "Read",
+                  "mcp__plugin_pr-message_metodo__receipt_status",
+                  "Write",
+                  "ToolSearch"
+                ]
+              },
+              {
+                "detail": "rejected: expect-01",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "Read",
+                  "Read",
+                  "mcp__plugin_pr-message_metodo__change_card_validate",
+                  "mcp__plugin_pr-message_metodo__receipt_status",
+                  "ToolSearch",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "Glob",
+                  "mcp__plugin_pr-message_metodo__change_card_validate",
+                  "mcp__plugin_pr-message_metodo__receipt_status",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "Write"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_pr_body.py: exit 1: section-missing: the message has no section \"What and why\", \"Before and after\", \"What was NOT tested\"",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_pr-message_metodo__change_card_validate",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_pr_body.py: exit 1: section-missing: the message has no section \"What and why\", \"Before and after\", \"What was NOT tested\"",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_pr_body.py: exit 1: section-missing: the message has no section \"What and why\", \"Before and after\", \"What was NOT tested\"",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Bash (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_pr_body.py: exit 1: section-missing: the message has no section \"What and why\", \"Before and after\", \"What was NOT tested\"",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Bash (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_pr_body.py: exit 1: section-missing: the message has no section \"What and why\", \"Before and after\", \"What was NOT tested\"",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_pr-message_metodo__change_card_validate",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "pr-message/smoke-skipped-check",
+          "hash": "6ebbfb28781319fa8dda543dd41628e0f64aef6efe0d972a1b41ecdcf6a29d50",
+          "state": "cached",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package pr-message 1.1.0, invoked as pr-message:pr-message"
+      ],
+      "reasons": [
+        "it triggers and the result is better than without it"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 808,
+      "skill": "pr-message",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 1,
+            "not_triggered": 0,
+            "passed": 4,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 5
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": 0.8,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0,
+        "judge_uncounted_usd": 0.005204300000000001,
+        "judge_usd": 0.010149100000000001,
+        "mcp_absent": {
+          "cases": 1,
+          "tools": [
+            "benchmark_release",
+            "done_check",
+            "job_status"
+          ]
+        },
+        "mcp_calls": 10,
+        "mcp_calls_without": 2,
+        "mcp_mocked": 1,
+        "mcp_served": 0,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.055826980000000005,
+        "triggered": 5,
+        "validated": 5,
+        "with_score": 0.8,
+        "without_score": 0.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "works",
+      "without_arm": [
+        "the same plugin with only skills/pr-message/ removed, in a second invocation of the tool: the mocked tools stay; 2 call(s) to its tools in the runs without the skill"
+      ]
+    },
+    {
+      "cached": 1,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "Glob",
+                  "ToolSearch",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "mcp__plugin_real-environment-minutes_metodo__domain_invariants",
+                  "mcp__plugin_real-environment-minutes_metodo__change_card_extract",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "Glob",
+                  "ToolSearch",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "mcp__plugin_real-environment-minutes_metodo__benchmark_release",
+                  "mcp__plugin_real-environment-minutes_metodo__job_status",
+                  "mcp__plugin_real-environment-minutes_metodo__domain_invariants",
+                  "mcp__plugin_real-environment-minutes_metodo__change_card_extract",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "Glob",
+                  "ToolSearch",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "mcp__plugin_real-environment-minutes_metodo__benchmark_release",
+                  "mcp__plugin_real-environment-minutes_metodo__domain_invariants",
+                  "mcp__plugin_real-environment-minutes_metodo__change_card_extract",
+                  "mcp__plugin_real-environment-minutes_metodo__job_status",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "Glob",
+                  "ToolSearch",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "mcp__plugin_real-environment-minutes_metodo__domain_invariants",
+                  "mcp__plugin_real-environment-minutes_metodo__change_card_extract",
+                  "Write"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_bench_minutes.py: exit 1: 2 problems, rules broken: median-missing (A, B)",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Grep (error)",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_real-environment-minutes_metodo__benchmark_release",
+                  "mcp__plugin_real-environment-minutes_metodo__job_status",
+                  "Write",
+                  "Edit",
+                  "Edit"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "Glob (error)",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write",
+                  "Edit",
+                  "Edit"
+                ]
+              },
+              {
+                "detail": "validators/check_bench_minutes.py: exit 1: 2 problems, rules broken: operator-missing (A, B)",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "Grep",
+                  "mcp__plugin_real-environment-minutes_metodo__benchmark_release",
+                  "mcp__plugin_real-environment-minutes_metodo__job_status",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "ToolSearch",
+                  "mcp__plugin_real-environment-minutes_metodo__benchmark_release",
+                  "mcp__plugin_real-environment-minutes_metodo__job_status",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Glob (error)",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_real-environment-minutes_metodo__benchmark_release",
+                  "mcp__plugin_real-environment-minutes_metodo__job_status",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "real-environment-minutes/smoke-median-and-mock",
+          "hash": "ec89a61d7fddb4d6b254945b9214e9e569a776b24efeb898b3ca683f44005867",
+          "state": "cached",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package real-environment-minutes 1.0.0, invoked as real-environment-minutes:real-environment-minutes"
+      ],
+      "reasons": [
+        "it triggers and the result is better than without it"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 490,
+      "skill": "real-environment-minutes",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 5,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 3,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 2
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": 0.4,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0,
+        "judge_uncounted_usd": 0.0010030999999999998,
+        "judge_usd": 0.0049558000000000015,
+        "mcp_calls": 12,
+        "mcp_calls_without": 8,
+        "mcp_mocked": 1,
+        "mcp_served": 0,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.07696961,
+        "triggered": 5,
+        "validated": 5,
+        "with_score": 1.0,
+        "without_score": 0.6,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "works",
+      "without_arm": [
+        "the same plugin with only skills/real-environment-minutes/ removed, in a second invocation of the tool: the mocked tools stay; 8 call(s) to its tools in the runs without the skill"
+      ]
+    },
+    {
+      "cached": 1,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "not invoked: receipt-review",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Read",
+                  "Write",
+                  "ToolSearch",
+                  "mcp__plugin_receipt-review_metodo__receipt_status",
+                  "mcp__plugin_receipt-review_metodo__test_sectors",
+                  "Edit"
+                ]
+              },
+              {
+                "detail": "not invoked: receipt-review",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Read",
+                  "Glob",
+                  "ToolSearch",
+                  "mcp__plugin_receipt-review_metodo__receipt_status",
+                  "mcp__plugin_receipt-review_metodo__test_sectors",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_context.py: exit 1: lenses-changed: the LENSES line lacks flujo-critico, jamas-peor-que-antes, tests-anti-flake, simplicidad; the script returned flujo-critico, jamas-peor-que-antes, tests-anti-flake, simplicidad",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Read",
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_receipt-review_metodo__receipt_status",
+                  "mcp__plugin_receipt-review_metodo__test_sectors",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_context.py: exit 1: lenses-changed: the LENSES line lacks flujo-critico, jamas-peor-que-antes, tests-anti-flake, simplicidad; the script returned flujo-critico, jamas-peor-que-antes, tests-anti-flake, simplicidad",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "ToolSearch",
+                  "Read",
+                  "mcp__plugin_receipt-review_metodo__receipt_status",
+                  "Skill",
+                  "mcp__plugin_receipt-review_metodo__receipt_status",
+                  "mcp__plugin_receipt-review_metodo__test_sectors",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Read",
+                  "Skill",
+                  "Glob",
+                  "ToolSearch",
+                  "mcp__plugin_receipt-review_metodo__receipt_status",
+                  "Read",
+                  "Write"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_context.py: exit 1: 3 rules broken: risk-line-missing, lenses-line-missing, receipt-line-missing",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Read",
+                  "Grep",
+                  "Read",
+                  "Glob",
+                  "ToolSearch",
+                  "mcp__plugin_receipt-review_metodo__receipt_status",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_context.py: exit 1: 3 rules broken: risk-line-missing, lenses-line-missing, receipt-line-missing",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Read",
+                  "Grep",
+                  "Grep",
+                  "ToolSearch",
+                  "mcp__plugin_receipt-review_metodo__receipt_status",
+                  "mcp__plugin_receipt-review_metodo__test_sectors",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_context.py: exit 1: 3 rules broken: risk-line-missing, lenses-line-missing, receipt-line-missing",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Read",
+                  "Glob",
+                  "ToolSearch",
+                  "Grep",
+                  "mcp__plugin_receipt-review_metodo__receipt_status",
+                  "mcp__plugin_receipt-review_metodo__test_sectors",
+                  "Glob",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_context.py: exit 1: 3 rules broken: risk-line-missing, lenses-line-missing, receipt-line-missing",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_receipt-review_metodo__receipt_status",
+                  "mcp__plugin_receipt-review_metodo__test_sectors",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_context.py: exit 1: 3 rules broken: risk-line-missing, lenses-line-missing, receipt-line-missing",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "Read",
+                  "Glob",
+                  "ToolSearch",
+                  "mcp__plugin_receipt-review_metodo__receipt_status",
+                  "mcp__plugin_receipt-review_metodo__test_sectors",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "receipt-review/smoke-tier-frozen",
+          "hash": "ef02b10f75264e38fa3bb13f9a699fad60960e9cc04a13b78f7f879091713046",
+          "state": "cached",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package receipt-review 1.0.0, invoked as receipt-review:receipt-review"
+      ],
+      "reasons": [
+        "it does not trigger when it should (look at the description)",
+        "its output fails a validator"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 1217,
+      "skill": "receipt-review",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 2,
+            "passed": 1,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 2
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 5
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": 0.3333333333333333,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0017685,
+        "judge_uncounted_usd": 0.008621299999999998,
+        "judge_usd": 0.0092771,
+        "mcp_absent": {
+          "cases": 1,
+          "tools": [
+            "change_card_validate",
+            "comment_gate_measure",
+            "docs_lint",
+            "job_status",
+            "output_validate",
+            "receipt_acknowledge",
+            "receipt_capture",
+            "receipt_finalize",
+            "receipt_start",
+            "role_contract_validate",
+            "route",
+            "verify_commit",
+            "verify_sectors"
+          ]
+        },
+        "mcp_calls": 10,
+        "mcp_calls_without": 9,
+        "mcp_mocked": 1,
+        "mcp_served": 0,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.05654312,
+        "triggered": 3,
+        "validated": 1,
+        "with_score": 0.3333333333333333,
+        "without_score": 0.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "review",
+      "without_arm": [
+        "the same plugin with only skills/receipt-review/ removed, in a second invocation of the tool: the mocked tools stay; 9 call(s) to its tools in the runs without the skill"
+      ]
+    },
+    {
+      "cached": 1,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_repo-metrics_metodo__metrics_delta",
+                  "mcp__plugin_repo-metrics_metodo__job_status",
+                  "Glob",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_repo-metrics_metodo__metrics_delta",
+                  "mcp__plugin_repo-metrics_metodo__job_status",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_repo-metrics_metodo__metrics_delta",
+                  "mcp__plugin_repo-metrics_metodo__job_status",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_repo-metrics_metodo__metrics_delta",
+                  "mcp__plugin_repo-metrics_metodo__job_status",
+                  "Glob",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "rejected: expect-03",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_repo-metrics_metodo__metrics_delta",
+                  "mcp__plugin_repo-metrics_metodo__job_status",
+                  "Glob",
+                  "Read",
+                  "Write"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "ToolSearch",
+                  "Bash (error)",
+                  "mcp__plugin_repo-metrics_metodo__metrics_delta",
+                  "mcp__plugin_repo-metrics_metodo__job_status",
+                  "Glob",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_delta_note.py: exit 1: output-missing: metrics-delta.md is missing from the files the run left",
+                "status": "validator_failed",
+                "tools_called": [
+                  "ToolSearch",
+                  "mcp__plugin_repo-metrics_metodo__metrics_delta",
+                  "mcp__plugin_repo-metrics_metodo__job_status",
+                  "Read"
+                ]
+              },
+              {
+                "detail": "rejected: expect-03",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "ToolSearch",
+                  "mcp__plugin_repo-metrics_metodo__metrics_delta",
+                  "mcp__plugin_repo-metrics_metodo__job_status",
+                  "Read (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_delta_note.py: exit 1: output-missing: metrics-delta.md is missing from the files the run left",
+                "status": "validator_failed",
+                "tools_called": [
+                  "ToolSearch",
+                  "Bash (error)",
+                  "mcp__plugin_repo-metrics_metodo__metrics_delta",
+                  "mcp__plugin_repo-metrics_metodo__job_status"
+                ]
+              },
+              {
+                "detail": "rejected: expect-03",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "ToolSearch",
+                  "mcp__plugin_repo-metrics_metodo__metrics_delta",
+                  "mcp__plugin_repo-metrics_metodo__job_status",
+                  "Grep",
+                  "Read",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "repo-metrics/smoke-tool-drift",
+          "hash": "9867a46a361371614520e9183a14ab645d4afd2e51facee3d8996c102723ffbe",
+          "state": "cached",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package repo-metrics 1.0.0, invoked as repo-metrics:repo-metrics"
+      ],
+      "reasons": [
+        "it triggers and the result is better than without it"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 464,
+      "skill": "repo-metrics",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 1,
+            "not_triggered": 0,
+            "passed": 4,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 2,
+            "not_triggered": 0,
+            "passed": 1,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 2
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": 0.6000000000000001,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0,
+        "judge_uncounted_usd": 0.0013715999999999993,
+        "judge_usd": 0.008707300000000001,
+        "mcp_calls": 10,
+        "mcp_calls_without": 10,
+        "mcp_mocked": 1,
+        "mcp_served": 0,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.052919060000000004,
+        "triggered": 5,
+        "validated": 5,
+        "with_score": 0.8,
+        "without_score": 0.2,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "works",
+      "without_arm": [
+        "the same plugin with only skills/repo-metrics/ removed, in a second invocation of the tool: the mocked tools stay; 10 call(s) to its tools in the runs without the skill"
+      ]
+    },
+    {
+      "cached": 1,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Skill",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Bash (error)",
+                  "ToolSearch",
+                  "mcp__plugin_review-comment_metodo__pr_scope",
+                  "ToolSearch",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_review-comment_metodo__pr_scope",
+                  "Write",
+                  "Write",
+                  "ToolSearch"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_review-comment_metodo__pr_scope",
+                  "Write",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "rejected: expect-02",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_review-comment_metodo__pr_scope",
+                  "Write",
+                  "Write",
+                  "ToolSearch"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_review-comment_metodo__pr_scope",
+                  "Write"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_comments.py: exit 1: 2 rules broken: four-parts, proposal-language",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_review-comment_metodo__pr_scope",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_comments.py: exit 1: 3 rules broken: four-parts, proposal-language, base-drift-commented",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_comments.py: exit 1: 3 rules broken: four-parts, proposal-language, base-drift-commented",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_comments.py: exit 1: 3 rules broken: four-parts, proposal-language, base-drift-commented",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_comments.py: exit 1: 3 rules broken: four-parts, proposal-language, base-drift-commented",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write",
+                  "Write",
+                  "Glob"
+                ]
+              }
+            ]
+          },
+          "case": "review-comment/smoke-base-drift",
+          "hash": "649b07fc9ee7b3b3789f9234f19cbb7aa904a6fd8368131e17f9ee95eefbab39",
+          "state": "cached",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package review-comment 1.0.0, invoked as review-comment:review-comment"
+      ],
+      "reasons": [
+        "it triggers and the result is better than without it"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 876,
+      "skill": "review-comment",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 1,
+            "not_triggered": 0,
+            "passed": 4,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 5
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": 0.8,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0,
+        "judge_uncounted_usd": 0.0037366000000000005,
+        "judge_usd": 0.007248800000000001,
+        "mcp_absent": {
+          "cases": 1,
+          "tools": [
+            "review_comment_lint"
+          ]
+        },
+        "mcp_calls": 5,
+        "mcp_calls_without": 1,
+        "mcp_mocked": 1,
+        "mcp_served": 0,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.07246261000000001,
+        "triggered": 5,
+        "validated": 5,
+        "with_score": 0.8,
+        "without_score": 0.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "works",
+      "without_arm": [
+        "the same plugin with only skills/review-comment/ removed, in a second invocation of the tool: the mocked tools stay; 1 call(s) to its tools in the runs without the skill"
+      ]
+    },
+    {
+      "cached": 1,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_verify-per-commit_metodo__verify_commit",
+                  "mcp__plugin_verify-per-commit_metodo__job_status",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_verify-per-commit_metodo__verify_commit",
+                  "mcp__plugin_verify-per-commit_metodo__job_status",
+                  "Read",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_verify-per-commit_metodo__verify_commit",
+                  "mcp__plugin_verify-per-commit_metodo__job_status",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_verify-per-commit_metodo__verify_commit",
+                  "mcp__plugin_verify-per-commit_metodo__job_status",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write",
+                  "Edit"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_verify-per-commit_metodo__verify_commit",
+                  "mcp__plugin_verify-per-commit_metodo__job_status",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "ToolSearch",
+                  "Glob",
+                  "Bash (error)",
+                  "Read",
+                  "Read",
+                  "Grep",
+                  "mcp__plugin_verify-per-commit_metodo__verify_commit",
+                  "Glob (error)",
+                  "mcp__plugin_verify-per-commit_metodo__job_status",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "mcp__plugin_verify-per-commit_metodo__verify_commit",
+                  "mcp__plugin_verify-per-commit_metodo__job_status",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "rejected: expect-01",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "Bash (error)",
+                  "ToolSearch",
+                  "Glob",
+                  "Glob (error)",
+                  "Read",
+                  "Read (error)",
+                  "mcp__plugin_verify-per-commit_metodo__verify_commit",
+                  "mcp__plugin_verify-per-commit_metodo__job_status",
+                  "Read",
+                  "Read (error)",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "mcp__plugin_verify-per-commit_metodo__verify_commit",
+                  "mcp__plugin_verify-per-commit_metodo__job_status",
+                  "mcp__plugin_verify-per-commit_metodo__verify_commit",
+                  "Read (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Bash (error)",
+                  "ToolSearch",
+                  "Glob",
+                  "Glob",
+                  "Glob (error)",
+                  "Read",
+                  "mcp__plugin_verify-per-commit_metodo__verify_commit",
+                  "Read",
+                  "mcp__plugin_verify-per-commit_metodo__job_status",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "mcp__plugin_verify-per-commit_metodo__verify_commit",
+                  "mcp__plugin_verify-per-commit_metodo__job_status",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "ToolSearch",
+                  "Glob",
+                  "Read",
+                  "Grep",
+                  "Bash (error)",
+                  "Glob",
+                  "Grep (error)",
+                  "Read",
+                  "mcp__plugin_verify-per-commit_metodo__verify_commit",
+                  "mcp__plugin_verify-per-commit_metodo__job_status",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob (error)",
+                  "mcp__plugin_verify-per-commit_metodo__verify_commit",
+                  "Read (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "mcp__plugin_verify-per-commit_metodo__job_status",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Bash (error)",
+                  "ToolSearch",
+                  "Glob",
+                  "Grep",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Grep (error)",
+                  "mcp__plugin_verify-per-commit_metodo__verify_commit",
+                  "mcp__plugin_verify-per-commit_metodo__job_status",
+                  "Read (error)",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read (error)",
+                  "Glob",
+                  "mcp__plugin_verify-per-commit_metodo__verify_commit",
+                  "mcp__plugin_verify-per-commit_metodo__verify_commit",
+                  "mcp__plugin_verify-per-commit_metodo__job_status",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "verify-per-commit/smoke-keep-the-fail",
+          "hash": "2824c1b9dab5e71d8fa7c2d938ea92d205c7f5c1b55a500c6111eb685a26919e",
+          "state": "cached",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package verify-per-commit 1.0.0, invoked as verify-per-commit:verify-per-commit"
+      ],
+      "reasons": [
+        "it triggers and the result is better than without it"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 389,
+      "skill": "verify-per-commit",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 5,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 1,
+            "not_triggered": 0,
+            "passed": 4,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": 0.19999999999999996,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0,
+        "judge_uncounted_usd": 0.0,
+        "judge_usd": 0.012607899999999998,
+        "mcp_calls": 10,
+        "mcp_calls_without": 22,
+        "mcp_mocked": 1,
+        "mcp_served": 0,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.08108162000000001,
+        "triggered": 5,
+        "validated": 5,
+        "with_score": 1.0,
+        "without_score": 0.8,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "works",
+      "without_arm": [
+        "the same plugin with only skills/verify-per-commit/ removed, in a second invocation of the tool: the mocked tools stay; 22 call(s) to its tools in the runs without the skill"
+      ]
+    }
+  ],
+  "thresholds": {
+    "delta_min": 0.1,
+    "judge_pass_min": 0.8,
+    "runs_per_arm_min": 3,
+    "trigger_rate_min": 0.8,
+    "validator_pass_min": 0.8
+  }
+}

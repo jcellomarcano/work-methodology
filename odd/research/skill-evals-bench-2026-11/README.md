@@ -186,3 +186,54 @@ the file it checks, and answers differently), `adversarial-round` (one tool answ
 `INCOMPLETE` for the other, and the case stands on that difference), `harness-benchmark` (its first step is a
 script of its own run through the shell; its two kit tools start a job with a fresh id), and `human-review`,
 `init-kit`, `post-review-comment` (their text calls no kit tool).
+
+## The nine cases with mocks at five runs per arm (run 10)
+
+One invocation at `2537285`, 2026-11-24, 43 minutes:
+`08-benchmark/bin/skill-eval.sh run --all --kit-mcp --real --runs 5 --model haiku --judge-model haiku --max-cost-usd 0.25`.
+The nine skills whose cases carry mocks ran, 90 runs, USD 0.6415 [Measured: the nine `spend:` lines]; the
+eight others were read from their stored results of run 6 and run 7, because their cases did not change.
+Files `run10-nine-mocked-five-runs.stdout.txt` (the runner's output) and `.report.json` (`report --json` over
+the 17 stored results right after), machine paths replaced by `<home>`. No report was published.
+
+| Skill | Before the mocks (runs 6 and 7) | Now | With | Without | Triggered | Runs with the skill | Runs without it |
+|---|---|---|---|---|---|---|---|
+| `cartography` | `review` 0.40 / 0.00 | `works` | 1.00 | 0.00 | 5 of 5 | 5 passed | 0 passed, 5 failed the validator |
+| `clean-pass` | `works` 0.80 / 0.00 | `review`: the judge rejects it | 0.40 | 0.00 | 5 of 5 | 2 passed, 1 failed the validator, 2 rejected by the judge | 0 passed, 5 failed the validator |
+| `necessary-comment` | `review`, 0 of 5 triggered | `review`: it does not trigger when it should | 1.00 | 0.00 | 3 of 5 | 3 passed, 2 not triggered | 0 passed, 5 failed the validator |
+| `pr-message` | `works` 1.00 / 0.00 | `works` | 0.80 | 0.00 | 5 of 5 | 4 passed, 1 rejected by the judge | 0 passed, 5 failed the validator |
+| `real-environment-minutes` | `works` 0.80 / 0.20 | `works` | 1.00 | 0.60 | 5 of 5 | 5 passed | 3 passed, 2 failed the validator |
+| `receipt-review` | `review`, 1 of 5 triggered | `review`: it does not trigger when it should; its output fails a validator | 0.33 | 0.00 | 3 of 5 | 1 passed, 2 failed the validator, 2 not triggered | 0 passed, 5 failed the validator |
+| `repo-metrics` | `works` 0.80 / 0.40 | `works` | 0.80 | 0.20 | 5 of 5 | 4 passed, 1 rejected by the judge | 1 passed, 2 failed the validator, 2 rejected by the judge |
+| `review-comment` | `works` 1.00 / 0.00 | `works` | 0.80 | 0.00 | 5 of 5 | 4 passed, 1 rejected by the judge | 0 passed, 5 failed the validator |
+| `verify-per-commit` | `review` 0.80 / 1.00 | `works` | 1.00 | 0.80 | 5 of 5 | 5 passed | 4 passed, 1 rejected by the judge |
+
+With the eight stored results, eight skills read `works` and nine read `review` [Tested, five runs per arm,
+one model, one case per skill]. Of the nine: three do not trigger every time (`adversarial-round` 0 of 5,
+`necessary-comment` and `receipt-review` 3 of 5 each), five trigger and do not pass (`clean-pass`,
+`harness-benchmark`, `human-reply`, `init-kit`, `post-review-comment`) and one does no better than without
+the skill (`benchmark-release`).
+
+What changed with the mocks, and how far it can be read:
+
+- **Two verdicts went to `works`.** `cartography`: five of five passed, where three of five had failed the
+  validator when the case began after the tool's step. `verify-per-commit`: five of five against four of
+  five; the difference is one answer of the arm without the skill rejected by the judge on one expectation,
+  so one judge vote decides this verdict.
+- **One went to `review`.** `clean-pass` passed two of five: one run carded the critical item and left an
+  item unflagged (the same two rules every run without the skill broke), and the judge rejected two answers,
+  on the first and on the second expectation. Before the mocks it passed four of five. Which of the case's
+  changes explains it is not known: the outputs of the runs are not kept.
+- **Two trigger more and still read `review`.** `necessary-comment` triggered three of five (none of five
+  before) and all three passed; `receipt-review` triggered three of five (one of five before), and two of
+  those three failed the validator's rule `lenses-changed`. Whether those two outputs dropped the lenses or
+  wrote them in a form the validator does not read is not known, for the same reason.
+- **The arm without the skill called the mocked tools too**, in every skill (1 to 22 calls), and still failed
+  in most: with the tools answering, what the skill adds is the output its text prescribes. In
+  `real-environment-minutes` three of five passed without the skill, and in `verify-per-commit` four of five.
+- **Five of the nine ran with a declared tool absent** (`clean-pass` 1, `necessary-comment` 1, `pr-message` 3,
+  `receipt-review` 13, `review-comment` 1; the report names them under "tools with no mock"). The verdict
+  does not take it into account, so a failure of those skills may come from a tool the scenario did not mock.
+
+What it does not prove: one case per skill, one model, one invocation; the run-to-run spread of a verdict at
+five runs per arm was not measured.

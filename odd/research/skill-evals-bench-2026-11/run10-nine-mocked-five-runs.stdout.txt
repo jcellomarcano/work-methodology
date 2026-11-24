@@ -1,0 +1,440 @@
+start 2026-11-24T22:42:41+0100
+skill-eval: cost ceiling USD 2.25 (USD 0.25 for each of 9 skill(s) to run); the tool checks it before each run, so the run in flight may pass it
+adversarial-round: 1 case(s), 0 to run, 1 cached; arms with, without; 0 native run(s); ceiling USD 0.00
+  adversarial-round: --kit-mcp starts this checkout's MCP server for its runs (it runs as you, outside the tool's sandbox) and allows the 7 tool(s) the skill declares
+  adversarial-round/smoke-truncated-round [smoke]: cached (stored 2026-11-24T14:44:32+0100, 5 run(s) per arm; --no-cache runs it again)
+benchmark-release: 1 case(s), 0 to run, 1 cached; arms with, without; 0 native run(s); ceiling USD 0.00
+  benchmark-release: --kit-mcp starts this checkout's MCP server for its runs (it runs as you, outside the tool's sandbox) and allows the 2 tool(s) the skill declares
+  benchmark-release/smoke-base-is-the-tag [smoke]: cached (stored 2026-11-24T14:49:31+0100, 5 run(s) per arm; --no-cache runs it again)
+cartography: 1 case(s), 1 to run, 0 cached; arms with, without; 10 native run(s) in 2 native invocation(s); ceiling USD 0.25
+  cartography: mocks: 1 tool(s) of the kit's MCP server (cartography) answer from the mock files of its case(s), in both arms; the real server is not started
+  cartography: --kit-mcp does not reach it: a skill whose case(s) carry mocks always answers from them
+  cartography: the arm without the skill runs on the same plugin with only skills/cartography/ removed, so the mocked tools stay in both arms: the tool is started twice with --ablation none, under USD 0.125 and at most USD 0.125 of the ceiling
+  cartography/smoke-unmeasured-module [smoke]: to run, 5 run(s) per arm
+change-card: 1 case(s), 0 to run, 1 cached; arms with, without; 0 native run(s); ceiling USD 0.00
+  change-card: --kit-mcp starts this checkout's MCP server for its runs (it runs as you, outside the tool's sandbox) and allows the 2 tool(s) the skill declares
+  change-card/smoke-missing-field [smoke]: cached (stored 2026-11-24T13:51:10+0100, 5 run(s) per arm; --no-cache runs it again)
+clean-pass: 1 case(s), 1 to run, 0 cached; arms with, without; 10 native run(s) in 2 native invocation(s); ceiling USD 0.25
+  clean-pass: mocks: 1 tool(s) of the kit's MCP server (clean_pass) answer from the mock files of its case(s), in both arms; the real server is not started; 1 declared tool(s) have no mock and are not available: change_card_validate
+  clean-pass: --kit-mcp does not reach it: a skill whose case(s) carry mocks always answers from them
+  clean-pass: the arm without the skill runs on the same plugin with only skills/clean-pass/ removed, so the mocked tools stay in both arms: the tool is started twice with --ablation none, under USD 0.125 and at most USD 0.125 of the ceiling
+  clean-pass/smoke-unflagged-item [smoke]: to run, 5 run(s) per arm
+harness-benchmark: 1 case(s), 0 to run, 1 cached; arms with, without; 0 native run(s); ceiling USD 0.00
+  harness-benchmark: --kit-mcp starts this checkout's MCP server for its runs (it runs as you, outside the tool's sandbox) and allows the 2 tool(s) the skill declares
+  harness-benchmark/smoke-one-run-report [smoke]: cached (stored 2026-11-24T14:53:31+0100, 5 run(s) per arm; --no-cache runs it again)
+human-reply: 1 case(s), 0 to run, 1 cached; arms with, without; 0 native run(s); ceiling USD 0.00
+  human-reply: --kit-mcp starts this checkout's MCP server for its runs (it runs as you, outside the tool's sandbox) and allows the 2 tool(s) the skill declares
+  human-reply/smoke-unverifiable-citation [smoke]: cached (stored 2026-11-24T14:58:50+0100, 5 run(s) per arm; --no-cache runs it again)
+human-review: 1 case(s), 0 to run, 1 cached; arms with, without; 0 native run(s); ceiling USD 0.00
+  human-review/smoke-reviewer-brief [smoke]: cached (stored 2026-11-24T15:04:32+0100, 5 run(s) per arm; --no-cache runs it again)
+init-kit: 1 case(s), 0 to run, 1 cached; arms with, without; 0 native run(s); ceiling USD 0.00
+  init-kit/smoke-unanswered-key [smoke]: cached (stored 2026-11-24T14:44:41+0100, 5 run(s) per arm; --no-cache runs it again)
+necessary-comment: 1 case(s), 1 to run, 0 cached; arms with, without; 10 native run(s) in 2 native invocation(s); ceiling USD 0.25
+  necessary-comment: mocks: 1 tool(s) of the kit's MCP server (comment_gate_measure) answer from the mock files of its case(s), in both arms; the real server is not started; 1 declared tool(s) have no mock and are not available: comment_gate_verify
+  necessary-comment: --kit-mcp does not reach it: a skill whose case(s) carry mocks always answers from them
+  necessary-comment: the arm without the skill runs on the same plugin with only skills/necessary-comment/ removed, so the mocked tools stay in both arms: the tool is started twice with --ablation none, under USD 0.125 and at most USD 0.125 of the ceiling
+  necessary-comment/smoke-verdict-routing [smoke]: to run, 5 run(s) per arm
+post-review-comment: 1 case(s), 0 to run, 1 cached; arms with, without; 0 native run(s); ceiling USD 0.00
+  post-review-comment: its files name the kit's tools root, rendered to <home>/work-methodology/03-tools for the run
+  post-review-comment/smoke-render [smoke]: cached (stored 2026-11-24T14:56:08+0100, 5 run(s) per arm; --no-cache runs it again)
+pr-message: 1 case(s), 1 to run, 0 cached; arms with, without; 10 native run(s) in 2 native invocation(s); ceiling USD 0.25
+  pr-message: mocks: 2 tool(s) of the kit's MCP server (change_card_validate, receipt_status) answer from the mock files of its case(s), in both arms; the real server is not started; 3 declared tool(s) have no mock and are not available: benchmark_release, done_check, job_status
+  pr-message: --kit-mcp does not reach it: a skill whose case(s) carry mocks always answers from them
+  pr-message: the arm without the skill runs on the same plugin with only skills/pr-message/ removed, so the mocked tools stay in both arms: the tool is started twice with --ablation none, under USD 0.125 and at most USD 0.125 of the ceiling
+  pr-message/smoke-skipped-check [smoke]: to run, 5 run(s) per arm
+real-environment-minutes: 1 case(s), 1 to run, 0 cached; arms with, without; 10 native run(s) in 2 native invocation(s); ceiling USD 0.25
+  real-environment-minutes: mocks: 4 tool(s) of the kit's MCP server (benchmark_release, change_card_extract, domain_invariants, job_status) answer from the mock files of its case(s), in both arms; the real server is not started
+  real-environment-minutes: --kit-mcp does not reach it: a skill whose case(s) carry mocks always answers from them
+  real-environment-minutes: the arm without the skill runs on the same plugin with only skills/real-environment-minutes/ removed, so the mocked tools stay in both arms: the tool is started twice with --ablation none, under USD 0.125 and at most USD 0.125 of the ceiling
+  real-environment-minutes/smoke-median-and-mock [smoke]: to run, 5 run(s) per arm
+receipt-review: 1 case(s), 1 to run, 0 cached; arms with, without; 10 native run(s) in 2 native invocation(s); ceiling USD 0.25
+  receipt-review: mocks: 2 tool(s) of the kit's MCP server (receipt_status, test_sectors) answer from the mock files of its case(s), in both arms; the real server is not started; 13 declared tool(s) have no mock and are not available: change_card_validate, comment_gate_measure, docs_lint, job_status, output_validate, receipt_acknowledge, receipt_capture, receipt_finalize, receipt_start, role_contract_validate, route, verify_commit, verify_sectors
+  receipt-review: --kit-mcp does not reach it: a skill whose case(s) carry mocks always answers from them
+  receipt-review: the arm without the skill runs on the same plugin with only skills/receipt-review/ removed, so the mocked tools stay in both arms: the tool is started twice with --ablation none, under USD 0.125 and at most USD 0.125 of the ceiling
+  receipt-review/smoke-tier-frozen [smoke]: to run, 5 run(s) per arm
+repo-metrics: 1 case(s), 1 to run, 0 cached; arms with, without; 10 native run(s) in 2 native invocation(s); ceiling USD 0.25
+  repo-metrics: mocks: 2 tool(s) of the kit's MCP server (job_status, metrics_delta) answer from the mock files of its case(s), in both arms; the real server is not started
+  repo-metrics: --kit-mcp does not reach it: a skill whose case(s) carry mocks always answers from them
+  repo-metrics: the arm without the skill runs on the same plugin with only skills/repo-metrics/ removed, so the mocked tools stay in both arms: the tool is started twice with --ablation none, under USD 0.125 and at most USD 0.125 of the ceiling
+  repo-metrics/smoke-tool-drift [smoke]: to run, 5 run(s) per arm
+review-comment: 1 case(s), 1 to run, 0 cached; arms with, without; 10 native run(s) in 2 native invocation(s); ceiling USD 0.25
+  review-comment: mocks: 1 tool(s) of the kit's MCP server (pr_scope) answer from the mock files of its case(s), in both arms; the real server is not started; 1 declared tool(s) have no mock and are not available: review_comment_lint
+  review-comment: --kit-mcp does not reach it: a skill whose case(s) carry mocks always answers from them
+  review-comment: the arm without the skill runs on the same plugin with only skills/review-comment/ removed, so the mocked tools stay in both arms: the tool is started twice with --ablation none, under USD 0.125 and at most USD 0.125 of the ceiling
+  review-comment/smoke-base-drift [smoke]: to run, 5 run(s) per arm
+verify-per-commit: 1 case(s), 1 to run, 0 cached; arms with, without; 10 native run(s) in 2 native invocation(s); ceiling USD 0.25
+  verify-per-commit: mocks: 2 tool(s) of the kit's MCP server (job_status, verify_commit) answer from the mock files of its case(s), in both arms; the real server is not started
+  verify-per-commit: --kit-mcp does not reach it: a skill whose case(s) carry mocks always answers from them
+  verify-per-commit: the arm without the skill runs on the same plugin with only skills/verify-per-commit/ removed, so the mocked tools stay in both arms: the tool is started twice with --ablation none, under USD 0.125 and at most USD 0.125 of the ceiling
+  verify-per-commit/smoke-keep-the-fail [smoke]: to run, 5 run(s) per arm
+skill-eval report (runner v5; thresholds: trigger_rate_min 0.8, validator_pass_min 0.8, judge_pass_min 0.8, delta_min 0.1, runs_per_arm_min 3)
+adversarial-round: review - it does not trigger when it should (look at the description)
+  cases: 1 measured of 1 selected (1 cached) | arms: with, without | runs per arm: 5
+  score: with n/a, without 0.00, delta n/a | triggered 0 of 5 | cheated 0 | not counted 0
+  size: 904 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0552, judge USD 0.0175 of it
+  judge spend that did not count: USD 0.0175, on runs not triggered USD 0.0084 (the native tool runs its judge on every run)
+  measured as: its own package adversarial-round 1.0.0, invoked as adversarial-round:adversarial-round
+  arm without the skill: the same plugin with only skills/adversarial-round/ removed, in a second invocation of the tool: its MCP server and tools stay; 0 call(s) to its tools in the runs without the skill
+  kit MCP server: started for 1 case(s); 3 call(s) to its tools in the runs with the skill
+  adversarial-round/smoke-truncated-round [smoke]: with: not triggered, quality not judged, not triggered, quality not judged, not triggered, quality not judged, not triggered, quality not judged, not triggered, quality not judged | without: failed a validator, failed a validator, failed a validator, failed a validator, failed a validator (cached)
+    with run 1: not invoked: adversarial-round
+    with run 1 called: Glob, Read, Read, Read, ToolSearch, mcp__plugin_adversarial-round_metodo__change_card_validate, Write
+    with run 2: not invoked: adversarial-round
+    with run 2 called: Glob, Read, Read, Read, Write
+    with run 3: not invoked: adversarial-round
+    with run 3 called: Glob, Read, Read, Read, ToolSearch, mcp__plugin_adversarial-round_metodo__output_validate, mcp__plugin_adversarial-round_metodo__output_validate, Write
+    with run 4: not invoked: adversarial-round
+    with run 4 called: Glob, Read, Read, Read, Write
+    with run 5: not invoked: adversarial-round
+    with run 5 called: Glob, Read, Read, Read, Write
+    without run 1: validators/check_round_status.py: exit 1: status-not-incomplete: "NOT READY: blind-spot pass truncated; concurrent refunds on ..." names no status of a round; out/blindspots.json arrived truncated, so the round is INCOMPLETE
+    without run 1 called: Glob, Read, Read, Read, Grep (error), Glob (error), Write
+    without run 2: validators/check_round_status.py: exit 1: status-not-incomplete: "OPEN" names no status of a round; out/blindspots.json arrived truncated, so the round is INCOMPLETE
+    without run 2 called: Glob, Read, Read, Read, Grep (error), Glob (error), Write
+    without run 3: validators/check_round_status.py: exit 1: status-not-incomplete: "NOT READY: blind-spot pass truncated; not covered: concurren..." names no status of a round; out/blindspots.json arrived truncated, so the round is INCOMPLETE
+    without run 3 called: Glob, Read, Read, Read, Read (error), Write
+    without run 4: validators/check_round_status.py: exit 1: status-not-incomplete: "OPEN" names no status of a round; out/blindspots.json arrived truncated, so the round is INCOMPLETE
+    without run 4 called: Glob, Read, Read, Read, Glob, Write
+    without run 5: validators/check_round_status.py: exit 1: status-not-incomplete: "OPEN" names no status of a round; out/blindspots.json arrived truncated, so the round is INCOMPLETE
+    without run 5 called: Glob, Read, Read, Read, Glob, Write
+benchmark-release: review - it triggers and changes nothing (dead weight: cut or shrink)
+  cases: 1 measured of 1 selected (1 cached) | arms: with, without | runs per arm: 5
+  score: with 1.00, without 1.00, delta +0.00 | triggered 5 of 5 | cheated 0 | not counted 0
+  size: 368 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0898, judge USD 0.0080 of it
+  judge spend that did not count: USD 0.0000, on runs not triggered USD 0.0000 (the native tool runs its judge on every run)
+  measured as: its own package benchmark-release 1.0.0, invoked as benchmark-release:benchmark-release
+  arm without the skill: the same plugin with only skills/benchmark-release/ removed, in a second invocation of the tool: its MCP server and tools stay; 0 call(s) to its tools in the runs without the skill
+  kit MCP server: started for 1 case(s); 0 call(s) to its tools in the runs with the skill
+  benchmark-release/smoke-base-is-the-tag [smoke]: with: passed, passed, passed, passed, passed | without: passed, passed, passed, passed, passed (cached)
+cartography: works - it triggers and the result is better than without it
+  cases: 1 measured of 1 selected (0 cached) | arms: with, without | runs per arm: 5
+  score: with 1.00, without 0.00, delta +1.00 | triggered 5 of 5 | cheated 0 | not counted 0
+  size: 425 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0847, judge USD 0.0069 of it
+  judge spend that did not count: USD 0.0032, on runs not triggered USD 0.0000 (the native tool runs its judge on every run)
+  measured as: its own package cartography 1.0.0, invoked as cartography:cartography
+  arm without the skill: the same plugin with only skills/cartography/ removed, in a second invocation of the tool: the mocked tools stay; 5 call(s) to its tools in the runs without the skill
+  mocked tools: answered from the mock files of 1 case(s), the real server not started; 5 call(s) to them in the runs with the skill
+  cartography/smoke-unmeasured-module [smoke]: with: passed, passed, passed, passed, passed | without: failed a validator, failed a validator, failed a validator, failed a validator, failed a validator
+    without run 1: validators/check_module_map.py: exit 1: broken rules: unmeasured-sized, number-not-printed
+    without run 1 called: Bash (error), Glob, ToolSearch, Read, mcp__plugin_cartography_metodo__cartography, Glob, Read, Read, Read, Read, Read, Read, Grep, Glob, Glob, Write
+    without run 2: validators/check_module_map.py: exit 1: broken rules: unmeasured-sized, number-not-printed
+    without run 2 called: Bash (error), ToolSearch, Glob, Glob, Read, Read, Read, mcp__plugin_cartography_metodo__cartography, Read, Read, Read, Grep, Read, Grep, Write
+    without run 3: validators/check_module_map.py: exit 1: broken rules: unmeasured-sized, number-not-printed
+    without run 3 called: Bash (error), Glob, Glob, ToolSearch, mcp__plugin_cartography_metodo__cartography, Read, Read, Read, Read, Read, Read, Read, Read, Read, Read, Read, Read, Read, Write
+    without run 4: validators/check_module_map.py: exit 1: broken rules: unmeasured-sized, number-not-printed
+    without run 4 called: Bash (error), Glob, Glob, ToolSearch, mcp__plugin_cartography_metodo__cartography, Read, Read, Read, Read, Grep, Glob, Glob, Read, Read, Read, Read, Read, Read, Read, Write, Edit
+    without run 5: validators/check_module_map.py: exit 1: broken rules: unmeasured-sized, number-not-printed
+    without run 5 called: Bash (error), Glob, Glob, ToolSearch, Read, Read, Read, mcp__plugin_cartography_metodo__cartography, Read, Read, Read, Read, Glob, Read, Read, Read, Read, Read, Read, Read, Read, Read, Read (error), Write
+change-card: works - it triggers and the result is better than without it
+  cases: 1 measured of 1 selected (1 cached) | arms: with, without | runs per arm: 5
+  score: with 0.80, without 0.00, delta +0.80 | triggered 5 of 5 | cheated 0 | not counted 0
+  size: 385 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0595, judge USD 0.0097 of it
+  judge spend that did not count: USD 0.0042, on runs not triggered USD 0.0000 (the native tool runs its judge on every run)
+  measured as: its own package change-card 1.0.0, invoked as change-card:change-card
+  arm without the skill: the same plugin with only skills/change-card/ removed, in a second invocation of the tool: its MCP server and tools stay; 14 call(s) to its tools in the runs without the skill
+  kit MCP server: started for 1 case(s); 14 call(s) to its tools in the runs with the skill
+  change-card/smoke-missing-field [smoke]: with: passed, passed, passed, passed, rejected by the judge | without: failed a validator, failed a validator, rejected by the judge, failed a validator, failed a validator (cached)
+    with run 5: rejected: expect-02
+    with run 5 called: Glob, Skill, Read, ToolSearch, mcp__plugin_change-card_metodo__change_card_validate, mcp__plugin_change-card_metodo__change_card_extract, Write, mcp__plugin_change-card_metodo__change_card_validate
+    without run 1: validators/check_filled_card.py: exit 1: drafted-field-missing: "How we'll know" is absent or empty; it is the field a draft may fill
+    without run 1 called: Glob, ToolSearch, Read, mcp__plugin_change-card_metodo__change_card_validate, Grep, Grep (error), Grep, mcp__plugin_change-card_metodo__change_card_extract, mcp__plugin_change-card_metodo__role_contract_validate (error), Write, mcp__plugin_change-card_metodo__change_card_validate
+    without run 2: validators/check_filled_card.py: exit 1: never-filled: "What it risks" is in the file; only the author writes it
+    without run 2 called: Glob, Glob, Read, Bash (error), ToolSearch, mcp__plugin_change-card_metodo__change_card_validate, mcp__plugin_change-card_metodo__domain_invariants (error), mcp__plugin_change-card_metodo__change_card_extract, Write, mcp__plugin_change-card_metodo__change_card_validate
+    without run 3: rejected: expect-03
+    without run 3 called: Glob, ToolSearch, Read, mcp__plugin_change-card_metodo__change_card_validate, Grep (error), mcp__plugin_change-card_metodo__change_card_extract, Glob, Write, mcp__plugin_change-card_metodo__change_card_validate
+    without run 4: validators/check_filled_card.py: exit 1: never-filled: "What it risks" is in the file; only the author writes it
+    without run 4 called: Glob, Glob, Read, ToolSearch, mcp__plugin_change-card_metodo__change_card_validate, mcp__plugin_change-card_metodo__domain_invariants (error), Grep (error), mcp__plugin_change-card_metodo__change_card_extract, Write, mcp__plugin_change-card_metodo__change_card_validate
+    without run 5: validators/check_filled_card.py: exit 1: never-filled: "What it risks" is in the file; only the author writes it
+    without run 5 called: Glob, Read, Glob, ToolSearch, mcp__plugin_change-card_metodo__change_card_validate, mcp__plugin_change-card_metodo__domain_invariants (error), Write, mcp__plugin_change-card_metodo__change_card_validate
+clean-pass: review - the judge rejects it
+  cases: 1 measured of 1 selected (0 cached) | arms: with, without | runs per arm: 5
+  score: with 0.40, without 0.00, delta +0.40 | triggered 5 of 5 | cheated 0 | not counted 0
+  size: 337 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0867, judge USD 0.0076 of it
+  judge spend that did not count: USD 0.0049, on runs not triggered USD 0.0000 (the native tool runs its judge on every run)
+  measured as: its own package clean-pass 1.0.0, invoked as clean-pass:clean-pass
+  arm without the skill: the same plugin with only skills/clean-pass/ removed, in a second invocation of the tool: the mocked tools stay; 5 call(s) to its tools in the runs without the skill
+  mocked tools: answered from the mock files of 1 case(s), the real server not started; 5 call(s) to them in the runs with the skill
+  tools with no mock: 1 declared tool(s) had no mock and were not available in 1 of 1 mocked case(s): change_card_validate; the verdict above does not take this into account
+  clean-pass/smoke-unflagged-item [smoke]: with: passed, failed a validator, rejected by the judge, passed, rejected by the judge | without: failed a validator, failed a validator, failed a validator, failed a validator, failed a validator
+    with run 2: validators/check_cards.py: exit 1: broken rules: critical-item-carded, unflagged-item
+    with run 2 called: Skill, ToolSearch, mcp__plugin_clean-pass_metodo__clean_pass, Glob, Glob, Read, ToolSearch, Read, Read, Write
+    with run 3: rejected: expect-02
+    with run 3 called: Skill, ToolSearch, mcp__plugin_clean-pass_metodo__clean_pass, Glob, Glob, Read, ToolSearch, Grep, Grep, Read, Read, Read, Write
+    with run 5: rejected: expect-01
+    with run 5 called: Skill, ToolSearch, mcp__plugin_clean-pass_metodo__clean_pass, Glob, Glob, Read, ToolSearch, Grep, Grep, Read, Read, Read, Glob, Write, Edit
+    without run 1: validators/check_cards.py: exit 1: broken rules: critical-item-carded, unflagged-item
+    without run 1 called: Bash (error), Glob, ToolSearch, mcp__plugin_clean-pass_metodo__clean_pass, Read, Read, Read, Read, Read, Grep, Read, Write
+    without run 2: validators/check_cards.py: exit 1: broken rules: critical-item-carded, unflagged-item
+    without run 2 called: Bash (error), ToolSearch, mcp__plugin_clean-pass_metodo__clean_pass, Glob, Glob, Read, Read, Read, Read, Read, Read, Glob, Write, Edit
+    without run 3: validators/check_cards.py: exit 1: broken rules: critical-item-carded, unflagged-item
+    without run 3 called: Bash (error), ToolSearch, Glob, Grep, mcp__plugin_clean-pass_metodo__clean_pass, Read, Read, Read, Read, Read, Read, Grep, Glob, Write
+    without run 4: validators/check_cards.py: exit 1: broken rules: critical-item-carded, unflagged-item
+    without run 4 called: Glob, ToolSearch, mcp__plugin_clean-pass_metodo__clean_pass, Read, Read, Read, Read, Read, Grep, Write
+    without run 5: validators/check_cards.py: exit 1: broken rules: critical-item-carded, unflagged-item
+    without run 5 called: Bash (error), Glob, ToolSearch, mcp__plugin_clean-pass_metodo__clean_pass, Read, Read, Read, Read, Read, Grep, Read, Grep, Write
+harness-benchmark: review - its output fails a validator
+  cases: 1 measured of 1 selected (1 cached) | arms: with, without | runs per arm: 5
+  score: with 0.00, without 0.00, delta +0.00 | triggered 5 of 5 | cheated 0 | not counted 0
+  size: 30630 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0613, judge USD 0.0160 of it
+  judge spend that did not count: USD 0.0160, on runs not triggered USD 0.0000 (the native tool runs its judge on every run)
+  measured as: its own package harness-benchmark 1.0.0, invoked as harness-benchmark:harness-benchmark
+  arm without the skill: the same plugin with only skills/harness-benchmark/ removed, in a second invocation of the tool: its MCP server and tools stay; 0 call(s) to its tools in the runs without the skill
+  kit MCP server: started for 1 case(s); 0 call(s) to its tools in the runs with the skill
+  harness-benchmark/smoke-one-run-report [smoke]: with: failed a validator, failed a validator, failed a validator, failed a validator, failed a validator | without: failed a validator, failed a validator, failed a validator, failed a validator, failed a validator (cached)
+    with run 1: validators/check_summary.py: exit 1: number-not-in-report: 2.3, 0.50, 1.01, 0.44, 0.57 and 4 more are not numbers run/report.md prints; a summary relays its numbers, it does not recompute or round them
+    with run 1 called: Skill, Glob, Bash (error), Read, Write
+    with run 2: validators/check_summary.py: exit 1: number-not-in-report: 0.57, 0.569, 0.52, 0.61, 1.01 and 4 more are not numbers run/report.md prints; a summary relays its numbers, it does not recompute or round them
+    with run 2 called: Skill, Glob, Glob, Read, Write
+    with run 3: validators/check_summary.py: exit 1: 2 rules broken: invalid-arm-dropped, number-not-in-report
+    with run 3 called: Skill, Glob, Read, Write
+    with run 4: validators/check_summary.py: exit 1: number-not-in-report: 0.57, 0.52, 0.61 are not numbers run/report.md prints; a summary relays its numbers, it does not recompute or round them
+    with run 4 called: Glob, Skill, Read, Glob, Write
+    with run 5: validators/check_summary.py: exit 1: number-not-in-report: 2.3, 0.50, 0.44, 1.01, 0.57 and 4 more are not numbers run/report.md prints; a summary relays its numbers, it does not recompute or round them
+    with run 5 called: Glob, Skill, Read, Write
+    without run 1: validators/check_summary.py: exit 1: 2 rules broken: invalid-arm-dropped, number-not-in-report
+    without run 1 called: Glob, Read, Glob, Write
+    without run 2: validators/check_summary.py: exit 1: number-not-in-report: 0.50, 1.01, 0.44, 2.3, 0.57 and 4 more are not numbers run/report.md prints; a summary relays its numbers, it does not recompute or round them
+    without run 2 called: Glob, Glob, Read, Glob, Write
+    without run 3: validators/check_summary.py: exit 1: 2 rules broken: invalid-arm-dropped, number-not-in-report
+    without run 3 called: Glob, Read, Write
+    without run 4: validators/check_summary.py: exit 1: 2 rules broken: invalid-arm-dropped, number-not-in-report
+    without run 4 called: Glob, Read, Write
+    without run 5: validators/check_summary.py: exit 1: 2 rules broken: invalid-arm-dropped, number-not-in-report
+    without run 5 called: Glob, Glob, Read, Write
+human-reply: review - the judge rejects it
+  cases: 1 measured of 1 selected (1 cached) | arms: with, without | runs per arm: 5
+  score: with 0.40, without 0.00, delta +0.40 | triggered 5 of 5 | cheated 0 | not counted 0
+  size: 896 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0774, judge USD 0.0086 of it
+  judge spend that did not count: USD 0.0026, on runs not triggered USD 0.0000 (the native tool runs its judge on every run)
+  measured as: its own package human-reply 1.0.0, invoked as human-reply:human-reply
+  arm without the skill: the same plugin with only skills/human-reply/ removed, in a second invocation of the tool: its MCP server and tools stay; 0 call(s) to its tools in the runs without the skill
+  kit MCP server: started for 1 case(s); 15 call(s) to its tools in the runs with the skill
+  human-reply/smoke-unverifiable-citation [smoke]: with: passed, rejected by the judge, failed a validator, rejected by the judge, passed | without: failed a validator, rejected by the judge, rejected by the judge, rejected by the judge, failed a validator (cached)
+    with run 2: rejected: expect-02
+    with run 2 called: Glob, Skill, Read, Glob, ToolSearch, mcp__plugin_human-reply_metodo__reply_lint, Read, Grep (error), Glob, Write, mcp__plugin_human-reply_metodo__reply_lint, Edit, mcp__plugin_human-reply_metodo__reply_lint, Edit, mcp__plugin_human-reply_metodo__reply_lint
+    with run 3: validators/check_final_reply.py: exit 1: untagged-claim: line 8 of the technical layer carries no epistemic tag; COM-09 fails it and nothing ships with FAIL
+    with run 3 called: Skill, Glob, Read, ToolSearch, mcp__plugin_human-reply_metodo__reply_lint, Glob, Grep, Read, Grep, Glob, Write, mcp__plugin_human-reply_metodo__reply_lint, Edit, mcp__plugin_human-reply_metodo__reply_lint, Edit, mcp__plugin_human-reply_metodo__reply_lint, Edit, mcp__plugin_human-reply_metodo__reply_lint
+    with run 4: rejected: expect-02
+    with run 4 called: Glob, Skill, Read, Glob, Glob, Read, Read (error), Grep, Write, ToolSearch, mcp__plugin_human-reply_metodo__reply_lint, Glob (error), mcp__plugin_human-reply_metodo__reply_lint
+    without run 1: validators/check_final_reply.py: exit 1: 3 rules broken: untagged-claim, untagged-claim, untagged-claim
+    without run 1 called: Glob, Glob, Read, Read, Grep, Glob, Grep, Write
+    without run 2: rejected: expect-02
+    without run 2 called: Glob, Grep (error), Read, Glob, Read, Grep, Glob, Write
+    without run 3: rejected: expect-02
+    without run 3 called: Glob, Read, Glob, Read, Read (error), Grep, Write
+    without run 4: rejected: expect-02
+    without run 4 called: Glob, Read, Glob, Read, Read (error), Grep, Glob, Write
+    without run 5: validators/check_final_reply.py: exit 1: 2 rules broken: untagged-claim, untagged-claim
+    without run 5 called: Glob, Read, Glob, Read, Glob, Grep, Glob, Write
+human-review: works - it triggers and the result is better than without it
+  cases: 1 measured of 1 selected (1 cached) | arms: with, without | runs per arm: 5
+  score: with 0.80, without 0.00, delta +0.80 | triggered 5 of 5 | cheated 0 | not counted 0
+  size: 587 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0700, judge USD 0.0155 of it
+  judge spend that did not count: USD 0.0088, on runs not triggered USD 0.0000 (the native tool runs its judge on every run)
+  measured as: its own package human-review 1.0.0, invoked as human-review:human-review
+  arm without the skill: the tool's own ablation, which removes the whole plugin
+  human-review/smoke-reviewer-brief [smoke]: with: passed, passed, passed, rejected by the judge, passed | without: failed a validator, failed a validator, failed a validator, failed a validator, failed a validator (cached)
+    with run 4: rejected: expect-01, expect-03
+    with run 4 called: Glob, Glob, Read, Read, Skill, Glob (error), Glob, Read (error), Read (error), Write
+    without run 1: validators/check_reviewer_brief.py: exit 1: 4 rules broken: field-missing, field-missing, field-missing, role-missing
+    without run 1 called: Glob, Glob, Read, Read, Grep, Glob, Write
+    without run 2: validators/check_reviewer_brief.py: exit 1: 5 rules broken: field-missing, field-missing, field-missing, field-missing, role-missing
+    without run 2 called: Glob, Glob, Read, Read, Glob, Write
+    without run 3: validators/check_reviewer_brief.py: exit 1: 10 rules broken: field-missing, field-missing, field-missing, role-missing, rules-missing, rules-missing, rules-missing, rules-missing, rules-missing, reader-missing
+    without run 3 called: Glob, Glob, Read, Read, Grep, Glob, Write
+    without run 4: validators/check_reviewer_brief.py: exit 1: 5 rules broken: field-missing, field-missing, field-missing, field-missing, role-missing
+    without run 4 called: Glob, Glob, Glob, Read, Read, Grep, Write
+    without run 5: validators/check_reviewer_brief.py: exit 1: 4 rules broken: field-missing, field-missing, field-missing, role-missing
+    without run 5 called: Glob, Glob, Read, Read, Glob, Write
+init-kit: review - the judge rejects it
+  cases: 1 measured of 1 selected (1 cached) | arms: with, without | runs per arm: 5
+  score: with 0.60, without 0.00, delta +0.60 | triggered 5 of 5 | cheated 0 | not counted 0
+  size: 1123 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0605, judge USD 0.0132 of it
+  judge spend that did not count: USD 0.0066, on runs not triggered USD 0.0000 (the native tool runs its judge on every run)
+  measured as: its own package init-kit 1.0.0, invoked as init-kit:init-kit
+  arm without the skill: the tool's own ablation, which removes the whole plugin
+  init-kit/smoke-unanswered-key [smoke]: with: passed, passed, passed, rejected by the judge, rejected by the judge | without: failed a validator, failed a validator, failed a validator, failed a validator, failed a validator (cached)
+    with run 4: rejected: expect-03
+    with run 4 called: Glob, Bash (error), Glob, Glob (error), Glob (error), Glob, Read, Skill, Write
+    with run 5: rejected: expect-03
+    with run 5 called: Glob, Bash (error), Glob (error), Glob (error), Read, Read (error), Skill, Write
+    without run 1: validators/check_answers.py: exit 1: 2 rules broken: unknown-key, answer-missing
+    without run 1 called: Glob, Bash (error), Glob (error), Glob (error), Read (error), Read (error), Read, Grep (error), Read (error), Write
+    without run 2: validators/check_answers.py: exit 1: 4 rules broken: unknown-key, wrong-type, unconfirmed-key, answer-missing
+    without run 2 called: Glob, Glob (error), Read, Bash (error), Glob (error), Glob, Glob (error), Read (error), Read (error), Write
+    without run 3: validators/check_answers.py: exit 1: 2 rules broken: unknown-key, answer-missing
+    without run 3 called: Glob, Bash (error), Glob, Glob, Glob, Glob (error), Read (error), Read, Glob, Glob (error), Glob (error), Read (error), Write
+    without run 4: validators/check_answers.py: exit 1: 2 rules broken: unknown-key, answer-missing
+    without run 4 called: Glob, Bash (error), Glob, Glob, Read, Glob, Glob (error), Glob (error), Write
+    without run 5: validators/check_answers.py: exit 1: 2 rules broken: unknown-key, answer-missing
+    without run 5 called: Glob, Bash (error), Glob, Glob (error), Glob (error), Glob (error), Read, Read (error), Grep (error), Read (error), Read (error), Read (error), Write
+necessary-comment: review - it does not trigger when it should (look at the description)
+  cases: 1 measured of 1 selected (0 cached) | arms: with, without | runs per arm: 5
+  score: with 1.00, without 0.00, delta +1.00 | triggered 3 of 5 | cheated 0 | not counted 0
+  size: 688 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0743, judge USD 0.0131 of it
+  judge spend that did not count: USD 0.0087, on runs not triggered USD 0.0027 (the native tool runs its judge on every run)
+  measured as: its own package necessary-comment 1.0.0, invoked as necessary-comment:necessary-comment
+  arm without the skill: the same plugin with only skills/necessary-comment/ removed, in a second invocation of the tool: the mocked tools stay; 5 call(s) to its tools in the runs without the skill
+  mocked tools: answered from the mock files of 1 case(s), the real server not started; 5 call(s) to them in the runs with the skill
+  tools with no mock: 1 declared tool(s) had no mock and were not available in 1 of 1 mocked case(s): comment_gate_verify; the verdict above does not take this into account
+  necessary-comment/smoke-verdict-routing [smoke]: with: passed, passed, passed, not triggered, quality not judged, not triggered, quality not judged | without: failed a validator, failed a validator, failed a validator, failed a validator, failed a validator
+    with run 4: not invoked: necessary-comment
+    with run 4 called: Bash (error), Glob, ToolSearch, mcp__plugin_necessary-comment_metodo__comment_gate_measure, Read, Grep (error), Glob, Glob, Read, Write
+    with run 5: not invoked: necessary-comment
+    with run 5 called: Bash (error), ToolSearch, Glob, mcp__plugin_necessary-comment_metodo__comment_gate_measure, Read, Grep, Write
+    without run 1: validators/check_routing.py: exit 1: 6 rules broken: route-wrong, route-wrong, route-wrong, route-wrong, route-wrong, route-wrong
+    without run 1 called: ToolSearch, Bash (error), mcp__plugin_necessary-comment_metodo__comment_gate_measure, Glob, Read, Grep, Glob, Glob, Grep (error), Read, Write
+    without run 2: validators/check_routing.py: exit 1: 6 rules broken: route-wrong, route-wrong, route-wrong, route-wrong, route-wrong, route-wrong
+    without run 2 called: ToolSearch, Glob, Bash (error), mcp__plugin_necessary-comment_metodo__comment_gate_measure, Read, Write
+    without run 3: validators/check_routing.py: exit 1: 6 rules broken: route-wrong, route-wrong, route-wrong, route-wrong, route-wrong, route-wrong
+    without run 3 called: ToolSearch, Glob, Bash (error), mcp__plugin_necessary-comment_metodo__comment_gate_measure, Read, Grep, Glob, Write
+    without run 4: validators/check_routing.py: exit 1: 6 rules broken: route-wrong, route-wrong, route-wrong, route-wrong, route-wrong, route-wrong
+    without run 4 called: Bash (error), ToolSearch, Glob, mcp__plugin_necessary-comment_metodo__comment_gate_measure, Read, Glob, Glob, Read (error), Read, Write
+    without run 5: validators/check_routing.py: exit 1: 6 rules broken: route-wrong, route-wrong, route-wrong, route-wrong, route-wrong, route-wrong
+    without run 5 called: ToolSearch, Bash (error), mcp__plugin_necessary-comment_metodo__comment_gate_measure, Glob, Read, Grep, Glob, Read, Read, Read, Write
+post-review-comment: review - it does not trigger when it should (look at the description); its output fails a validator
+  cases: 1 measured of 1 selected (1 cached) | arms: with, without | runs per arm: 5
+  score: with 0.00, without 0.00, delta +0.00 | triggered 3 of 5 | cheated 0 | not counted 0
+  size: 603 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0589, judge USD 0.0039 of it
+  judge spend that did not count: USD 0.0039, on runs not triggered USD 0.0009 (the native tool runs its judge on every run)
+  measured as: its own package post-review-comment 1.0.0, invoked as post-review-comment:post-review-comment
+  arm without the skill: the tool's own ablation, which removes the whole plugin
+  post-review-comment/smoke-render [smoke]: with: failed a validator, not triggered, quality not judged, failed a validator, not triggered, quality not judged, failed a validator | without: failed a validator, failed a validator, failed a validator, failed a validator, failed a validator (cached)
+    with run 1: validators/check_posted.py: exit 1: posted.md is missing from the files the run left
+    with run 1 called: Glob (error), Glob (error), Bash, Bash, Read, Skill, Bash, Bash
+    with run 2: not invoked: post-review-comment
+    with run 2 called: Bash, Read, Bash, Bash, Bash, Bash, ToolSearch, TaskStop, Write
+    with run 3: validators/check_posted.py: exit 1: posted.md is missing from the files the run left
+    with run 3 called: Glob (error), Glob, Read, Grep (error), Bash, Skill, Bash, Bash
+    with run 4: not invoked: post-review-comment
+    with run 4 called: Bash, Read, Bash, Bash, Read, Bash (error), Bash, ToolSearch, TaskStop, Write
+    with run 5: validators/check_posted.py: exit 1: posted.md is missing from the files the run left
+    with run 5 called: Glob (error), Glob, Read, Bash, Bash, Skill, Bash, Bash
+    without run 1: validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: 
+    without run 1 called: Bash, Read, Bash, Bash (error), Bash (error), Write, Bash, Bash
+    without run 2: validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: 
+    without run 2 called: Bash, Read, Bash, Bash
+    without run 3: validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: 
+    without run 3 called: Bash, Bash, Bash, Bash, Bash
+    without run 4: validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: 
+    without run 4 called: Glob, Bash, Read, Bash, Bash, Write
+    without run 5: validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: 
+    without run 5 called: Bash, Read, Bash, Bash (error), Write
+pr-message: works - it triggers and the result is better than without it
+  cases: 1 measured of 1 selected (0 cached) | arms: with, without | runs per arm: 5
+  score: with 0.80, without 0.00, delta +0.80 | triggered 5 of 5 | cheated 0 | not counted 0
+  size: 808 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0558, judge USD 0.0101 of it
+  judge spend that did not count: USD 0.0052, on runs not triggered USD 0.0000 (the native tool runs its judge on every run)
+  measured as: its own package pr-message 1.1.0, invoked as pr-message:pr-message
+  arm without the skill: the same plugin with only skills/pr-message/ removed, in a second invocation of the tool: the mocked tools stay; 2 call(s) to its tools in the runs without the skill
+  mocked tools: answered from the mock files of 1 case(s), the real server not started; 10 call(s) to them in the runs with the skill
+  tools with no mock: 3 declared tool(s) had no mock and were not available in 1 of 1 mocked case(s): benchmark_release, done_check, job_status; the verdict above does not take this into account
+  pr-message/smoke-skipped-check [smoke]: with: passed, passed, passed, rejected by the judge, passed | without: failed a validator, failed a validator, failed a validator, failed a validator, failed a validator
+    with run 4: rejected: expect-01
+    with run 4 called: Skill, ToolSearch, Read, Read, mcp__plugin_pr-message_metodo__change_card_validate, mcp__plugin_pr-message_metodo__receipt_status, ToolSearch, Write
+    without run 1: validators/check_pr_body.py: exit 1: section-missing: the message has no section "What and why", "Before and after", "What was NOT tested"
+    without run 1 called: Glob, Bash (error), Read, Read, ToolSearch, mcp__plugin_pr-message_metodo__change_card_validate, Write
+    without run 2: validators/check_pr_body.py: exit 1: section-missing: the message has no section "What and why", "Before and after", "What was NOT tested"
+    without run 2 called: Glob, Read, Read, Write
+    without run 3: validators/check_pr_body.py: exit 1: section-missing: the message has no section "What and why", "Before and after", "What was NOT tested"
+    without run 3 called: Glob, Read, Read, Bash (error), Write
+    without run 4: validators/check_pr_body.py: exit 1: section-missing: the message has no section "What and why", "Before and after", "What was NOT tested"
+    without run 4 called: Glob, Read, Read, Bash (error), Write
+    without run 5: validators/check_pr_body.py: exit 1: section-missing: the message has no section "What and why", "Before and after", "What was NOT tested"
+    without run 5 called: Glob, Bash (error), Glob, Read, Read, ToolSearch, mcp__plugin_pr-message_metodo__change_card_validate, Write
+real-environment-minutes: works - it triggers and the result is better than without it
+  cases: 1 measured of 1 selected (0 cached) | arms: with, without | runs per arm: 5
+  score: with 1.00, without 0.60, delta +0.40 | triggered 5 of 5 | cheated 0 | not counted 0
+  size: 490 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0770, judge USD 0.0050 of it
+  judge spend that did not count: USD 0.0010, on runs not triggered USD 0.0000 (the native tool runs its judge on every run)
+  measured as: its own package real-environment-minutes 1.0.0, invoked as real-environment-minutes:real-environment-minutes
+  arm without the skill: the same plugin with only skills/real-environment-minutes/ removed, in a second invocation of the tool: the mocked tools stay; 8 call(s) to its tools in the runs without the skill
+  mocked tools: answered from the mock files of 1 case(s), the real server not started; 12 call(s) to them in the runs with the skill
+  real-environment-minutes/smoke-median-and-mock [smoke]: with: passed, passed, passed, passed, passed | without: failed a validator, passed, failed a validator, passed, passed
+    without run 1: validators/check_bench_minutes.py: exit 1: 2 problems, rules broken: median-missing (A, B)
+    without run 1 called: Glob, Glob, Read, Read, Read, Read, Read, Grep (error), Read, ToolSearch, mcp__plugin_real-environment-minutes_metodo__benchmark_release, mcp__plugin_real-environment-minutes_metodo__job_status, Write, Edit, Edit
+    without run 3: validators/check_bench_minutes.py: exit 1: 2 problems, rules broken: operator-missing (A, B)
+    without run 3 called: Glob, Read, Read, Read, Read, Read, ToolSearch, Grep, mcp__plugin_real-environment-minutes_metodo__benchmark_release, mcp__plugin_real-environment-minutes_metodo__job_status, Write
+receipt-review: review - it does not trigger when it should (look at the description); its output fails a validator
+  cases: 1 measured of 1 selected (0 cached) | arms: with, without | runs per arm: 5
+  score: with 0.33, without 0.00, delta +0.33 | triggered 3 of 5 | cheated 0 | not counted 0
+  size: 1217 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0565, judge USD 0.0093 of it
+  judge spend that did not count: USD 0.0086, on runs not triggered USD 0.0018 (the native tool runs its judge on every run)
+  measured as: its own package receipt-review 1.0.0, invoked as receipt-review:receipt-review
+  arm without the skill: the same plugin with only skills/receipt-review/ removed, in a second invocation of the tool: the mocked tools stay; 9 call(s) to its tools in the runs without the skill
+  mocked tools: answered from the mock files of 1 case(s), the real server not started; 10 call(s) to them in the runs with the skill
+  tools with no mock: 13 declared tool(s) had no mock and were not available in 1 of 1 mocked case(s): change_card_validate, comment_gate_measure, docs_lint, job_status, output_validate, receipt_acknowledge, receipt_capture, receipt_finalize, receipt_start, role_contract_validate, route, verify_commit, verify_sectors; the verdict above does not take this into account
+  receipt-review/smoke-tier-frozen [smoke]: with: not triggered, quality not judged, not triggered, quality not judged, failed a validator, failed a validator, passed | without: failed a validator, failed a validator, failed a validator, failed a validator, failed a validator
+    with run 1: not invoked: receipt-review
+    with run 1 called: Glob, Bash (error), Read, Write, ToolSearch, mcp__plugin_receipt-review_metodo__receipt_status, mcp__plugin_receipt-review_metodo__test_sectors, Edit
+    with run 2: not invoked: receipt-review
+    with run 2 called: Glob, Bash (error), Read, Glob, ToolSearch, mcp__plugin_receipt-review_metodo__receipt_status, mcp__plugin_receipt-review_metodo__test_sectors, Write
+    with run 3: validators/check_context.py: exit 1: lenses-changed: the LENSES line lacks flujo-critico, jamas-peor-que-antes, tests-anti-flake, simplicidad; the script returned flujo-critico, jamas-peor-que-antes, tests-anti-flake, simplicidad
+    with run 3 called: Glob, Bash (error), Read, Skill, ToolSearch, mcp__plugin_receipt-review_metodo__receipt_status, mcp__plugin_receipt-review_metodo__test_sectors, Write
+    with run 4: validators/check_context.py: exit 1: lenses-changed: the LENSES line lacks flujo-critico, jamas-peor-que-antes, tests-anti-flake, simplicidad; the script returned flujo-critico, jamas-peor-que-antes, tests-anti-flake, simplicidad
+    with run 4 called: Bash (error), Glob, ToolSearch, Read, mcp__plugin_receipt-review_metodo__receipt_status, Skill, mcp__plugin_receipt-review_metodo__receipt_status, mcp__plugin_receipt-review_metodo__test_sectors, Write
+    without run 1: validators/check_context.py: exit 1: 3 rules broken: risk-line-missing, lenses-line-missing, receipt-line-missing
+    without run 1 called: Glob, Bash (error), Read, Grep, Read, Glob, ToolSearch, mcp__plugin_receipt-review_metodo__receipt_status, Write
+    without run 2: validators/check_context.py: exit 1: 3 rules broken: risk-line-missing, lenses-line-missing, receipt-line-missing
+    without run 2 called: Glob, Bash (error), Read, Grep, Grep, ToolSearch, mcp__plugin_receipt-review_metodo__receipt_status, mcp__plugin_receipt-review_metodo__test_sectors, Write
+    without run 3: validators/check_context.py: exit 1: 3 rules broken: risk-line-missing, lenses-line-missing, receipt-line-missing
+    without run 3 called: Glob, Bash (error), Read, Glob, ToolSearch, Grep, mcp__plugin_receipt-review_metodo__receipt_status, mcp__plugin_receipt-review_metodo__test_sectors, Glob, Write
+    without run 4: validators/check_context.py: exit 1: 3 rules broken: risk-line-missing, lenses-line-missing, receipt-line-missing
+    without run 4 called: Glob, Bash (error), Glob, Read, ToolSearch, mcp__plugin_receipt-review_metodo__receipt_status, mcp__plugin_receipt-review_metodo__test_sectors, Write
+    without run 5: validators/check_context.py: exit 1: 3 rules broken: risk-line-missing, lenses-line-missing, receipt-line-missing
+    without run 5 called: Bash (error), Glob, Read, Glob, ToolSearch, mcp__plugin_receipt-review_metodo__receipt_status, mcp__plugin_receipt-review_metodo__test_sectors, Write
+repo-metrics: works - it triggers and the result is better than without it
+  cases: 1 measured of 1 selected (0 cached) | arms: with, without | runs per arm: 5
+  score: with 0.80, without 0.20, delta +0.60 | triggered 5 of 5 | cheated 0 | not counted 0
+  size: 464 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0529, judge USD 0.0087 of it
+  judge spend that did not count: USD 0.0014, on runs not triggered USD 0.0000 (the native tool runs its judge on every run)
+  measured as: its own package repo-metrics 1.0.0, invoked as repo-metrics:repo-metrics
+  arm without the skill: the same plugin with only skills/repo-metrics/ removed, in a second invocation of the tool: the mocked tools stay; 10 call(s) to its tools in the runs without the skill
+  mocked tools: answered from the mock files of 1 case(s), the real server not started; 10 call(s) to them in the runs with the skill
+  repo-metrics/smoke-tool-drift [smoke]: with: passed, passed, passed, passed, rejected by the judge | without: passed, failed a validator, rejected by the judge, failed a validator, rejected by the judge
+    with run 5: rejected: expect-03
+    with run 5 called: Skill, ToolSearch, mcp__plugin_repo-metrics_metodo__metrics_delta, mcp__plugin_repo-metrics_metodo__job_status, Glob, Read, Write
+    without run 2: validators/check_delta_note.py: exit 1: output-missing: metrics-delta.md is missing from the files the run left
+    without run 2 called: ToolSearch, mcp__plugin_repo-metrics_metodo__metrics_delta, mcp__plugin_repo-metrics_metodo__job_status, Read
+    without run 3: rejected: expect-03
+    without run 3 called: ToolSearch, mcp__plugin_repo-metrics_metodo__metrics_delta, mcp__plugin_repo-metrics_metodo__job_status, Read (error), Write
+    without run 4: validators/check_delta_note.py: exit 1: output-missing: metrics-delta.md is missing from the files the run left
+    without run 4 called: ToolSearch, Bash (error), mcp__plugin_repo-metrics_metodo__metrics_delta, mcp__plugin_repo-metrics_metodo__job_status
+    without run 5: rejected: expect-03
+    without run 5 called: ToolSearch, mcp__plugin_repo-metrics_metodo__metrics_delta, mcp__plugin_repo-metrics_metodo__job_status, Grep, Read, Write
+review-comment: works - it triggers and the result is better than without it
+  cases: 1 measured of 1 selected (0 cached) | arms: with, without | runs per arm: 5
+  score: with 0.80, without 0.00, delta +0.80 | triggered 5 of 5 | cheated 0 | not counted 0
+  size: 876 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0725, judge USD 0.0072 of it
+  judge spend that did not count: USD 0.0037, on runs not triggered USD 0.0000 (the native tool runs its judge on every run)
+  measured as: its own package review-comment 1.0.0, invoked as review-comment:review-comment
+  arm without the skill: the same plugin with only skills/review-comment/ removed, in a second invocation of the tool: the mocked tools stay; 1 call(s) to its tools in the runs without the skill
+  mocked tools: answered from the mock files of 1 case(s), the real server not started; 5 call(s) to them in the runs with the skill
+  tools with no mock: 1 declared tool(s) had no mock and were not available in 1 of 1 mocked case(s): review_comment_lint; the verdict above does not take this into account
+  review-comment/smoke-base-drift [smoke]: with: passed, passed, passed, rejected by the judge, passed | without: failed a validator, failed a validator, failed a validator, failed a validator, failed a validator
+    with run 4: rejected: expect-02
+    with run 4 called: Glob, Bash (error), Glob, Read, Read, Read, Read, Read, Skill, ToolSearch, mcp__plugin_review-comment_metodo__pr_scope, Write, Write, ToolSearch
+    without run 1: validators/check_comments.py: exit 1: 2 rules broken: four-parts, proposal-language
+    without run 1 called: Glob, Bash (error), Glob, Read, Read, Read, Read, Read, ToolSearch, mcp__plugin_review-comment_metodo__pr_scope, Write
+    without run 2: validators/check_comments.py: exit 1: 3 rules broken: four-parts, proposal-language, base-drift-commented
+    without run 2 called: Glob, Bash (error), Read, Read, Glob, Glob, Read, Read, Read, Write, Write
+    without run 3: validators/check_comments.py: exit 1: 3 rules broken: four-parts, proposal-language, base-drift-commented
+    without run 3 called: Glob, Bash (error), Read, Read, Glob, Read, Read, Read, Write, Write
+    without run 4: validators/check_comments.py: exit 1: 3 rules broken: four-parts, proposal-language, base-drift-commented
+    without run 4 called: Bash (error), Glob, Glob, Read, Read, Read, Read, Read, Write, Write
+    without run 5: validators/check_comments.py: exit 1: 3 rules broken: four-parts, proposal-language, base-drift-commented
+    without run 5 called: Glob, Bash (error), Read, Read, Glob, Glob, Read, Read, Read, Write, Write, Glob
+verify-per-commit: works - it triggers and the result is better than without it
+  cases: 1 measured of 1 selected (0 cached) | arms: with, without | runs per arm: 5
+  score: with 1.00, without 0.80, delta +0.20 | triggered 5 of 5 | cheated 0 | not counted 0
+  size: 389 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0811, judge USD 0.0126 of it
+  judge spend that did not count: USD 0.0000, on runs not triggered USD 0.0000 (the native tool runs its judge on every run)
+  measured as: its own package verify-per-commit 1.0.0, invoked as verify-per-commit:verify-per-commit
+  arm without the skill: the same plugin with only skills/verify-per-commit/ removed, in a second invocation of the tool: the mocked tools stay; 22 call(s) to its tools in the runs without the skill
+  mocked tools: answered from the mock files of 1 case(s), the real server not started; 10 call(s) to them in the runs with the skill
+  verify-per-commit/smoke-keep-the-fail [smoke]: with: passed, passed, passed, passed, passed | without: passed, rejected by the judge, passed, passed, passed
+    without run 2: rejected: expect-01
+    without run 2 called: Bash (error), ToolSearch, Glob, Glob (error), Read, Read (error), mcp__plugin_verify-per-commit_metodo__verify_commit, mcp__plugin_verify-per-commit_metodo__job_status, Read, Read (error), Read, Read, Read, Read, Read, mcp__plugin_verify-per-commit_metodo__verify_commit, mcp__plugin_verify-per-commit_metodo__job_status, mcp__plugin_verify-per-commit_metodo__verify_commit, Read (error), Write
+done by the kit around the native tool: tiers as tags, setup.files through a scaffold script, script validators on the files each run left, the forbidden-path check on each trace, the cascade, the verdict and the cache; the tool's own score of each run is kept in the stored result
+exit=0
+end 2026-11-24T23:25:58+0100

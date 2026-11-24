@@ -2,7 +2,7 @@
 
 One command answers it per skill: `works`, `review` or `not measured`, and why. It runs fixed cases with and without the skill on Claude Code's own eval tool, `claude plugin eval`, and scores them itself.
 
-All 17 skills have a BUILD and a case [Tested: `03-tools/bin/skill-build.sh test --all`]. At five runs per arm seven read `works` and ten read `review` (section 6), on the cases before the mocks. Nine cases changed since: they have only signals at one run per arm, no five-run benchmark yet. The whole kit against plain Claude Code: [09-measurement.md](09-measurement.md). Tags as in `08-benchmark/METRICS.md`.
+All 17 skills have a BUILD and a case [Tested: `03-tools/bin/skill-build.sh test --all`]. At five runs per arm eight read `works` and nine read `review` (section 6); the nine cases with mocks ran again after they changed. The whole kit against plain Claude Code: [09-measurement.md](09-measurement.md). Tags as in `08-benchmark/METRICS.md`.
 
 ## 1. The two files you write
 
@@ -78,8 +78,8 @@ Each run passes three scorers in order: the skill was invoked, the validators pa
 
 | Run, model and judge `haiku` | USD | Verdict |
 |---|---|---|
-| the 17 skills, five per arm | 1.42 | 7 `works`; 10 `review`: 3 do not trigger, 5 trigger and fail, 2 do no better than without |
-| run 9: the ten cases that had mocks then, one per arm | 0.17 | signals, not verdicts (README below) |
+| the 17 skills, five per arm, before the mocks | 1.42 | 7 `works`, 10 `review` |
+| run 10: the nine cases with mocks, five per arm | 0.64 | with the eight stored: 8 `works`; 9 `review`: 3 do not trigger every time, 5 trigger and fail, 1 does no better than without |
 
 Source: the `spend:` lines, 2026-11-24, kept in `odd/research/skill-evals-bench-2026-11/`, whose README has the table per skill and what is kept of each run [Tested]. One run per arm cost USD 0.007 to 0.013.
 
