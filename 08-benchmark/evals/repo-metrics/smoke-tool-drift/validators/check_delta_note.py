@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Validator of repo-metrics/smoke-tool-drift: metrics-delta.md declares the delta VOID and gives no figure of it.
 
-Called as `check_delta_note.py WORKSPACE TESTDATA`. The case stages what a metrics job left after
-the measuring tools changed between the baseline and the run: the job status (`exit_code` 2, a
-summary whose verdict is "VOID: tool drift"), the `delta.json` it points to, the `metrics.md` of
+Called as `check_delta_note.py WORKSPACE TESTDATA`. The case gives what a metrics job left after
+the measuring tools changed between the baseline and the run. Its two tools answer from
+`mocks/metodo/`: the start of the job, and its status (`exit_code` 2, a summary whose verdict is
+"VOID: tool drift"). Staged beside them: the `delta.json` the status points to, the `metrics.md` of
 the run, and a `delta.md` with a full before and after table. That table is real and stale:
 `03-tools/bin/metrics.sh` wrote it on the same commit before the tools changed, and on drift it
 exits before writing a new one and does not remove the old one. The skill's rule,

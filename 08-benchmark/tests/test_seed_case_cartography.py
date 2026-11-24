@@ -4,7 +4,8 @@ The validator is run as the runner runs it: as a script, `check_module_map.py WO
 under `python3 -I`, on a `module-map.md` each test writes in a temporary folder, with the case's own
 `testdata/` as the answer key. One test per rule the validator names, each built to break only that
 rule and pinning the line it prints, plus the tests that tie the answer key to the snapshot the case
-stages (`setup/out/<sha>/`, what `03-tools/bin/cartography.sh` wrote for the toy repo in `setup/`).
+stages (`setup/out/<sha>/`, what `03-tools/bin/cartography.sh` wrote for the toy repo in `setup/`),
+and the test that ties the mocked answer of the tool (`mocks/metodo/cartography.md`) to that snapshot.
 """
 import importlib.util
 import json
@@ -18,7 +19,8 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 CASE = ROOT / "evals" / "cartography" / "smoke-unmeasured-module"
 VALIDATOR = CASE / "validators" / "check_module_map.py"
-KEY = json.loads((CASE / "testdata" / "answer-key.json").read_text(encoding="utf-8"))
+MOCKS = CASE / "mocks" / "metodo"
+KEY =json.loads((CASE / "testdata" / "answer-key.json").read_text(encoding="utf-8"))
 
 # A map that takes every figure from the snapshot and leaves the module it did not measure unsized.
 FAITHFUL = """# Module map
@@ -199,6 +201,26 @@ class AnswerKey(unittest.TestCase):
     def test_the_answer_key_is_not_staged(self):
         case = json.loads((CASE / "case.json").read_text(encoding="utf-8"))
         self.assertFalse([entry for entry in case["setup"]["files"] if "testdata" in entry["from"]])
+
+
+class Mocks(unittest.TestCase):
+    """The mocked tool answers what the kit's server answers for the snapshot the case stages."""
+
+    def test_the_mock_of_cartography_is_the_staged_snapshot_as_the_server_renders_it(self):
+        staged = next(CASE / "setup" / f for f in KEY["snapshot_files"] if f.endswith("/cartography.json"))
+        payload = json.loads(staged.read_text(encoding="utf-8"))
+        body = (MOCKS / "cartography.md").read_text(encoding="utf-8")
+        # 03-tools/mcp/registry.py, run(): the text of an answer is the payload with sorted keys and an indent of 2
+        self.assertEqual(body, json.dumps(payload, sort_keys=True, ensure_ascii=False, indent=2) + "\n")
+        self.assertEqual(sorted(path.name for path in MOCKS.iterdir()), ["cartography.md"])  # the skill's one tool
+        # what the case is built on: the answer names the folder of the staged snapshot, gives no size per
+        # module (those are in the files beside it), and reports the collision the owner has to decide
+        self.assertTrue(all(f"/{payload['repo_sha']}/" in f for f in KEY["snapshot_files"]))
+        self.assertEqual(payload["shape_summary"]["loc"], sum(KEY["measured_modules"].values()))
+        self.assertFalse(set(payload) & {"modules", "by_module", "files"})
+        self.assertIn("gradle/libs.versions.toml", payload["merge_conflict_simulation"]["conflicted_paths"])
+        touched = {row["path"].split("/", 1)[0]: row["touches"] for row in payload["hotspots"]}
+        self.assertEqual([str(touched["billing-legacy"])], KEY["unmeasured_modules"]["billing-legacy"])
 
 
 if __name__ == "__main__":

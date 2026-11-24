@@ -5,7 +5,8 @@ The validator is run as the runner runs it: as a script, `check_cards.py WORKSPA
 `testdata/` as the answer key. One test per rule the validator names, each built to break only that
 rule and pinning the line it prints, plus the tests that tie the answer key to the files the case
 stages: the sweep `03-tools/bin/clean-pass.sh` wrote for the toy repo (`setup/out/<sha>/`) and the
-kit's own `config/project.json`, which declares the critical paths.
+kit's own `config/project.json`, which declares the critical paths; and the test that ties the
+mocked answer of the sweep tool (`mocks/metodo/clean_pass.md`) to that sweep.
 """
 import json
 import pathlib
@@ -17,7 +18,8 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 CASE = ROOT / "evals" / "clean-pass" / "smoke-unflagged-item"
 VALIDATOR = CASE / "validators" / "check_cards.py"
-KEY = json.loads((CASE / "testdata" / "answer-key.json").read_text(encoding="utf-8"))
+MOCKS = CASE / "mocks" / "metodo"
+KEY =json.loads((CASE / "testdata" / "answer-key.json").read_text(encoding="utf-8"))
 
 
 def card(title: str, file: str, why: str) -> str:
@@ -131,6 +133,21 @@ class AnswerKey(unittest.TestCase):
     def test_the_answer_key_is_not_staged(self):
         case = json.loads((CASE / "case.json").read_text(encoding="utf-8"))
         self.assertFalse([entry for entry in case["setup"]["files"] if "testdata" in entry["from"]])
+
+
+class Mocks(unittest.TestCase):
+    """The mocked tool answers what the kit's server answers for the sweep the case stages."""
+
+    def test_the_mock_of_clean_pass_is_the_staged_sweep_as_the_server_renders_it(self):
+        payload = json.loads((CASE / "setup" / KEY["sweep"]).read_text(encoding="utf-8"))
+        body = (MOCKS / "clean_pass.md").read_text(encoding="utf-8")
+        # 03-tools/mcp/registry.py, run(): the text of an answer is the payload with sorted keys and an indent of 2
+        self.assertEqual(body, json.dumps(payload, sort_keys=True, ensure_ascii=False, indent=2) + "\n")
+        self.assertEqual(json.loads(body)["flagged_items"], KEY["flagged"])
+        self.assertNotIn("Coupons.kt", body)  # the file the owner adds is in no row of the answer
+        # The skill's other tool checks the card it is given, so its answer follows what the run writes:
+        # no fixed body is the right answer to every card, and the case carries no mock of it.
+        self.assertEqual(sorted(path.name for path in MOCKS.iterdir()), ["clean_pass.md"])
 
 
 if __name__ == "__main__":

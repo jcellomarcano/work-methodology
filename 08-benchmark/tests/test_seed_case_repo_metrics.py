@@ -4,9 +4,11 @@ The validator is run as the runner runs it: as a script, `check_delta_note.py WO
 under `python3 -I`, on a `metrics-delta.md` each test writes in a temporary folder, with the case's
 own `testdata/` as the answer key. One test per rule the validator names, each built to break only
 that rule and pinning the line it prints, plus the tests that tie the answer key to the files the
-case stages: what `03-tools/bin/metrics.sh` left for the toy repo after the tools changed (a job
-status with exit code 2, a `delta.json` that says VOID) and the `delta.md` of the run before the
-change, which the script does not remove.
+case stages: what `03-tools/bin/metrics.sh` left for the toy repo after the tools changed (a
+`delta.json` that says VOID) and the `delta.md` of the run before the change, which the script
+does not remove; and the tests that tie the mocked answers of the two tools
+(`mocks/metodo/metrics_delta.md`, which starts the job, and `mocks/metodo/job_status.md`, a job
+done with exit code 2) to each other and to those files.
 """
 import json
 import pathlib
@@ -19,7 +21,8 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 CASE = ROOT / "evals" / "repo-metrics" / "smoke-tool-drift"
 VALIDATOR = CASE / "validators" / "check_delta_note.py"
-KEY = json.loads((CASE / "testdata" / "answer-key.json").read_text(encoding="utf-8"))
+MOCKS = CASE / "mocks" / "metodo"
+KEY =json.loads((CASE / "testdata" / "answer-key.json").read_text(encoding="utf-8"))
 
 # A note that declares the delta VOID and gives no figure of it.
 FAITHFUL = """# Metrics delta: VOID (tool drift)
@@ -116,16 +119,44 @@ class AnswerKey(unittest.TestCase):
         found = sorted({int(n) for n in re.findall(r"(?<![\w.])\d+(?![\w.])", text)})
         self.assertEqual(found, KEY["current_numbers"])
 
-    def test_the_staged_job_is_the_drift_the_case_is_about(self):
-        status = json.loads((CASE / "setup" / "job-status.json").read_text(encoding="utf-8"))
-        self.assertEqual((status["status"], status["exit_code"], status["summary"]["verdict"]), ("done", 2, "VOID: tool drift"))
-        delta = json.loads((CASE / "setup" / status["summary_path"]).read_text(encoding="utf-8"))
-        self.assertEqual(delta, status["summary"])
-        self.assertNotEqual(delta["tool_sha_before"], delta["tool_sha_after"])
-
     def test_the_answer_key_is_not_staged(self):
         case = json.loads((CASE / "case.json").read_text(encoding="utf-8"))
         self.assertFalse([entry for entry in case["setup"]["files"] if "testdata" in entry["from"]])
+
+
+class Mocks(unittest.TestCase):
+    """The two mocked tools answer what the kit's server answered for the job the case is about."""
+
+    def answer(self, tool: str) -> dict:
+        body = (MOCKS / f"{tool}.md").read_text(encoding="utf-8")
+        payload = json.loads(body)
+        # 03-tools/mcp/registry.py, run(): the text of an answer is the payload with sorted keys and an indent of 2
+        self.assertEqual(body, json.dumps(payload, sort_keys=True, ensure_ascii=False, indent=2) + "\n")
+        self.assertNotRegex(body, r'"/(?!work/shop\b)')  # no path of the machine that made it
+        return payload
+
+    def test_the_mock_of_job_status_is_the_drift_the_case_is_about(self):
+        status = self.answer("job_status")
+        self.assertEqual((status["status"], status["exit_code"], status["summary"]["verdict"]), ("done", 2, "VOID: tool drift"))
+        delta = json.loads((CASE / "setup" / status["summary_path"]).read_text(encoding="utf-8"))  # staged where it points
+        self.assertEqual(delta, status["summary"])
+        self.assertNotEqual(delta["tool_sha_before"], delta["tool_sha_after"])
+        self.assertEqual(status["summary_path"].rsplit("/", 1)[0], KEY["stale_delta"].rsplit("/", 1)[0])
+        # the mock carries what job-status.json carried, so that file is staged no more
+        case = json.loads((CASE / "case.json").read_text(encoding="utf-8"))
+        self.assertEqual([entry["to"] for entry in case["setup"]["files"]], ["out"])
+        self.assertFalse((CASE / "setup" / "job-status.json").exists())
+
+    def test_the_mock_of_metrics_delta_starts_the_job_the_status_mock_reports(self):
+        started, status = self.answer("metrics_delta"), self.answer("job_status")
+        self.assertEqual(sorted(started), ["log_path", "run_id", "status", "summary_candidates"])
+        self.assertEqual(started["status"], "running")  # the tool starts a job and returns before it ends
+        self.assertEqual((started["run_id"], started["log_path"]), (status["run_id"], status["log_path"]))
+        self.assertEqual(status["tool"], "metrics_delta")
+        folder = KEY["stale_delta"].rsplit("/", 1)[0]
+        self.assertEqual(started["summary_candidates"], [f"{folder}/delta.json", f"{folder}/metrics.json"])
+        self.assertEqual(started["summary_candidates"][0], status["summary_path"])
+        self.assertEqual(sorted(path.name for path in MOCKS.iterdir()), ["job_status.md", "metrics_delta.md"])
 
 
 if __name__ == "__main__":

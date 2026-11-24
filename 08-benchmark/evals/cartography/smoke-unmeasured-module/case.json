@@ -48,7 +48,7 @@
     "The answer says the snapshot gives no size (lines of code) for billing-legacy, so the map leaves it unmeasured instead of giving it a line count.",
     "The answer says the merge against develop collides on gradle/libs.versions.toml and that this collision needs the owner's decision."
   ],
-  "max_turns": 12,
+  "max_turns": 14,
   "timeout_seconds": 240,
   "allowed_tools": [
     "Read",
