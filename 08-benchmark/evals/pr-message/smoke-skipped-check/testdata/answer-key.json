@@ -1,0 +1,29 @@
+{
+  "saved_file": "pr-body.md",
+  "sections": [
+    "What and why",
+    "Before and after",
+    "What was NOT tested"
+  ],
+  "table_section": "Before and after",
+  "untested_section": "What was NOT tested",
+  "rows": [
+    {
+      "before": "2 failed",
+      "after": "0 failed"
+    },
+    {
+      "before": null,
+      "after": "212 ms"
+    }
+  ],
+  "unmeasured_says": "not measured",
+  "skipped_checks": [
+    "--no-verify"
+  ],
+  "gap_marks": [
+    "bench_webhook",
+    "p95",
+    "latency"
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "skill": "pr-message",
+  "tier": "smoke",
+  "expected_skills": [
+    "pr-message"
+  ],
+  "setup": {
+    "files": [
+      {
+        "from": "setup/card.md",
+        "to": "card.md"
+      },
+      {
+        "from": "setup/run-log.md",
+        "to": "run-log.md"
+      }
+    ]
+  },
+  "validators": [
+    "validators/check_pr_body.py"
+  ],
+  "expectations": [
+    "The answer tells the owner that the commit skipped the pre-commit hook with --no-verify and that the pull request description lists it under what was not tested.",
+    "The answer says the handler latency was measured only after the change, so its before side is not measured."
+  ],
+  "max_turns": 14,
+  "timeout_seconds": 240,
+  "allowed_tools": [
+    "Read",
+    "Write",
+    "Skill"
+  ],
+  "runs": 1
+}

@@ -1,0 +1,22 @@
+{
+  "comments_dir": "comments",
+  "pr_files": [
+    "billing/RetryPolicy.kt",
+    "billing/WebhookHandler.kt"
+  ],
+  "base_drift_files": [
+    "billing/LegacyExport.kt"
+  ],
+  "must_comment": [
+    "billing/RetryPolicy.kt"
+  ],
+  "labels": {
+    "en": ["what happens:", "why it happens:", "impact:", "how to fix:"],
+    "es": ["qué sucede:", "por qué sucede:", "cómo afecta:", "cómo solucionar:"]
+  },
+  "max_chars_per_part": 200,
+  "max_chars_total": 600,
+  "language_by_extension": {
+    "kt": "kotlin"
+  }
+}

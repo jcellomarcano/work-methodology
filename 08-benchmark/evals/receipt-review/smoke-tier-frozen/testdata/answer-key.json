@@ -1,0 +1,19 @@
+{
+  "saved_file": "round/000-context.md",
+  "tiers": [
+    "exempt",
+    "low",
+    "medium",
+    "high"
+  ],
+  "tier": "high",
+  "lenses": [
+    "flujo-critico",
+    "jamas-peor-que-antes",
+    "tests-anti-flake",
+    "simplicidad"
+  ],
+  "tree_sha": "5f306ba1af35bcf710394eb2d8cd411b02d9505b",
+  "commit_sha": "5cfc1091d407f173683c358e1a3e7f1badcfac61",
+  "sha_chars": 12
+}

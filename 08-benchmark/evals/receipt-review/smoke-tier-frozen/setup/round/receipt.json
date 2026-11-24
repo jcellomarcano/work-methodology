@@ -1,0 +1,131 @@
+{
+  "base_ref": "develop",
+  "base_sha": "b8fc2a0a679a6a267882212a90ab1c84a8599653",
+  "budget": {
+    "roles": {
+      "generic-blind-spot-adversary": {
+        "max_context_tokens": 60000,
+        "max_tool_calls": 40,
+        "max_turns": 50
+      },
+      "generic-boundary-reviewer": {
+        "max_context_tokens": 40000,
+        "max_tool_calls": 30,
+        "max_turns": 38
+      },
+      "generic-cartographer": {
+        "max_context_tokens": 40000,
+        "max_tool_calls": 40,
+        "max_turns": 50
+      },
+      "generic-challenger": {
+        "max_context_tokens": 60000,
+        "max_tool_calls": 40,
+        "max_turns": 50
+      },
+      "generic-comment-gate": {
+        "max_context_tokens": 15000,
+        "max_tool_calls": 20,
+        "max_turns": 25
+      },
+      "generic-deep-reasoner": {
+        "max_context_tokens": 120000,
+        "max_tool_calls": 60,
+        "max_turns": 75
+      },
+      "generic-human-reviewer": {
+        "max_context_tokens": 15000,
+        "max_tool_calls": 10,
+        "max_turns": 13
+      },
+      "generic-judge": {
+        "max_context_tokens": 30000,
+        "max_tool_calls": 60,
+        "max_turns": 75
+      },
+      "generic-mechanic": {
+        "max_context_tokens": 15000,
+        "max_tool_calls": 12,
+        "max_turns": 15
+      },
+      "generic-proposer": {
+        "max_context_tokens": 60000,
+        "max_tool_calls": 60,
+        "max_turns": 75
+      },
+      "generic-style-reviewer": {
+        "max_context_tokens": 15000,
+        "max_tool_calls": 15,
+        "max_turns": 19
+      },
+      "generic-verifier": {
+        "max_context_tokens": 40000,
+        "max_tool_calls": 40,
+        "max_turns": 50
+      }
+    }
+  },
+  "captures": [],
+  "change_card": {
+    "path": "001-card.md",
+    "routing": "opus",
+    "sha256": "332ef41d35812722ef84352585e3b91f4e9ee36d6ab11ec6f0e51197e5897ed4",
+    "verdict": "PASS"
+  },
+  "correction_index": 0,
+  "diff_stats": {
+    "added": 1,
+    "files": 1,
+    "removed": 1
+  },
+  "inherited_from": null,
+  "merge_base": "b8fc2a0a679a6a267882212a90ab1c84a8599653",
+  "owner_ack": null,
+  "repo_dirty": false,
+  "repo_sha": "5cfc1091d407f173683c358e1a3e7f1badcfac61",
+  "risk": {
+    "consent": "pending",
+    "inputs": {
+      "added": 1,
+      "has_change_card": true,
+      "removed": 1,
+      "routing": "opus",
+      "touched_paths": [
+        "booking/SeatHold.kt"
+      ],
+      "what_it_risks": "A seat held five minutes longer is five minutes it cannot be sold to someone else."
+    },
+    "lens_focus": null,
+    "lenses": [
+      "flujo-critico",
+      "jamas-peor-que-antes",
+      "tests-anti-flake",
+      "simplicidad"
+    ],
+    "owner_gate": false,
+    "reasons": [
+      "touches critical_paths: booking/SeatHold.kt"
+    ],
+    "tier": "high"
+  },
+  "round_dir": "/srv/build/rounds/book-118",
+  "schema_version": "1.0.0",
+  "scope_globs": [],
+  "state": "started",
+  "superseded_by": null,
+  "supersedes": null,
+  "tool_sha": "870fba1338994fd149832ce257bde5e66671eb71",
+  "tool_versions": {
+    "detekt": "1.23.8",
+    "java": "21.0.12",
+    "ktlint": "1.8.0",
+    "pmd": "7.27.0",
+    "python": "3.11.9"
+  },
+  "touched_paths": [
+    "booking/SeatHold.kt"
+  ],
+  "tree_sha": "5f306ba1af35bcf710394eb2d8cd411b02d9505b",
+  "verdict": null,
+  "verdict_reasons": []
+}

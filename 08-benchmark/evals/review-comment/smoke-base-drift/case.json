@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "skill": "review-comment",
+  "tier": "smoke",
+  "expected_skills": [
+    "review-comment"
+  ],
+  "setup": {
+    "files": [
+      {
+        "from": "setup/notes.md",
+        "to": "notes.md"
+      },
+      {
+        "from": "setup/round/001-pr-scope.json",
+        "to": "round/001-pr-scope.json"
+      },
+      {
+        "from": "setup/round/001-card.md",
+        "to": "round/001-card.md"
+      },
+      {
+        "from": "setup/billing/RetryPolicy.kt",
+        "to": "billing/RetryPolicy.kt"
+      },
+      {
+        "from": "setup/billing/WebhookHandler.kt",
+        "to": "billing/WebhookHandler.kt"
+      },
+      {
+        "from": "setup/billing/LegacyExport.kt",
+        "to": "billing/LegacyExport.kt"
+      }
+    ]
+  },
+  "validators": [
+    "validators/check_comments.py"
+  ],
+  "expectations": [
+    "The answer says the finding on billing/LegacyExport.kt got no review comment because that file is not part of what the pull request changed: its difference comes from the base branch.",
+    "The answer says a review comment was written for the finding on billing/RetryPolicy.kt and that nothing was posted to the pull request."
+  ],
+  "max_turns": 16,
+  "timeout_seconds": 240,
+  "allowed_tools": [
+    "Read",
+    "Grep",
+    "Write",
+    "Skill"
+  ],
+  "runs": 1
+}

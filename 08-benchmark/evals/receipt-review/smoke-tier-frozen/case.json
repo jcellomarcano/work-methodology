@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "skill": "receipt-review",
+  "tier": "smoke",
+  "expected_skills": [
+    "receipt-review"
+  ],
+  "setup": {
+    "files": [
+      {
+        "from": "setup/round/receipt.json",
+        "to": "round/receipt.json"
+      },
+      {
+        "from": "setup/round/001-card.md",
+        "to": "round/001-card.md"
+      }
+    ]
+  },
+  "validators": [
+    "validators/check_context.py"
+  ],
+  "expectations": [
+    "The answer says the change takes the high tier, as the saved receipt says, and that it was not lowered to low.",
+    "The answer says the owner's OK is needed before anything of the review is launched."
+  ],
+  "max_turns": 16,
+  "timeout_seconds": 240,
+  "allowed_tools": [
+    "Read",
+    "Write",
+    "Skill"
+  ],
+  "runs": 1
+}
