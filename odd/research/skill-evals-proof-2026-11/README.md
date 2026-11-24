@@ -1,34 +1,39 @@
-# Skill evals: the first real runs
+# Skill evals: the real runs
 
-Date 2026-11-24. Branch `feat/skill-evals`, task T4 of `odd/tasks/skill-evals.md`. Three invocations of
+Date 2026-11-24. Branch `feat/skill-evals`, feature `odd/tasks/skill-evals.md`. Eight invocations of
 `08-benchmark/lib/skill_eval.py run --real --runs 1 --model haiku --judge-model haiku --max-cost-usd 0.25`,
-USD 0.031 in all. One run per arm, so every verdict below is a signal, not a result. The files beside this one
-are the runner's own output with machine paths replaced by `<tmp>`, `<home>` and `<tmp-path>`.
+USD 0.072 in all. One run per arm, so every verdict here is a signal, not a result: three runs per arm is the
+floor for a verdict (S7), and that run is the owner's spend decision (S11). The files beside this one are the
+runner's own output with machine paths replaced by `<tmp>`, `<home>` and `<tmp-path>`. No report was published.
 
-| Run | Skill and flags | Verdict | What it showed |
-|---|---|---|---|
-| 1 | `post-review-comment` | `review`: its output fails a validator | `posted.md` did not match what `review_comment_post.py render` prints (bold labels missing). The native tool alone scored this run 1.0. |
-| 2 | `change-card --kit-mcp` | `review`: it does not trigger when it should | With the kit's server started, the model called the validator tool directly and never invoked the skill. |
-| 3 | `post-review-comment --no-cache` | `not measured` | The run with the skill timed out after 240 s; three of its shell calls had errored. Cause unknown. |
+## Final runs, on the runner as it ships (runner version 3)
 
-Two more invocations on 2026-11-24, task T5, USD 0.015, the skill loaded from the kit plugin (`--kit-plugin`), the
-plugin's own MCP server started by Claude Code:
+| File stem | Skill and flags | USD | Verdict | What the run did |
+|---|---|---|---|---|
+| `final1-post-review-comment` | `post-review-comment` | 0.012 | `review`: the judge rejects it | The skill was invoked and the saved file passed the script validator; the judge rejected one expectation about the answer. |
+| `final2-change-card-kit-mcp` | `change-card --kit-mcp` | 0.007 | `review`: it does not trigger when it should | The model called `mcp__plugin_change-card_metodo__change_card_validate` directly and never invoked the skill. |
+| `final3-change-card-kit-plugin` | `change-card --kit-plugin` | 0.008 | `review`: it does not trigger when it should | Loaded from the kit plugin alone, the plugin's own server answered `mcp__plugin_metodo_metodo__change_card_validate`; the skill was not invoked. |
 
-| Run | Case | Verdict | What it showed |
-|---|---|---|---|
-| 4 | the seed case of `change-card` | `review`: it does not trigger when it should | The plugin's server answered `mcp__plugin_metodo_metodo__change_card_validate`; the model never invoked the skill, as in run 2. |
-| 5 | the same card and scorers, prompt starting "Use the change-card skill to..." (a probe case, not in the repo) | `works`: with 1.00, without 0.00 | The skill was invoked as `metodo:change-card`, its tool answered from the plugin alone, the validator passed and the judge accepted both expectations. |
+## Earlier runs, made while the runner was being built (runner version 2)
 
-Run 5 is the proof S13 asks for: a skill that needs the server, loaded from the kit plugin alone, called one of
-its tools and got an answer. The plugin of these two runs differs from the final zip in two packed files edited
-afterwards, neither on the path the runs exercised [Inferred].
+| File stem | Skill and flags | USD | Verdict | What the run showed |
+|---|---|---|---|---|
+| `run1` | `post-review-comment` | 0.011 | `review`: its output fails a validator | The saved file lacked the bold labels the skill's script renders. The native tool alone scored this run 1.0. |
+| `run2` | `change-card --kit-mcp` | 0.007 | `review`: it does not trigger when it should | Same as `final2`. |
+| `run3` | `post-review-comment --no-cache` | 0.013 | `not measured` | The run with the skill timed out after 240 s; cause unknown. |
+| `run4` | `change-card --kit-plugin` | 0.007 | `review`: it does not trigger when it should | Same as `final3`. |
+| `run5` | `change-card --kit-plugin`, a probe case whose prompt starts "Use the change-card skill to..." (not in the repo) | 0.007 | `works`: with 1.00, without 0.00 | The skill was invoked as `metodo:change-card`, its tool answered from the plugin alone, the validator passed and the judge accepted both expectations. |
 
-What these runs prove about the tool, all Tested with n=1:
+## What these runs prove, all Tested with n=1
 
-- The cascade, the script validators and the verdict run end to end on the native tool, and nothing is published.
-- A script validator catches a wrong output file that the native graders pass.
-- `--kit-mcp` starts this checkout's MCP server for the run and the skill's tools appear under the plugin's
-  names (`mcp__plugin_change-card_metodo__change_card_validate`).
+- The cascade, the script validators, the anti-cheat check, the verdict and the cache run end to end on the
+  native tool, from a skill's own package and from the kit plugin.
+- A script validator caught a wrong output file that the native graders passed (`run1`).
+- From the kit plugin alone, the kit's MCP server starts and answers a tool call (`final3`, `run4`, `run5`).
+  With a prompt that names the skill, a skill that needs the server works from that plugin (`run5`).
 
-What they do not prove: that either skill is good or bad. Three runs per arm is the floor for a verdict
-(`odd/tasks/skill-evals.md`, S7), and that run is the owner's spend decision (S11).
+## What they do not prove
+
+- That either skill is good or bad. `post-review-comment` got three different outcomes in three runs.
+- Why `change-card` does not trigger on a prompt a user would type: in four runs and two forms the model went
+  straight to the validator tool. Its description, or offering the tool beside the skill, needs a look.

@@ -1,0 +1,107 @@
+{
+  "runner_version": 3,
+  "skills": [
+    {
+      "cached": 0,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "not invoked: change-card",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Glob",
+                  "ToolSearch",
+                  "Read",
+                  "mcp__plugin_metodo_metodo__change_card_validate",
+                  "Write"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_verdict.py: exit 1: card-verdict.json is missing from the files the run left",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Grep",
+                  "Read",
+                  "Glob",
+                  "Glob (error)",
+                  "Bash (error)",
+                  "Grep (error)"
+                ]
+              }
+            ]
+          },
+          "case": "change-card/smoke-missing-field",
+          "hash": "e8560606802c966dc77e756d3aacc3ce570cadd1924717a3b95add106f2b5006",
+          "state": "run now",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "the kit plugin metodo 0.1.0, invoked as metodo:change-card"
+      ],
+      "reasons": [
+        "it does not trigger when it should (look at the description)"
+      ],
+      "selected": 1,
+      "signal": true,
+      "size_tokens": 385,
+      "skill": "change-card",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 1,
+            "passed": 0,
+            "runs": 1,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 1,
+            "unreadable": 0,
+            "validator_failed": 1
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 1,
+        "delta": null,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.00024660000000000003,
+        "judge_uncounted_usd": 0.0007511999999999999,
+        "judge_usd": 0.0007511999999999999,
+        "mcp_calls": 1,
+        "mcp_served": 1,
+        "not_counted": 0,
+        "runs_per_arm": 1,
+        "spend_usd": 0.0075254599999999994,
+        "triggered": 0,
+        "validated": 0,
+        "with_score": null,
+        "without_score": 0.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "review"
+    }
+  ],
+  "thresholds": {
+    "delta_min": 0.1,
+    "judge_pass_min": 0.8,
+    "runs_per_arm_min": 3,
+    "trigger_rate_min": 0.8,
+    "validator_pass_min": 0.8
+  }
+}

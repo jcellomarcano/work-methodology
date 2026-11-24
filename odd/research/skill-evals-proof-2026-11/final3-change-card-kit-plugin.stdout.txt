@@ -1,0 +1,18 @@
+skill-eval: cost ceiling USD 0.25 (USD 0.25 for each of 1 skill(s) to run); the tool checks it before each run, so the run in flight may pass it
+change-card: 1 case(s), 1 to run, 0 cached; arms with, without; 2 native run(s); ceiling USD 0.25
+  change-card: --kit-plugin evaluates it from the kit plugin (every skill plus the kit's MCP server, started from the plugin's own files; it runs as you, outside the tool's sandbox) and allows the 2 tool(s) the skill declares
+  change-card/smoke-missing-field [smoke]: to run, 1 run(s) per arm
+skill-eval report (runner v3; thresholds: trigger_rate_min 0.8, validator_pass_min 0.8, judge_pass_min 0.8, delta_min 0.1, runs_per_arm_min 3)
+change-card: review [signal: 1 run(s) per arm, a verdict needs 3] - it does not trigger when it should (look at the description)
+  cases: 1 measured of 1 selected (0 cached) | arms: with, without | runs per arm: 1
+  score: with n/a, without 0.00, delta n/a | triggered 0 of 1 | cheated 0 | not counted 0
+  size: 385 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0075, judge USD 0.0008 of it
+  judge spend that did not count: USD 0.0008, on runs not triggered USD 0.0002 (the native tool runs its judge on every run)
+  measured as: the kit plugin metodo 0.1.0, invoked as metodo:change-card
+  kit MCP server: started for 1 case(s); 1 call(s) to its tools in the runs with the skill
+  change-card/smoke-missing-field [smoke]: with: not triggered, quality not judged | without: failed a validator
+    with run 1: not invoked: change-card
+    with run 1 called: Glob, ToolSearch, Read, mcp__plugin_metodo_metodo__change_card_validate, Write
+    without run 1: validators/check_verdict.py: exit 1: card-verdict.json is missing from the files the run left
+    without run 1 called: Glob, Grep, Read, Glob, Glob (error), Bash (error), Grep (error)
+done by the kit around the native tool: tiers as tags, setup.files through a scaffold script, script validators on the files each run left, the forbidden-path check on each trace, the cascade, the verdict and the cache; the tool's own score of each run is kept in the stored result
