@@ -1,0 +1,17 @@
+skill-eval: cost ceiling USD 0.10 (USD 0.10 for each of 1 skill(s) to run); the tool checks it before each run, so the run in flight may pass it
+repo-metrics: 1 case(s), 1 to run, 0 cached; arms with, without; 2 native run(s) in 2 native invocation(s); ceiling USD 0.10
+  repo-metrics: mocks: 2 tool(s) of the kit's MCP server (job_status, metrics_delta) answer from the mock files of its case(s), in both arms; the real server is not started
+  repo-metrics: the arm without the skill runs on the same plugin with only skills/repo-metrics/ removed, so the mocked tools stay in both arms: the tool is started twice with --ablation none, under USD 0.05 and at most USD 0.05 of the ceiling
+  repo-metrics/smoke-tool-drift [smoke]: to run, 1 run(s) per arm
+skill-eval report (runner v5; thresholds: trigger_rate_min 0.8, validator_pass_min 0.8, judge_pass_min 0.8, delta_min 0.1, runs_per_arm_min 3)
+repo-metrics: review [signal: 1 run(s) per arm, a verdict needs 3] - it triggers and changes nothing (dead weight: cut or shrink)
+  cases: 1 measured of 1 selected (0 cached) | arms: with, without | runs per arm: 1
+  score: with 1.00, without 1.00, delta +0.00 | triggered 1 of 1 | cheated 0 | not counted 0
+  size: 464 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0117, judge USD 0.0021 of it
+  judge spend that did not count: USD 0.0000, on runs not triggered USD 0.0000 (the native tool runs its judge on every run)
+  measured as: its own package repo-metrics 1.0.0, invoked as repo-metrics:repo-metrics
+  arm without the skill: the same plugin with only skills/repo-metrics/ removed, in a second invocation of the tool: the mocked tools stay; 2 call(s) to its tools in the runs without the skill
+  mocked tools: answered from the mock files of 1 case(s), the real server not started; 2 call(s) to them in the runs with the skill
+  repo-metrics/smoke-tool-drift [smoke]: with: passed | without: passed
+done by the kit around the native tool: tiers as tags, setup.files through a scaffold script, script validators on the files each run left, the forbidden-path check on each trace, the cascade, the verdict and the cache; the tool's own score of each run is kept in the stored result
+exit=0

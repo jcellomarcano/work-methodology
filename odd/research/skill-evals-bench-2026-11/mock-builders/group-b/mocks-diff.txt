@@ -1,0 +1,139 @@
+## benchmark-release/benchmark_release.md  <- answers/bench-start-tag.json  (2 lines differ of 8)
+--- server answer
++++ benchmark-release/benchmark_release.md
+-  "log_path": "/private/var/folders/j2/tdhx4hn924xdhnww6cx8zrnc0000gn/T/tmp.gXj7c8ofqw/kit/03-tools/out/jobs/20261124194307-5f6226/stdout.log",
++  "log_path": "out/jobs/20261124194307-5f6226/stdout.log",
+-    "/private/var/folders/j2/tdhx4hn924xdhnww6cx8zrnc0000gn/T/tmp.gXj7c8ofqw/kit/03-tools/out/benchmark/32f09ca..f2d95ca.json"
++    "out/benchmark/7607119..bd18de0.json"
+## benchmark-release/job_status.md  <- answers/bench-status-tag.json  (19 lines differ of 328)
+--- server answer
++++ benchmark-release/job_status.md
+-  "log_path": "/private/var/folders/j2/tdhx4hn924xdhnww6cx8zrnc0000gn/T/tmp.gXj7c8ofqw/kit/03-tools/out/jobs/20261124194307-5f6226/stdout.log",
++  "log_path": "out/jobs/20261124194307-5f6226/stdout.log",
+-    "== v2.3.0 -> 32f09cabb8a5af9a3d94ae07232f8aed55615607 ==",
+-    "== release-2.4 -> f2d95ca16bf7604e06e6cc63f7246aaf6e8eb0b2 ==",
+-    "Preparing worktree (detached HEAD 32f09ca)",
+-    "-- 32f09cabb8a5af9a3d94ae07232f8aed55615607: shape_metrics --",
+-    "-- 32f09cabb8a5af9a3d94ae07232f8aed55615607: duplication_cpd --",
+-    "-- 32f09cabb8a5af9a3d94ae07232f8aed55615607: dep_boundaries --",
+-    "-- 32f09cabb8a5af9a3d94ae07232f8aed55615607: domain_invariants --",
+-    "Preparing worktree (detached HEAD f2d95ca)",
+-    "-- f2d95ca16bf7604e06e6cc63f7246aaf6e8eb0b2: shape_metrics --",
+-    "-- f2d95ca16bf7604e06e6cc63f7246aaf6e8eb0b2: duplication_cpd --",
+-    "-- f2d95ca16bf7604e06e6cc63f7246aaf6e8eb0b2: dep_boundaries --",
+-    "-- f2d95ca16bf7604e06e6cc63f7246aaf6e8eb0b2: domain_invariants --",
++    "== v2.3.0 -> 76071194d742b74443cd83057e500169831b1daf ==",
++    "== release-2.4 -> bd18de040c1154243e6ec7ee8512f50199ac921a ==",
++    "Preparing worktree (detached HEAD 7607119)",
++    "-- 76071194d742b74443cd83057e500169831b1daf: shape_metrics --",
++    "-- 76071194d742b74443cd83057e500169831b1daf: duplication_cpd --",
++    "-- 76071194d742b74443cd83057e500169831b1daf: dep_boundaries --",
++    "-- 76071194d742b74443cd83057e500169831b1daf: domain_invariants --",
++    "Preparing worktree (detached HEAD bd18de0)",
++    "-- bd18de040c1154243e6ec7ee8512f50199ac921a: shape_metrics --",
++    "-- bd18de040c1154243e6ec7ee8512f50199ac921a: duplication_cpd --",
++    "-- bd18de040c1154243e6ec7ee8512f50199ac921a: dep_boundaries --",
++    "-- bd18de040c1154243e6ec7ee8512f50199ac921a: domain_invariants --",
+-    "output at: /private/var/folders/j2/tdhx4hn924xdhnww6cx8zrnc0000gn/T/tmp.gXj7c8ofqw/kit/03-tools/out/benchmark/32f09ca..f2d95ca.json and .md"
++    "output at: out/benchmark/7607119..bd18de0.json and .md"
+-    "repo_sha": "f2d95ca16bf7604e06e6cc63f7246aaf6e8eb0b2",
++    "repo_sha": "bd18de040c1154243e6ec7ee8512f50199ac921a",
+-    "sha_a": "32f09cabb8a5af9a3d94ae07232f8aed55615607",
+-    "sha_b": "f2d95ca16bf7604e06e6cc63f7246aaf6e8eb0b2",
++    "sha_a": "76071194d742b74443cd83057e500169831b1daf",
++    "sha_b": "bd18de040c1154243e6ec7ee8512f50199ac921a",
+-    "tool_sha": "3d2b1e11b27b0aaa994163a1f4cc8e95f478b862",
++    "tool_sha": "da725bc1ac45d6a90aa0742b53b5c44ebb50c9ee",
+-  "summary_path": "/private/var/folders/j2/tdhx4hn924xdhnww6cx8zrnc0000gn/T/tmp.gXj7c8ofqw/kit/03-tools/out/benchmark/32f09ca..f2d95ca.json",
++  "summary_path": "out/benchmark/7607119..bd18de0.json",
+## verify-per-commit/verify_commit.md  <- answers/verify-start.json  (2 lines differ of 8)
+--- server answer
++++ verify-per-commit/verify_commit.md
+-  "log_path": "/private/var/folders/j2/tdhx4hn924xdhnww6cx8zrnc0000gn/T/tmp.gXj7c8ofqw/kit/03-tools/out/jobs/20261124194312-6223d3/stdout.log",
++  "log_path": "out/jobs/20261124194312-6223d3/stdout.log",
+-    "/private/var/folders/j2/tdhx4hn924xdhnww6cx8zrnc0000gn/T/tmp.gXj7c8ofqw/kit/03-tools/out/verify/v2.3.0..HEAD.json"
++    "out/verify/v2.3.0..HEAD.json"
+## verify-per-commit/job_status.md  <- answers/verify-status.json  (12 lines differ of 25)
+--- server answer
++++ verify-per-commit/job_status.md
+-  "log_path": "/private/var/folders/j2/tdhx4hn924xdhnww6cx8zrnc0000gn/T/tmp.gXj7c8ofqw/kit/03-tools/out/jobs/20261124194312-6223d3/stdout.log",
++  "log_path": "out/jobs/20261124194312-6223d3/stdout.log",
+-    "Preparing worktree (detached HEAD dea7376)",
+-    "-- dea73762921476a82409f28d654473f3f5d9f1eb (PASS): feat(cart): add a coupon field",
+-    "Preparing worktree (detached HEAD fe0d2f4)",
+-    "-- fe0d2f4be793d563e58998d12f3cdd728eb64a28 (FAIL): docs(readme): describe the coupon flow",
+-    "Preparing worktree (detached HEAD da98aaf)",
+-    "-- da98aafbd40435b52229c0e283df132b5cc88730 (PASS): refactor(cart): extract price rounding",
+-    "Preparing worktree (detached HEAD e13b9ec)",
+-    "-- e13b9ecbcaa6aa5f4ded94f79f8e432bc706cc12 (FAIL): feat(checkout): apply the coupon before tax",
+-    "Preparing worktree (detached HEAD 0260e9e)",
+-    "-- 0260e9e06b7e4b3f2cdaa870c772230590a9fc9c (FAIL): feat(cart): show the coupon on the receipt",
++    "Preparing worktree (detached HEAD db9b57c)",
++    "-- db9b57cbe136257f0e9dad5af6108320327c6278 (PASS): feat(cart): add a coupon field",
++    "Preparing worktree (detached HEAD 3b8e05e)",
++    "-- 3b8e05e4b321287b2914ac933e318572d434ee87 (FAIL): docs(readme): describe the coupon flow",
++    "Preparing worktree (detached HEAD 826e6da)",
++    "-- 826e6da922165ce2cb203685f299b2c5f7c9447f (PASS): refactor(cart): extract price rounding",
++    "Preparing worktree (detached HEAD 0a0f9a3)",
++    "-- 0a0f9a33d43b155baef59e2a0206f6eef5fc0daf (FAIL): feat(checkout): apply the coupon before tax",
++    "Preparing worktree (detached HEAD 253c58d)",
++    "-- 253c58db4c76f01be018d330745882727309242f (FAIL): feat(cart): show the coupon on the receipt",
+-    "output at: /private/var/folders/j2/tdhx4hn924xdhnww6cx8zrnc0000gn/T/tmp.gXj7c8ofqw/kit/03-tools/out/verify/v2.3.0..HEAD.0260e9e06.json",
++    "output at: out/verify/v2.3.0..HEAD.253c58db4.json",
+## real-environment-minutes/benchmark_release.md  <- answers/bench-start-tag.json  (2 lines differ of 8)
+--- server answer
++++ real-environment-minutes/benchmark_release.md
+-  "log_path": "/private/var/folders/j2/tdhx4hn924xdhnww6cx8zrnc0000gn/T/tmp.gXj7c8ofqw/kit/03-tools/out/jobs/20261124194307-5f6226/stdout.log",
++  "log_path": "out/jobs/20261124194307-5f6226/stdout.log",
+-    "/private/var/folders/j2/tdhx4hn924xdhnww6cx8zrnc0000gn/T/tmp.gXj7c8ofqw/kit/03-tools/out/benchmark/32f09ca..f2d95ca.json"
++    "out/benchmark/7607119..bd18de0.json"
+## real-environment-minutes/job_status.md  <- answers/bench-status-tag.json  (19 lines differ of 328)
+--- server answer
++++ real-environment-minutes/job_status.md
+-  "log_path": "/private/var/folders/j2/tdhx4hn924xdhnww6cx8zrnc0000gn/T/tmp.gXj7c8ofqw/kit/03-tools/out/jobs/20261124194307-5f6226/stdout.log",
++  "log_path": "out/jobs/20261124194307-5f6226/stdout.log",
+-    "== v2.3.0 -> 32f09cabb8a5af9a3d94ae07232f8aed55615607 ==",
+-    "== release-2.4 -> f2d95ca16bf7604e06e6cc63f7246aaf6e8eb0b2 ==",
+-    "Preparing worktree (detached HEAD 32f09ca)",
+-    "-- 32f09cabb8a5af9a3d94ae07232f8aed55615607: shape_metrics --",
+-    "-- 32f09cabb8a5af9a3d94ae07232f8aed55615607: duplication_cpd --",
+-    "-- 32f09cabb8a5af9a3d94ae07232f8aed55615607: dep_boundaries --",
+-    "-- 32f09cabb8a5af9a3d94ae07232f8aed55615607: domain_invariants --",
+-    "Preparing worktree (detached HEAD f2d95ca)",
+-    "-- f2d95ca16bf7604e06e6cc63f7246aaf6e8eb0b2: shape_metrics --",
+-    "-- f2d95ca16bf7604e06e6cc63f7246aaf6e8eb0b2: duplication_cpd --",
+-    "-- f2d95ca16bf7604e06e6cc63f7246aaf6e8eb0b2: dep_boundaries --",
+-    "-- f2d95ca16bf7604e06e6cc63f7246aaf6e8eb0b2: domain_invariants --",
++    "== v2.3.0 -> 76071194d742b74443cd83057e500169831b1daf ==",
++    "== release-2.4 -> bd18de040c1154243e6ec7ee8512f50199ac921a ==",
++    "Preparing worktree (detached HEAD 7607119)",
++    "-- 76071194d742b74443cd83057e500169831b1daf: shape_metrics --",
++    "-- 76071194d742b74443cd83057e500169831b1daf: duplication_cpd --",
++    "-- 76071194d742b74443cd83057e500169831b1daf: dep_boundaries --",
++    "-- 76071194d742b74443cd83057e500169831b1daf: domain_invariants --",
++    "Preparing worktree (detached HEAD bd18de0)",
++    "-- bd18de040c1154243e6ec7ee8512f50199ac921a: shape_metrics --",
++    "-- bd18de040c1154243e6ec7ee8512f50199ac921a: duplication_cpd --",
++    "-- bd18de040c1154243e6ec7ee8512f50199ac921a: dep_boundaries --",
++    "-- bd18de040c1154243e6ec7ee8512f50199ac921a: domain_invariants --",
+-    "output at: /private/var/folders/j2/tdhx4hn924xdhnww6cx8zrnc0000gn/T/tmp.gXj7c8ofqw/kit/03-tools/out/benchmark/32f09ca..f2d95ca.json and .md"
++    "output at: out/benchmark/7607119..bd18de0.json and .md"
+-    "repo_sha": "f2d95ca16bf7604e06e6cc63f7246aaf6e8eb0b2",
++    "repo_sha": "bd18de040c1154243e6ec7ee8512f50199ac921a",
+-    "sha_a": "32f09cabb8a5af9a3d94ae07232f8aed55615607",
+-    "sha_b": "f2d95ca16bf7604e06e6cc63f7246aaf6e8eb0b2",
++    "sha_a": "76071194d742b74443cd83057e500169831b1daf",
++    "sha_b": "bd18de040c1154243e6ec7ee8512f50199ac921a",
+-    "tool_sha": "3d2b1e11b27b0aaa994163a1f4cc8e95f478b862",
++    "tool_sha": "da725bc1ac45d6a90aa0742b53b5c44ebb50c9ee",
+-  "summary_path": "/private/var/folders/j2/tdhx4hn924xdhnww6cx8zrnc0000gn/T/tmp.gXj7c8ofqw/kit/03-tools/out/benchmark/32f09ca..f2d95ca.json",
++  "summary_path": "out/benchmark/7607119..bd18de0.json",
+## real-environment-minutes/domain_invariants.md  <- answers/domain-invariants-head.json  (2 lines differ of 27)
+--- server answer
++++ real-environment-minutes/domain_invariants.md
+-  "repo_sha": "f2d95ca16bf7604e06e6cc63f7246aaf6e8eb0b2",
++  "repo_sha": "bd18de040c1154243e6ec7ee8512f50199ac921a",
+-  "tool_sha": "3d2b1e11b27b0aaa994163a1f4cc8e95f478b862",
++  "tool_sha": "da725bc1ac45d6a90aa0742b53b5c44ebb50c9ee",
+## real-environment-minutes/change_card_extract.md  <- answers/card-extract.json  (0 lines differ of 22)
+

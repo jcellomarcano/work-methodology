@@ -131,3 +131,48 @@ the file in the shape `{"tools": [...]}` the warning is gone. What it does not p
 verdict; the difference between the two runs cannot be put on the tool list file alone; a declared tool with
 no mock (`metrics_delta` here) is not available to the model, so a case must mock every tool its scenario
 needs.
+
+## Ten cases with mocks, one run per arm (run 9, the writers' proof runs)
+
+Each row is the last proof run a writer made of a case after it gained its mocks: one run per arm, `haiku` for
+model and judge, ceiling USD 0.10, through `08-benchmark/bin/skill-eval.sh run <skill> --real`. One run per arm
+is a signal, never a verdict [Measured]. Spend: USD 0.1749 over 15 runs (0.0678 + 0.0454 + 0.0458 + 0.0159).
+
+| skill | tools mocked | with the skill | without it | mocked calls, with / without |
+|---|---|---|---|---|
+| `cartography` | `cartography` | passed | failed a validator | 1 / 1 |
+| `repo-metrics` | `metrics_delta`, `job_status` | passed | passed | 2 / 2 |
+| `clean-pass` | `clean_pass` | passed | failed a validator | 1 / 1 |
+| `benchmark-release` | `benchmark_release`, `job_status` | passed | passed | 2 / 2 |
+| `verify-per-commit` | `verify_commit`, `job_status` | passed | passed | 2 / 2 |
+| `real-environment-minutes` | `benchmark_release`, `job_status`, `domain_invariants`, `change_card_extract` | passed | passed | 4 / 2 |
+| `review-comment` | `pr_scope` | passed | failed a validator | 1 / 1 |
+| `pr-message` | `change_card_validate`, `receipt_status` | rejected by the judge on one expectation | failed a validator | 2 / 0 |
+| `receipt-review` | `receipt_status`, `test_sectors` | not triggered | failed a validator | 0 / 1 |
+| `necessary-comment` | `comment_gate_measure` | passed | failed a validator | 1 / 1 |
+
+Earlier proof runs of the same cases, each followed by a change to the case: `cartography` and `repo-metrics`
+first saved the output under `out/<sha>/` because the prompt said the tool's files land under `out/` (prompt
+reworded); `receipt-review` first carried a mock of `receipt_start`, which the run with the skill declined to
+call on an open receipt, so the lenses were out of reach (mock dropped, the receipt staged where the tool
+writes it). The stdout of the runs of the first six rows is kept as `run9-mocks-<skill>-<n>.stdout.txt`; the
+last four rows are as their writers reported them (the feature document, L37).
+
+What the rows show [Inferred, one run per arm]: `necessary-comment` never triggered in five runs when its case
+began after the measure, and triggered and passed when the case asks for the gate itself. In four cases
+(`repo-metrics`, `benchmark-release`, `verify-per-commit`, `real-environment-minutes`) the run without the
+skill passed too once the tools answered; the last of these read `works` at five runs before, so it needs
+five runs again before anything is concluded.
+
+How the mock bodies were made: each is the answer of the kit's real server (`03-tools/mcp/server.py`, one
+`tools/call` over stdio, `METODO_REPO` on a scratch git repository rebuilt from the case's data). Where the
+scratch repository could not reproduce the scenario's identities, the answer was relabeled and nothing else:
+scratch paths to workspace-relative ones, scratch commit shas to the scenario's, the scratch kit sha to the
+staged one. The scripts are under `mock-builders/`, one folder per writer; they name the kit checkout as
+`KIT_ROOT`, to be replaced with its path before a run.
+
+Seven skills carry no mock: `change-card` and `human-reply` (the tool is called again after the run rewrites
+the file it checks, and answers differently), `adversarial-round` (one tool answers `PASS` for one document and
+`INCOMPLETE` for the other, and the case stands on that difference), `harness-benchmark` (its first step is a
+script of its own run through the shell; its two kit tools start a job with a fresh id), and `human-review`,
+`init-kit`, `post-review-comment` (their text calls no kit tool).
