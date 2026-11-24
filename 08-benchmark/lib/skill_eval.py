@@ -85,8 +85,9 @@ Exit 0 every case is valid; 1 any problem; 2 a usage error or an unreadable path
 counts once. `--all` is every skill that has a case, and so is no name at all. Skills named
 together with `--all` are a usage error (exit 2).
 
-A skill whose case carries `mocks/` runs on them, with no real server, unless `--kit-mcp` or
-`--kit-plugin` is given: the plan says which of the two a run uses.
+A skill whose case carries `mocks/` always runs on them, with no real server: `--kit-mcp` and
+`--kit-plugin` reach only the skills whose cases carry none, and the plan says per skill which of
+the two it uses.
 
 `run` and `report` live in lib/skill_eval_run.py, which documents their flags, the scoring and the
 verdict. `run` prints a plan and spends nothing unless `--real` is given; `report` never spends.
@@ -820,12 +821,12 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--kit-mcp", action="store_true",
                      help="for a skill that declares MCP tools: start this checkout's MCP server in its runs "
                           "(it runs as you, outside the tool's sandbox), in both arms: the arm without the skill is "
-                          "the same plugin less the skill's folder, in a second invocation; a case's mocks are "
-                          "then left out; off by default")
+                          "the same plugin less the skill's folder, in a second invocation; a skill whose case "
+                          "carries mocks answers from them all the same; off by default")
     run.add_argument("--kit-plugin", action="store_true",
                      help="evaluate the skill from the kit plugin (every skill plus the kit's MCP server, started from "
-                          "the plugin's own files) instead of its own package; a case's mocks are then left out; "
-                          "never with --kit-mcp")
+                          "the plugin's own files) instead of its own package; a skill whose case carries mocks "
+                          "answers from them all the same, from its own package; never with --kit-mcp")
     run.add_argument("--runs", type=_above_zero(int), metavar="N", help="runs per arm, instead of each case's own")
     run.add_argument("--model", metavar="M", help="model of the agent under test (default: the session's)")
     run.add_argument("--judge-model", metavar="M", help="model of the judge (default: the tool's)")

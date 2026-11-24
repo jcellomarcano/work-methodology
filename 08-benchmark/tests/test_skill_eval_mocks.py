@@ -25,6 +25,8 @@ KIT_ROOT = ROOT.parent
 BODY = "Verdict: PASS\nLane: sonnet\n"
 MOCK = f"---\ntype: fixed\nexpect:\n  card_text: string\nerror: false\n---\n\n{BODY}"
 TOOL = "mcp__metodo__demo_tool"
+OTHER = "mcp__metodo__other_tool"
+FLAGS = ("--kit-mcp", "--kit-plugin")
 EXPOSED = "mcp__plugin_demo-skill_metodo__demo_tool"
 MOCK_FILE = "evals/smoke-basic/mocks/metodo/demo_tool.md"
 TOOLS_FILE = "evals/smoke-basic/mocks/metodo/_tools.json"
@@ -360,23 +362,72 @@ class MockedRun(RunnerTest):
         self.assertEqual(skill["mocks"], {"used": True, "tools": ["demo_tool"], "cases": 1})
         self.assertEqual(self.calls(), [])
 
-    def test_the_plan_names_a_declared_tool_that_has_no_mock(self):
+    def declare_other_tool(self):
+        """The skill declares a second tool of the kit's server, which no case mocks."""
         give_catalog(self.kit, "demo_tool", "other_tool")
         build = self.kit / "02-skills" / "demo-skill" / "BUILD.json"
-        build.write_text(json.dumps({"schema_version": 1, "agent_skill": {"srcs": ["SKILL.md"], "deps": [TOOL, "mcp__metodo__other_tool"]}}))
+        build.write_text(json.dumps({"schema_version": 1, "agent_skill": {"srcs": ["SKILL.md"], "deps": [TOOL, OTHER]}}))
         skill = self.kit / "02-skills" / "demo-skill" / "SKILL.md"
-        skill.write_text(skill.read_text().replace(f"{TOOL}]", f"{TOOL}, mcp__metodo__other_tool]"))
+        skill.write_text(skill.read_text().replace(f"{TOOL}]", f"{TOOL}, {OTHER}]"))
+
+    def test_the_plan_names_a_declared_tool_that_has_no_mock(self):
+        self.declare_other_tool()
         self.assertIn("1 declared tool(s) have no mock and are not available: other_tool", self.plan().stdout)
 
-    def test_under_either_server_flag_the_plan_says_the_real_server_answers_and_the_mocks_are_left_out(self):
-        for flag in ("--kit-mcp", "--kit-plugin"):
+    def test_with_no_server_flag_the_plan_of_a_mocked_skill_is_the_one_printed_before(self):  # previous plan text, byte for byte
+        self.assertEqual(self.plan().stdout, (
+            "demo-skill: 1 case(s), 1 to run, 0 cached; arms with, without; 2 native run(s) in 2 native invocation(s); "
+            "ceiling USD 0.50\n"
+            "  demo-skill: mocks: 1 tool(s) of the kit's MCP server (demo_tool) answer from the mock files of its case(s), "
+            "in both arms; the real server is not started\n"
+            "  demo-skill: the arm without the skill runs on the same plugin with only skills/demo-skill/ removed, so the "
+            "mocked tools stay in both arms: the tool is started twice with --ablation none, under USD 0.25 and at most "
+            "USD 0.25 of the ceiling\n"
+            "  demo-skill/smoke-basic [smoke]: to run, 1 run(s) per arm\n"
+            "skill-eval: plan only: nothing was run and nothing was spent; a real run has a ceiling of USD 0.50 "
+            "(add --real to run it)\n"))
+
+    def test_under_either_server_flag_a_mocked_skill_still_answers_from_its_mocks_and_the_plan_says_so(self):
+        plain = self.plan().stdout.splitlines()
+        for flag in FLAGS:
             target = self.tmp / "plan.json"
             plan = self.plan(flag, "--json", str(target))
-            self.assertIn(f"demo-skill: {flag} was given, so the real server answers and the mock files of 1 case(s) "
-                          f"are left out", plan.stdout)
-            self.assertNotIn("demo-skill: mocks:", plan.stdout)
+            reach = f"  demo-skill: {flag} does not reach it: a skill whose case(s) carry mocks always answers from them"
+            # the plan of no flag, and one line more that names the flag
+            self.assertEqual(plan.stdout.splitlines(), plain[:2] + [reach] + plain[2:], flag)
+            self.assertIn("the real server is not started", plan.stdout)
+            for never in ("starts this checkout's MCP server", "evaluates it from the kit plugin", "are left out"):
+                self.assertNotIn(never, plan.stdout, flag)
             (skill,) = json.loads(target.read_text())["skills"]
-            self.assertEqual(skill["mocks"], {"used": False, "tools": ["demo_tool"], "cases": 1})
+            self.assertEqual(skill["mocks"], {"used": True, "tools": ["demo_tool"], "cases": 1})
+            self.assertEqual((skill["kit_mcp"], skill["kit_plugin"], skill["without_arm"]), (False, False, "skill_removed"))
+
+    def test_run_all_under_a_server_flag_starts_the_real_server_only_for_the_skills_whose_cases_carry_no_mock(self):
+        mocked = self.plan().stdout.splitlines()[:2]
+        other = {  # what a skill with no mock says under each flag, as before, byte for byte
+            "--kit-mcp": ["other-skill: 1 case(s), 1 to run, 0 cached; arms with, without; 6 native run(s); ceiling USD 0.50",
+                          "  other-skill/smoke-judge [smoke]: to run, 3 run(s) per arm"],
+            "--kit-plugin": [
+                "other-skill: 1 case(s), 1 to run, 0 cached; arms with, without; 6 native run(s) in 2 native invocation(s); "
+                "ceiling USD 0.50",
+                "  other-skill: --kit-plugin evaluates it from the kit plugin (every skill plus the kit's MCP server, started "
+                "from the plugin's own files; it runs as you, outside the tool's sandbox) and allows the 0 tool(s) the skill "
+                "declares",
+                "  other-skill: the arm without the skill runs on the same plugin with only skills/other-skill/ removed, so "
+                "the server and its tools stay in both arms: the tool is started twice with --ablation none, under USD 0.25 "
+                "and at most USD 0.25 of the ceiling",
+                "  other-skill/smoke-judge [smoke]: to run, 3 run(s) per arm"]}
+        for flag in FLAGS:
+            res = self.cli("run", "--all", *self.where(), "--tier", "smoke", flag)
+            self.assert_clean(res, 0)
+            lines = res.stdout.splitlines()
+            start = lines.index(other[flag][0])
+            self.assertEqual(lines[:2], mocked, flag)
+            self.assertEqual(lines[start:-1], other[flag], flag)
+            self.assertEqual(self.calls(), [])
+        shutil.rmtree(self.case / "mocks")  # and a skill that declares tools and has no mock is served, as before
+        self.assertIn("demo-skill: --kit-mcp starts this checkout's MCP server for its runs", self.plan("--kit-mcp").stdout)
+        self.assertIn("demo-skill: --kit-plugin evaluates it from the kit plugin", self.plan("--kit-plugin").stdout)
 
     def test_both_arms_get_the_same_mocks_and_the_arm_without_the_skill_lacks_only_the_skill(self):
         res = self.run_real("--max-cost-usd", "0.25")
@@ -424,39 +475,80 @@ class MockedRun(RunnerTest):
             self.assertIn("demo-skill: works", shown.stdout)
             self.assertNotIn("kit MCP server: started", shown.stdout)
             self.assertNotIn("without its tools", shown.stdout)
+            self.assertNotIn("no mock", shown.stdout)  # every declared tool has one
 
-    def test_a_result_of_a_mocked_run_is_never_reused_for_a_real_server_run_or_the_reverse(self):
+    def test_a_stored_result_of_a_mocked_run_is_reused_whichever_server_flag_is_given(self):
         self.assert_clean(self.run_real(), 0)
+        first = self.stored()
+        self.assertEqual(len(self.calls()), 2)
+        for flag in FLAGS:
+            res = self.run_real(flag)
+            self.assert_clean(res, 0)
+            self.assertEqual(len(self.calls()), 2, flag)  # nothing was started: the stored result stands
+            self.assertIn("demo-skill/smoke-basic [smoke]: cached (stored", res.stdout)
+            self.assertEqual(self.stored(), first, flag)
+        self.assert_clean(self.run_real("--kit-plugin", "--no-cache"), 0)  # and one stored under a flag, with none
+        self.assertEqual(len(self.calls()), 4)
         self.assert_clean(self.run_real(), 0)
-        self.assertEqual(len(self.calls()), 2)  # the second mocked run is cached
-        for flag in ("--kit-mcp", "--kit-plugin"):
-            self.log.unlink()
-            self.assert_clean(self.run_real(flag), 0)
-            self.assertEqual(len(self.calls()), 2, flag)  # measured again, on the real server
-            self.assertNotIn("mocks", self.stored()["settings"])
-            self.assert_clean(self.run_real(), 0)
-            self.assertEqual(len(self.calls()), 4, flag)  # and again, on the mocks
+        self.assertEqual(len(self.calls()), 4)
+
+    def test_a_result_stored_without_mocks_is_not_reused_for_a_run_that_answers_from_them(self):  # previous behavior
         stored = {"settings": {"model": None, "judge_model": None, "runs": 1, "kit_mcp": False, "kit_plugin": False}}
         asked = {**stored["settings"], "mocks": True}
         self.assertEqual(runner.settings_differ(stored, asked), ["the case's mocks False, now True"])
         self.assertEqual(runner.settings_differ({"settings": asked}, {**asked, "mocks": False}), ["the case's mocks True, now False"])
 
-    def test_under_a_server_flag_the_mocks_are_not_staged_and_the_command_line_is_the_one_of_a_case_without_them(self):
-        def lines(flag):
+    def test_under_a_server_flag_the_case_folder_the_command_line_and_the_stored_settings_are_the_ones_of_no_flag(self):
+        def made(*flag):
             self.log.unlink(missing_ok=True)
-            self.assert_clean(self.run_real(flag, "--no-cache"), 0)
+            self.assert_clean(self.run_real(*flag, "--no-cache"), 0)
             calls = self.calls()
             for call in calls:
-                self.assertEqual([name for name in call["files"] if "mocks" in name], [], flag)
-                self.assertNotIn("--mocks", call["argv"])
-                self.assertIn("--allow-real-servers", call["argv"])
-            return [[arg.replace(self.after(call["argv"], "--output-dir"), "OUT") for arg in call["argv"]] for call in calls]
+                self.assertEqual([name for name in call["files"] if "/mocks/" in name], [TOOLS_FILE, MOCK_FILE], flag)
+                self.assertEqual(self.after(call["argv"], "--mocks"), "record")
+                self.assertNotIn("--allow-real-servers", call["argv"])
+                for required in native.REQUIRED_FLAGS:
+                    self.assertIn(required, call["argv"])
+            record = self.stored()
+            return ([[arg.replace(self.after(call["argv"], "--output-dir"), "OUT") for arg in call["argv"]] for call in calls],
+                    [(call["files"], call["sha256"], call["cases"], call["mcp"]) for call in calls],
+                    {key: record[key] for key in ("settings", "mcp", "package", "without_arm")})
 
-        for flag in ("--kit-mcp", "--kit-plugin"):
-            with_mocks = lines(flag)
-            shutil.rmtree(self.case / "mocks")
-            self.assertEqual(lines(flag), with_mocks, flag)
-            put(self.case, "metodo/demo_tool.md")
+        plain = made()
+        self.assertEqual(len(plain[0]), 2)
+        self.assertEqual((plain[2]["settings"]["kit_mcp"], plain[2]["settings"]["kit_plugin"], plain[2]["settings"]["mocks"]),
+                         (False, False, True))
+        for flag in FLAGS:
+            for part, ours, theirs in zip(("command line", "plugin and case folder", "stored result"), made(flag), plain):
+                self.assertEqual(ours, theirs, f"{flag}: {part}")
+
+    def test_the_report_names_the_declared_tools_that_had_no_mock_and_the_verdict_stays_as_computed(self):
+        self.declare_other_tool()
+        target = self.tmp / "report.json"
+        res = self.run_real("--json", str(target))
+        self.assert_clean(res, 0)
+        # the shape a mocked result was stored in before: the report reads it as it is
+        self.assertEqual(self.stored()["mcp"], {"declared": [TOOL, OTHER], "served": False, "mocks": True, "mocked": ["demo_tool"]})
+        line = ("  tools with no mock: 1 declared tool(s) had no mock and were not available in 1 of 1 mocked case(s): "
+                "other_tool; the verdict above does not take this into account")
+        for shown in (res, self.report()):
+            self.assert_clean(shown, 0)
+            self.assertEqual([said for said in shown.stdout.splitlines() if said.startswith("  tools with no mock")], [line])
+            self.assertIn("demo-skill: works", shown.stdout)
+        (skill,) = json.loads(target.read_text())["skills"]
+        self.assertEqual(skill["summary"]["mcp_absent"], {"tools": ["other_tool"], "cases": 1})
+
+    def test_a_mocked_result_that_does_not_say_which_tools_had_a_mock_reports_without_the_line(self):
+        self.declare_other_tool()
+        self.assert_clean(self.run_real(), 0)
+        (path,) = (self.out / "store" / "demo-skill" / "smoke-basic").glob("*.json")
+        record = json.loads(path.read_text())
+        del record["mcp"]["mocked"]
+        path.write_text(json.dumps(record))
+        shown = self.report()
+        self.assert_clean(shown, 0)
+        self.assertIn("mocked tools: answered from the mock files of 1 case(s)", shown.stdout)
+        self.assertNotIn("no mock", shown.stdout)
 
     def test_a_server_that_cannot_list_its_tools_leaves_the_skill_not_measured_and_starts_nothing(self):
         (self.kit / "03-tools" / "mcp" / "server.py").write_text("raise RuntimeError('the server is broken')\n")
@@ -525,6 +617,7 @@ class MockedRun(RunnerTest):
                                          "token_method", "without_arm"])
         (skill,) = json.loads(target.read_text())["skills"]
         self.assertNotIn("mcp_mocked", skill["summary"])
+        self.assertNotIn("mcp_absent", skill["summary"])
         self.assertEqual(runner.RUNNER_VERSION, 5)  # no stored result changed its meaning
 
 

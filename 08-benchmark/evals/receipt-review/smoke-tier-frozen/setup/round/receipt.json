@@ -108,7 +108,7 @@
     ],
     "tier": "high"
   },
-  "round_dir": "/private/tmp/build.GKIgSG/rounds/book-118",
+  "round_dir": "/srv/build/rounds/book-118",
   "schema_version": "1.0.0",
   "scope_globs": [],
   "state": "started",

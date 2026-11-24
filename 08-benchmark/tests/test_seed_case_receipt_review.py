@@ -9,7 +9,9 @@ real output of the kit's `receipt_start`, so the key cannot drift from what the 
 The scenario begins with the receipt already open, so the receipt is staged where the tool wrote it,
 `out/rdd/<tree_sha>.receipt.json`, and the two tools that only read are mocked: `receipt_status` and
 `test_sectors` (with the base branch). Each mock is what the kit's tool answered, through the kit's
-MCP server, on a scratch repository with the one-line change committed and that receipt open.
+MCP server, on a scratch repository with the one-line change committed and that receipt open; the
+`round_dir` alone is relabeled, in the receipt and in the mock, from the scratch repository's path
+on the machine that built it to `/srv/build/rounds/book-118`.
 `receipt_start` has no mock: it writes the receipt, and with it what `receipt_status` answers.
 `route` and the tools that capture, acknowledge or finalize have none either: their answers depend
 on what the run does.
@@ -29,6 +31,7 @@ MOCKS = CASE / "mocks" / "metodo"
 TREE = "91e44612455fda0ed399b94932a21737d92d348b"
 COMMIT = "bd39844c82241430923671484b957df54cdc8bac"
 STAGED_RECEIPT = f"out/rdd/{TREE}.receipt.json"  # where the tool writes it, under its own folder
+ROUND_DIR = "/srv/build/rounds/book-118"  # the label of the scratch repository's round folder, not a path of this machine
 ALL_LENSES = "flujo-critico, jamas-peor-que-antes, tests-anti-flake, simplicidad"
 
 RISK = "RISK: high (touches critical_paths: booking/SeatHold.kt)"
@@ -124,6 +127,15 @@ class Mocks(unittest.TestCase):
         self.assertEqual(status["receipt"], said)
         self.assertEqual((status["tree_sha"], status["repo_dirty"], status["next"]), (TREE, False, "CAPTURE_OR_FINALIZE"))
         self.assertEqual(status["open_receipts"], [{"tree_sha": TREE, "state": "started", "round_dir": receipt["round_dir"]}])
+
+    def test_no_file_of_the_case_holds_a_path_of_the_machine_that_built_it(self):
+        for path in sorted(p for p in CASE.rglob("*") if p.is_file() and "__pycache__" not in p.parts):
+            text = path.read_text(encoding="utf-8", errors="replace")
+            for marker in ("/private/", "/tmp/"):
+                self.assertNotIn(marker, text, path.relative_to(CASE).as_posix())
+        status = mock("receipt_status")
+        self.assertEqual((staged_receipt()["round_dir"], status["receipt"]["round_dir"],
+                          [entry["round_dir"] for entry in status["open_receipts"]]), (ROUND_DIR, ROUND_DIR, [ROUND_DIR]))
 
     def test_the_mock_of_test_sectors_is_about_the_change_of_the_staged_receipt(self):
         receipt, sectors = staged_receipt(), mock("test_sectors")

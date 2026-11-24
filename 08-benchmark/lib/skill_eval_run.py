@@ -64,8 +64,9 @@ plugin held (`kit_plugin_digest`: the skills, the server, the manifest) and is r
 plugin packs to the same digest, so a change of the server or of another packed skill runs it again.
 
 Mocked tools. A case may carry `mocks/<server>/<tool>.md` (lib/skill_eval.py). A run of a skill
-uses mocks when a selected case of it has a `mocks/` folder and neither `--kit-mcp` nor
-`--kit-plugin` was given. The plugin is then laid out as under `--kit-mcp` (the server declared,
+uses mocks when a selected case of it has a `mocks/` folder, whatever server flag was given:
+`--kit-mcp` and `--kit-plugin` reach only the skills whose cases carry none, and the plan says so
+per skill. The plugin is then laid out as under `--kit-mcp` (the server declared,
 the skill's text naming the tools as the plugin exposes them), each case's `mocks/` is copied into
 its native folder with the tool list file of the mocked tools (what the kit's server lists for
 them), the mocked tools join the allowed tools, and the command line says `--mocks record` and
@@ -73,9 +74,10 @@ never `--allow-real-servers`: the eval tool answers each mocked tool from its fi
 starts no server, so a tool with no mock file is not available to the run. Both arms are the two
 invocations described above, on the same mocks, since the tool's documentation does not say
 whether its own arm without the plugin keeps them. The stored result says so (`mcp.mocks`,
-`mcp.mocked`, `settings.mocks`) and is never reused for a run on the real server, nor the reverse;
-the report prints `mocked tools:`. Under either server flag the mocks are left out and the plan
-says the real server answers.
+`mcp.mocked`, `settings.mocks`) and is the same, and reused, with or without a server flag; the
+report prints `mocked tools:`. A mocked result is not counted among the runs made without their
+tools, so the verdict is computed as for any other; when a declared tool had no mock the report
+names it (`tools with no mock:`, `mcp_absent` in the summary), read from what the result stored.
 
 Scoring of one run, in this order; the first one that applies is the run's status:
   errored           the tool reports the run ended abnormally, with or without a trace
@@ -103,7 +105,7 @@ of its scored runs that passed, delta their difference. Verdict per skill, on TH
                 it is worse than without it (delta at or under -delta_min);
                 it changes nothing (delta under delta_min)
   works         none of the above; `not measured` instead when the skill declares MCP tools and
-                a run of it was made without the kit's server
+                a run of it was made without the kit's server and without mocks
 A verdict from fewer than runs_per_arm_min scored runs per arm is labelled a signal, and the label
 says how many of the runs made were scored: a run that cheated, ended on an error or could not be
 read was made and not scored.
@@ -423,6 +425,18 @@ def score_case(case: dict, native_result: dict, scratch, mcp_prefix: str | None 
             "native": {key: aggregates.get(key) for key in ("score", "scoreWithout", "delta")}}
 
 
+def _absent_tools(record: dict) -> list[str]:
+    """The declared tools of a mocked result that had no mock file, so no run of it could call them.
+
+    Bare names, sorted; none for a result that was not mocked or does not say which tools had a mock.
+    """
+    mcp = record.get("mcp") if isinstance(record.get("mcp"), dict) else {}
+    declared, mocked = mcp.get("declared"), mcp.get("mocked")
+    if not mcp.get("mocks") or not isinstance(declared, list) or not isinstance(mocked, list):
+        return []
+    return sorted({str(tool).rsplit("__", 1)[-1] for tool in declared} - {str(tool) for tool in mocked})
+
+
 def summarize(records: list[dict]) -> dict:
     """The counts, scores and spend of a skill's stored results."""
     arms = {arm: dict({status: 0 for status in STATUS_WORDS}, runs=0) for arm in ARMS}
@@ -446,11 +460,13 @@ def summarize(records: list[dict]) -> dict:
     mocked = sum(1 for record in records if (record.get("mcp") or {}).get("mocks"))  # answered from mock files
     served = [bool((record.get("mcp") or {}).get("served")) for record in records
               if (record.get("mcp") or {}).get("declared") and not (record.get("mcp") or {}).get("mocks")]
+    absent = [lacking for lacking in map(_absent_tools, records) if lacking]
     tools = {"without_tools": served.count(False), "mcp_served": served.count(True),
              "mcp_calls": sum(int(run.get("mcp_calls") or 0) for record in records for run in record["arms"].get("with") or []),
              "mcp_calls_without": sum(int(run.get("mcp_calls") or 0) for record in records
                                       for run in record["arms"].get("without") or []),
-             **({"mcp_mocked": mocked} if mocked else {})}  # a key that is there only then
+             **({"mcp_mocked": mocked} if mocked else {}),  # a key that is there only then, and so is the next
+             **({"mcp_absent": {"tools": sorted(set().union(*absent)), "cases": len(absent)}} if absent else {})}
     used, base = arms["with"], arms["without"]
     checked = used["runs"] - used["cheated"] - sum(used[status] for status in UNUSABLE)
     triggered = checked - used["not_triggered"]
@@ -620,14 +636,15 @@ def plan_skill(ctx: dict, skill: str, cases: list[dict], use_cache: bool, runs: 
     plan = {"skill": skill, "skill_dir": skill_dir, "has_skill": skill_dir.is_dir(), "entries": [], "to_run": [],
             "tools_dir": ctx["kit"] / "03-tools"}
     plan["mcp_tools"], plan["tools_root"] = declared_needs(ctx, skill) if plan["has_skill"] else ([], False)
-    plan["kit_plugin"] = bool(kit_plugin)  # the skill from the kit plugin, which starts its own server
-    # this checkout's server is started only for a skill that declares its tools, and never beside the plugin's
-    plan["kit_mcp"] = bool(kit_mcp and plan["mcp_tools"] and not kit_plugin)
-    # a run answers the kit's tools from the cases' mock files unless a flag asks for the real server
+    # a skill whose cases carry mocks always answers the kit's tools from them: a server flag reaches only the others
     mocked = [case for case in cases if case["mocks_dir"]]
-    plan["mocks"] = bool(mocked) and not (kit_mcp or kit_plugin)
+    plan["mocks"] = bool(mocked)
     plan["mock_cases"], plan["mock_tools"] = len(mocked), sorted({tool for case in mocked for tool in case["mocks"]})
-    plan["mocks_left_out_by"] = ("--kit-plugin" if kit_plugin else "--kit-mcp") if mocked and not plan["mocks"] else None
+    plan["flag_not_used"] = ("--kit-plugin" if kit_plugin else "--kit-mcp" if kit_mcp else None) if plan["mocks"] else None
+    # the skill from the kit plugin, which starts its own server
+    plan["kit_plugin"] = bool(kit_plugin) and not plan["mocks"]
+    # this checkout's server is started only for a skill that declares its tools, and never beside the plugin's
+    plan["kit_mcp"] = bool(kit_mcp and plan["mcp_tools"] and not kit_plugin) and not plan["mocks"]
     packed = kit_plugin_digest(ctx) if plan["kit_plugin"] and asked is not None else None
     for case in cases:
         digest = skill_eval.case_hash(case, skill_dir) if plan["has_skill"] else None
@@ -679,11 +696,9 @@ def plan_lines(plan: dict, ceiling: float) -> list[str]:
     elif declared:
         lines.append(f"  {plan['skill']} declares {declared} MCP tool(s) of the kit's server, which this run does not start: "
                      f"the skill runs without its tools, so its verdict cannot be `works` (add --kit-mcp to start the server)")
-    if plan["mocks_left_out_by"]:
-        answers = ("so the real server answers and" if plan["kit_mcp"] or plan["kit_plugin"] else
-                   "and the skill declares no MCP tool, so no server is started and")
-        lines.append(f"  {plan['skill']}: {plan['mocks_left_out_by']} was given, {answers} the mock files of "
-                     f"{plan['mock_cases']} case(s) are left out")
+    if plan["flag_not_used"]:
+        lines.append(f"  {plan['skill']}: {plan['flag_not_used']} does not reach it: a skill whose case(s) carry mocks "
+                     f"always answers from them")
     if plan["invocations"] == 2:
         first, second = share_ceiling(ceiling, 2)
         stay = "the mocked tools stay" if plan["mocks"] else "the server and its tools stay"
@@ -994,6 +1009,11 @@ def report_lines(report: dict) -> list[str]:
         if summary.get("mcp_mocked"):
             lines.append(f"  mocked tools: answered from the mock files of {summary['mcp_mocked']} case(s), the real "
                          f"server not started; {summary['mcp_calls']} call(s) to them in the runs with the skill")
+        if summary.get("mcp_absent"):  # a mocked run is not counted as one without its tools: the report names them
+            lacking = summary["mcp_absent"]
+            lines.append(f"  tools with no mock: {len(lacking['tools'])} declared tool(s) had no mock and were not "
+                         f"available in {lacking['cases']} of {summary['mcp_mocked']} mocked case(s): "
+                         f"{', '.join(lacking['tools'])}; the verdict above does not take this into account")
         if summary["mcp_served"]:
             lines.append(f"  kit MCP server: started for {summary['mcp_served']} case(s); {summary['mcp_calls']} call(s) to "
                          f"its tools in the runs with the skill")

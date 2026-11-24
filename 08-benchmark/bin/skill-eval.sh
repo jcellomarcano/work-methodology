@@ -20,10 +20,11 @@
 #           counts once; `--skill NAME` is the same as naming it. Give the
 #           names together, before the flags or after them: a name that
 #           comes after a flag once others were given is refused (exit 2).
-#           A skill whose case carries mocks/ answers the kit's tools from
-#           those files, in both arms, and starts no real server; --kit-mcp
-#           and --kit-plugin start the real one and leave the mocks out. The
-#           plan says which of the two a run uses.
+#           A skill whose case carries mocks/ always answers the kit's tools
+#           from those files, in both arms, and starts no real server; --kit-mcp
+#           and --kit-plugin start the real one only for the skills whose cases
+#           carry none, so `run --all --kit-mcp` runs every skill in one
+#           command. The plan says per skill which of the two it uses.
 # validate  checks every case under ROOT (default: the kit's 08-benchmark/evals),
 #           its mocks against the MCP catalog of the checkout --kit names.
 # report    the verdict per skill from the stored results; starts nothing.
