@@ -1,0 +1,113 @@
+{
+  "runner_version": 4,
+  "skills": [
+    {
+      "cached": 0,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "timed out after 240s",
+                "status": "errored",
+                "tools_called": [
+                  "Bash",
+                  "Bash",
+                  "Read",
+                  "Bash",
+                  "Bash",
+                  "Bash (error)",
+                  "Bash",
+                  "Read",
+                  "Bash (error)",
+                  "Write"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: ",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash",
+                  "Read",
+                  "Bash",
+                  "Bash (error)",
+                  "Bash",
+                  "Bash",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "post-review-comment/smoke-render",
+          "hash": "72c7ed13f55c7a6efc727f977e086e1249f361b80967ffdc71a39f85054ca761",
+          "state": "run now",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package post-review-comment 1.0.0, invoked as post-review-comment:post-review-comment"
+      ],
+      "reasons": [
+        "no run with the skill could be scored: 0 cheated, 1 ended on an error, 0 could not be read"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 603,
+      "skill": "post-review-comment",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 1,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 1,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 1,
+            "unreadable": 0,
+            "validator_failed": 1
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 0,
+        "delta": null,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0,
+        "judge_uncounted_usd": 0.00039879999999999994,
+        "judge_usd": 0.00039879999999999994,
+        "mcp_calls": 0,
+        "mcp_served": 0,
+        "not_counted": 1,
+        "runs_per_arm": 1,
+        "scored_per_arm": 0,
+        "spend_usd": 0.012647100000000001,
+        "triggered": 0,
+        "validated": 0,
+        "with_score": null,
+        "without_score": 0.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "not measured"
+    }
+  ],
+  "thresholds": {
+    "delta_min": 0.1,
+    "judge_pass_min": 0.8,
+    "runs_per_arm_min": 3,
+    "trigger_rate_min": 0.8,
+    "validator_pass_min": 0.8
+  }
+}

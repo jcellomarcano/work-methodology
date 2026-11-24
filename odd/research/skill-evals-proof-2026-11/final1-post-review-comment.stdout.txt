@@ -1,0 +1,17 @@
+skill-eval: cost ceiling USD 0.25 (USD 0.25 for each of 1 skill(s) to run); the tool checks it before each run, so the run in flight may pass it
+post-review-comment: 1 case(s), 1 to run, 0 cached; arms with, without; 2 native run(s); ceiling USD 0.25
+  post-review-comment: its files name the kit's tools root, rendered to <home>/work-methodology/03-tools for the run
+  post-review-comment/smoke-render [smoke]: to run, 1 run(s) per arm
+skill-eval report (runner v4; thresholds: trigger_rate_min 0.8, validator_pass_min 0.8, judge_pass_min 0.8, delta_min 0.1, runs_per_arm_min 3)
+post-review-comment: not measured - no run with the skill could be scored: 0 cheated, 1 ended on an error, 0 could not be read
+  cases: 1 measured of 1 selected (0 cached) | arms: with, without | runs per arm: 1
+  score: with n/a, without 0.00, delta n/a | triggered 0 of 0 | cheated 0 | not counted 1
+  size: 603 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0126, judge USD 0.0004 of it
+  judge spend that did not count: USD 0.0004, on runs not triggered USD 0.0000 (the native tool runs its judge on every run)
+  measured as: its own package post-review-comment 1.0.0, invoked as post-review-comment:post-review-comment
+  post-review-comment/smoke-render [smoke]: with: ended on an error | without: failed a validator
+    with run 1: timed out after 240s
+    with run 1 called: Bash, Bash, Read, Bash, Bash, Bash (error), Bash, Read, Bash (error), Write
+    without run 1: validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: 
+    without run 1 called: Bash, Read, Bash, Bash (error), Bash, Bash, Write
+done by the kit around the native tool: tiers as tags, setup.files through a scaffold script, script validators on the files each run left, the forbidden-path check on each trace, the cascade, the verdict and the cache; the tool's own score of each run is kept in the stored result
