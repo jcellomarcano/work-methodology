@@ -4,7 +4,11 @@ The validator is run as the runner runs it: as a script, `check_comments.py WORK
 under `python3 -I`, on a `comments/` folder each test builds in a temporary folder and with the
 case's own `testdata/` as the answer key. One test per rule the validator names, each pinning the
 line it prints. The comment these tests build on is also given to the kit's own lint with the scope
-file the case stages, so "faithful" here means what the skill's gate accepts.
+the case mocks, so "faithful" here means what the skill's gate accepts.
+
+The scope is not staged as a file: `mocks/metodo/pr_scope.md` is what the kit's `pr_scope` tool
+answered, through the kit's MCP server, on a scratch repository whose tip is the code the case
+stages. `review_comment_lint` has no mock: its answer depends on the comment the run writes.
 """
 import json
 import pathlib
@@ -16,7 +20,8 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 CASE = ROOT / "evals" / "review-comment" / "smoke-base-drift"
 VALIDATOR = CASE / "validators" / "check_comments.py"
-SCOPE = CASE / "setup" / "round" / "001-pr-scope.json"
+MOCKS = CASE / "mocks" / "metodo"
+SCOPE = MOCKS / "pr_scope.md"  # no front matter: the whole file is the JSON the tool answers
 LINT = ROOT.parent / "03-tools" / "lib" / "review_comment_lint.py"
 
 HEAD = "`billing/RetryPolicy.kt:11` @ abd810c362ac"
@@ -88,11 +93,30 @@ class Faithful(ValidatorTest):
     def test_a_lint_result_saved_beside_the_comment_is_not_read_as_a_comment(self):
         self.assert_passes({"comments/01.md": comment(), "comments/01.lint.json": '{"verdict": "PASS"}'})
 
-    def test_the_answer_key_names_the_files_the_staged_scope_names(self):
+    def test_the_answer_key_names_the_files_the_mocked_scope_names(self):
         scope = json.loads(SCOPE.read_text(encoding="utf-8"))
         key = json.loads((CASE / "testdata" / "answer-key.json").read_text(encoding="utf-8"))
         self.assertEqual(key["pr_files"], [entry["path"] for entry in scope["pr_files"]])
         self.assertEqual(key["base_drift_files"], scope["base_drift_files"])
+
+
+class Mocks(unittest.TestCase):
+    def test_the_mock_of_pr_scope_answers_for_the_pull_request_and_the_code_the_case_stages(self):
+        scope = json.loads(SCOPE.read_text(encoding="utf-8"))
+        case = json.loads((CASE / "case.json").read_text(encoding="utf-8"))
+        staged = {entry["to"] for entry in case["setup"]["files"]}
+        notes = (CASE / "setup" / "notes.md").read_text(encoding="utf-8")
+        self.assertIn(f"{scope['head']} into {scope['base']}", notes)  # the branches the owner names
+        named = [entry["path"] for entry in scope["pr_files"]] + scope["base_drift_files"] + scope["mixed_files"]
+        self.assertEqual(sorted(named), sorted(path for path in staged if path.startswith("billing/")))
+        self.assertEqual((scope["mixed_files"], scope["repo_dirty"]), ([], False))
+        self.assertEqual(scope["summary"], {"base_drift": 1, "commits": 1, "mixed": 0, "pr_files": 2})
+
+    def test_the_scope_reaches_the_run_through_the_mock_alone(self):
+        case = json.loads((CASE / "case.json").read_text(encoding="utf-8"))
+        self.assertEqual([entry["to"] for entry in case["setup"]["files"] if "scope" in entry["to"]], [])
+        self.assertFalse((CASE / "setup" / "round" / "001-pr-scope.json").exists())
+        self.assertEqual(sorted(path.name for path in MOCKS.iterdir()), ["pr_scope.md"])  # the lint has none
 
 
 class Rules(ValidatorTest):

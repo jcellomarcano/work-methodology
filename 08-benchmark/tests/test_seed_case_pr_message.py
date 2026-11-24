@@ -5,6 +5,11 @@ under `python3 -I`, on a `pr-body.md` each test builds in a temporary folder and
 own `testdata/` as the answer key. One test per rule the validator names, each pinning the line it
 prints. Every value the faithful body quotes is a line of the run log the case stages, which one
 test checks, so the answer key cannot drift from what the run is given.
+
+The two tools the scenario calls are mocked: `mocks/metodo/change_card_validate.md` and
+`mocks/metodo/receipt_status.md` are what the kit's tools answered, through the kit's MCP server,
+on the staged card and on a scratch repository with the change committed and no receipt opened.
+`done_check` has no mock: its answer depends on the reply the run writes.
 """
 import json
 import pathlib
@@ -17,6 +22,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 CASE = ROOT / "evals" / "pr-message" / "smoke-skipped-check"
 VALIDATOR = CASE / "validators" / "check_pr_body.py"
 RUN_LOG = (CASE / "setup" / "run-log.md").read_text(encoding="utf-8")
+MOCKS = CASE / "mocks" / "metodo"
+TOOLS = ROOT.parent / "03-tools"
 
 WHAT = "## What and why\n\nRetries a dropped payment webhook and skips one already applied, so a paid order is recorded once (DEV-212).\n"
 HEADER = ("| Observable | Before (develop @ de565a2) | After (feature/retry-webhook @ abd810c) | Evidence |\n"
@@ -90,6 +97,32 @@ class Faithful(ValidatorTest):
             for cell in row.split("|")[2:4]:
                 if cell.strip() != key["unmeasured_says"]:
                     self.assertIn(cell.strip(), RUN_LOG)
+
+
+class Mocks(unittest.TestCase):
+    def test_the_mock_of_change_card_validate_is_what_the_kits_validator_answers_on_the_staged_card(self):
+        res = subprocess.run([sys.executable, str(TOOLS / "lib" / "change_card_validator.py"), "--config",
+                              str(TOOLS / "config" / "project.json"), str(CASE / "setup" / "card.md")],
+                             capture_output=True, text=True)
+        self.assertEqual(res.returncode, 0, res.stderr)
+        mock = json.loads((MOCKS / "change_card_validate.md").read_text(encoding="utf-8"))
+        self.assertEqual(mock, json.loads(res.stdout))
+        self.assertEqual((mock["verdict"], mock["fields_missing"]), ("PASS", []))
+
+    def test_the_mock_of_receipt_status_says_no_receipt_exists_for_the_tree(self):
+        status = json.loads((MOCKS / "receipt_status.md").read_text(encoding="utf-8"))
+        self.assertEqual((status["receipt"], status["next"], status["open_receipts"], status["repo_dirty"]),
+                         (None, "START", [], False))
+        self.assertEqual(sorted(status), ["next", "open_receipts", "receipt", "repo_dirty", "tree_sha"])
+
+    def test_no_mock_says_what_the_answer_key_holds(self):  # the skipped check and the numbers come from the run log alone
+        key = json.loads((CASE / "testdata" / "answer-key.json").read_text(encoding="utf-8"))
+        quoted = [value for row in key["rows"] for value in (row["before"], row["after"]) if value]
+        self.assertEqual(sorted(path.name for path in MOCKS.iterdir()), ["change_card_validate.md", "receipt_status.md"])
+        for path in MOCKS.iterdir():
+            text = path.read_text(encoding="utf-8")
+            for value in (*quoted, *key["skipped_checks"], *key["gap_marks"], key["unmeasured_says"]):
+                self.assertNotIn(value, text, path.name)
 
 
 class Rules(ValidatorTest):

@@ -1,6 +1,6 @@
 {
   "base_ref": "develop",
-  "base_sha": "b8fc2a0a679a6a267882212a90ab1c84a8599653",
+  "base_sha": "42ab247d5a1022603a9528b0414c760571f85fb6",
   "budget": {
     "roles": {
       "generic-blind-spot-adversary": {
@@ -79,10 +79,10 @@
     "removed": 1
   },
   "inherited_from": null,
-  "merge_base": "b8fc2a0a679a6a267882212a90ab1c84a8599653",
+  "merge_base": "42ab247d5a1022603a9528b0414c760571f85fb6",
   "owner_ack": null,
   "repo_dirty": false,
-  "repo_sha": "5cfc1091d407f173683c358e1a3e7f1badcfac61",
+  "repo_sha": "bd39844c82241430923671484b957df54cdc8bac",
   "risk": {
     "consent": "pending",
     "inputs": {
@@ -108,13 +108,13 @@
     ],
     "tier": "high"
   },
-  "round_dir": "/srv/build/rounds/book-118",
+  "round_dir": "/private/tmp/build.GKIgSG/rounds/book-118",
   "schema_version": "1.0.0",
   "scope_globs": [],
   "state": "started",
   "superseded_by": null,
   "supersedes": null,
-  "tool_sha": "870fba1338994fd149832ce257bde5e66671eb71",
+  "tool_sha": "3796239caba5caebd2b7329e2f515e33794905a9",
   "tool_versions": {
     "detekt": "1.23.8",
     "java": "21.0.12",
@@ -125,7 +125,7 @@
   "touched_paths": [
     "booking/SeatHold.kt"
   ],
-  "tree_sha": "5f306ba1af35bcf710394eb2d8cd411b02d9505b",
+  "tree_sha": "91e44612455fda0ed399b94932a21737d92d348b",
   "verdict": null,
   "verdict_reasons": []
 }

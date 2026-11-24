@@ -12,10 +12,6 @@
         "to": "notes.md"
       },
       {
-        "from": "setup/round/001-pr-scope.json",
-        "to": "round/001-pr-scope.json"
-      },
-      {
         "from": "setup/round/001-card.md",
         "to": "round/001-card.md"
       },

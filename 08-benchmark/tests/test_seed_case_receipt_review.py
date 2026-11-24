@@ -4,8 +4,17 @@ The validator is run as the runner runs it: as a script, `check_context.py WORKS
 under `python3 -I`, on a `round/000-context.md` each test builds in a temporary folder and with
 the case's own `testdata/` as the answer key. One test per rule the validator names, each pinning
 the line it prints. One test holds the answer key against the receipt the case stages, which is
-real output of the kit's `rdd_receipt.py start`, so the key cannot drift from what the run is given.
+real output of the kit's `receipt_start`, so the key cannot drift from what the run is given.
+
+The scenario begins with the receipt already open, so the receipt is staged where the tool wrote it,
+`out/rdd/<tree_sha>.receipt.json`, and the two tools that only read are mocked: `receipt_status` and
+`test_sectors` (with the base branch). Each mock is what the kit's tool answered, through the kit's
+MCP server, on a scratch repository with the one-line change committed and that receipt open.
+`receipt_start` has no mock: it writes the receipt, and with it what `receipt_status` answers.
+`route` and the tools that capture, acknowledge or finalize have none either: their answers depend
+on what the run does.
 """
+import hashlib
 import json
 import pathlib
 import subprocess
@@ -16,8 +25,10 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 CASE = ROOT / "evals" / "receipt-review" / "smoke-tier-frozen"
 VALIDATOR = CASE / "validators" / "check_context.py"
-TREE = "5f306ba1af35bcf710394eb2d8cd411b02d9505b"
-COMMIT = "5cfc1091d407f173683c358e1a3e7f1badcfac61"
+MOCKS = CASE / "mocks" / "metodo"
+TREE = "91e44612455fda0ed399b94932a21737d92d348b"
+COMMIT = "bd39844c82241430923671484b957df54cdc8bac"
+STAGED_RECEIPT = f"out/rdd/{TREE}.receipt.json"  # where the tool writes it, under its own folder
 ALL_LENSES = "flujo-critico, jamas-peor-que-antes, tests-anti-flake, simplicidad"
 
 RISK = "RISK: high (touches critical_paths: booking/SeatHold.kt)"
@@ -75,11 +86,51 @@ class Faithful(ValidatorTest):
         self.assert_passes(context(receipt=f"RECEIPT: out/rdd/{TREE[:12]}.receipt.json"))
 
     def test_the_answer_key_says_what_the_staged_receipt_says(self):
-        receipt = json.loads((CASE / "setup" / "round" / "receipt.json").read_text(encoding="utf-8"))
+        receipt = staged_receipt()
         key = json.loads((CASE / "testdata" / "answer-key.json").read_text(encoding="utf-8"))
         self.assertEqual((key["tier"], key["lenses"], key["tree_sha"], key["commit_sha"]),
                          (receipt["risk"]["tier"], receipt["risk"]["lenses"], receipt["tree_sha"], receipt["repo_sha"]))
         self.assertEqual((TREE, COMMIT), (key["tree_sha"], key["commit_sha"]))
+
+
+def mock(tool: str) -> dict:
+    """The answer the run gets from one mocked tool: the file has no front matter, it is the JSON itself."""
+    return json.loads((MOCKS / f"{tool}.md").read_text(encoding="utf-8"))
+
+
+def staged_receipt() -> dict:
+    """The receipt as the run finds it: the file `case.json` stages at the path the tool writes."""
+    case = json.loads((CASE / "case.json").read_text(encoding="utf-8"))
+    (source,) = [entry["from"] for entry in case["setup"]["files"] if entry["to"] == STAGED_RECEIPT]
+    return json.loads((CASE / source).read_text(encoding="utf-8"))
+
+
+class Mocks(unittest.TestCase):
+    def test_the_staged_receipt_is_open_on_the_card_the_case_stages_and_no_mock_opens_one(self):
+        receipt = staged_receipt()
+        card = (CASE / "setup" / "round" / "001-card.md").read_bytes()
+        self.assertEqual(receipt["change_card"]["sha256"], hashlib.sha256(card).hexdigest())
+        self.assertEqual((receipt["state"], receipt["verdict"], receipt["captures"], receipt["owner_ack"]),
+                         ("started", None, [], None))  # nothing was reviewed and the owner said nothing yet
+        self.assertEqual((receipt["risk"]["consent"], receipt["touched_paths"]), ("pending", ["booking/SeatHold.kt"]))
+        case = json.loads((CASE / "case.json").read_text(encoding="utf-8"))
+        self.assertEqual(sorted(entry["to"] for entry in case["setup"]["files"]), [STAGED_RECEIPT, "round/001-card.md"])
+        self.assertEqual(sorted(path.name for path in MOCKS.iterdir()), ["receipt_status.md", "test_sectors.md"])
+
+    def test_the_mock_of_receipt_status_is_the_status_of_the_staged_receipt(self):
+        receipt, status = staged_receipt(), mock("receipt_status")
+        said = {key: receipt[key] for key in ("state", "verdict", "correction_index", "round_dir")}
+        said.update(tier=receipt["risk"]["tier"], consent=receipt["risk"]["consent"])
+        self.assertEqual(status["receipt"], said)
+        self.assertEqual((status["tree_sha"], status["repo_dirty"], status["next"]), (TREE, False, "CAPTURE_OR_FINALIZE"))
+        self.assertEqual(status["open_receipts"], [{"tree_sha": TREE, "state": "started", "round_dir": receipt["round_dir"]}])
+
+    def test_the_mock_of_test_sectors_is_about_the_change_of_the_staged_receipt(self):
+        receipt, sectors = staged_receipt(), mock("test_sectors")
+        self.assertEqual([entry["path"] for entry in sectors["changed_files"]], receipt["touched_paths"])
+        self.assertEqual((sectors["base"], sectors["merge_base"], sectors["repo_sha"], sectors["tool_sha"]),
+                         (receipt["base_ref"], receipt["merge_base"], receipt["repo_sha"], receipt["tool_sha"]))
+        self.assertEqual((sectors["base_resolved"], sectors["full_required"], sectors["repo_dirty"]), (True, True, False))
 
 
 class SeenByTheVerifier(ValidatorTest):

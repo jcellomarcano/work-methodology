@@ -9,7 +9,7 @@
     "files": [
       {
         "from": "setup/round/receipt.json",
-        "to": "round/receipt.json"
+        "to": "out/rdd/91e44612455fda0ed399b94932a21737d92d348b.receipt.json"
       },
       {
         "from": "setup/round/001-card.md",
