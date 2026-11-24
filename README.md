@@ -89,8 +89,8 @@ flowchart LR
 <!-- kit-status:start -->
 | Kit status (`03-tools/bin/kit-status.sh --write`, never by hand) | Value | Tag |
 |---|---|---|
-| measured_at | `833a9f0`, dirty: no | [Measured] |
-| code_fingerprint | `sha256:5bc30a8641dd267f` over 331 files (roles, skills, tools, tests) | [Measured] |
+| measured_at | `19c3751`, dirty: no | [Measured] |
+| code_fingerprint | `sha256:d5dba5b8cc2dd556` over 331 files (roles, skills, tools, tests) | [Measured] |
 | structure | 12 agents, 17 skills (17 installed), 34 MCP tools, 13 Claude hooks, 1853 test cases | [Measured] |
 | kit suite | OK: ran 1853, failures 0, errors 0, skipped 5, expected failures 2 | [Tested] |
 | docs caps | 0 offenders, 0 missing (`config/docs-caps.json` over this checkout) | [Measured] |
