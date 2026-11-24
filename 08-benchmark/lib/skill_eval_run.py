@@ -2,6 +2,7 @@
 """Skill evals, the runner: one skill's package on Claude Code's own eval tool, scored by the kit.
 
 Usage (through lib/skill_eval.py, which owns the command line; bin/skill-eval.sh is its short form):
+    lib/skill_eval.py validate [ROOT] [--kit DIR]
     lib/skill_eval.py run    [SKILL ... | --all] [--skill NAME ...] [--tier smoke|core|deep] [--root DIR] [--kit DIR]
                              [--out DIR] [--runs N] [--model M] [--judge-model M]
                              [--max-cost-usd USD] [--no-cache] [--kit-mcp | --kit-plugin]
@@ -62,6 +63,20 @@ reused for the other. A result measured from the kit plugin also keeps the diges
 plugin held (`kit_plugin_digest`: the skills, the server, the manifest) and is reused only while the
 plugin packs to the same digest, so a change of the server or of another packed skill runs it again.
 
+Mocked tools. A case may carry `mocks/<server>/<tool>.md` (lib/skill_eval.py). A run of a skill
+uses mocks when a selected case of it has a `mocks/` folder and neither `--kit-mcp` nor
+`--kit-plugin` was given. The plugin is then laid out as under `--kit-mcp` (the server declared,
+the skill's text naming the tools as the plugin exposes them), each case's `mocks/` is copied into
+its native folder with the tool list file of the mocked tools (what the kit's server lists for
+them), the mocked tools join the allowed tools, and the command line says `--mocks record` and
+never `--allow-real-servers`: the eval tool answers each mocked tool from its file and
+starts no server, so a tool with no mock file is not available to the run. Both arms are the two
+invocations described above, on the same mocks, since the tool's documentation does not say
+whether its own arm without the plugin keeps them. The stored result says so (`mcp.mocks`,
+`mcp.mocked`, `settings.mocks`) and is never reused for a run on the real server, nor the reverse;
+the report prints `mocked tools:`. Under either server flag the mocks are left out and the plan
+says the real server answers.
+
 Scoring of one run, in this order; the first one that applies is the run's status:
   errored           the tool reports the run ended abnormally, with or without a trace
   unreadable        its kept directory, its trace or the judge's verdict could not be read
@@ -95,7 +110,7 @@ read was made and not scored.
 
 Store: `<out>/store/<skill>/<case>/<case_hash>.v<RUNNER_VERSION>.json`. A case whose hash has a
 stored result with every run readable, made with the settings asked now (model, judge model, runs
-per arm, the kit's MCP server, the kit plugin and, under it, the plugin's own files), is reported as
+per arm, the kit's MCP server, the kit plugin and, under it, the plugin's own files, the mocks), is reported as
 cached and not run again, unless `--no-cache`.
 `report` shows what is stored whatever it was run with. `<out>/native/<skill>/<stamp>/` keeps the
 tool's result, report and output (under `with/` and `without/` when it was started twice). A run's
@@ -157,8 +172,9 @@ REASONS = {
 WITHOUT_TOOLS = ("it ran without its MCP tools (the kit's server was not started), so a better result does not "
                  "show that the skill works: run it again with --kit-mcp")
 SETTING_NAMES = {"model": "model", "judge_model": "judge model", "runs": "runs per arm",
-                 "kit_mcp": "the kit's MCP server", "kit_plugin": "the kit plugin"}
-SETTING_DEFAULTS = {"kit_plugin": False}  # what a result stored before the setting existed was run with
+                 "kit_mcp": "the kit's MCP server", "kit_plugin": "the kit plugin", "mocks": "the case's mocks"}
+# What a result stored before the setting existed was run with; `mocks` is stored only by a run that used them.
+SETTING_DEFAULTS = {"kit_plugin": False, "mocks": False}
 FORMS = {"kit_plugin": "the kit plugin", "skill_package": "its own package"}
 PLUGIN_CHANGED = "another build of the kit plugin (its server or another of its skills changed)"
 # How the arm without the skill is built, as a stored result names it and as the report says it.
@@ -166,6 +182,9 @@ WITHOUT_ARM = {
     "native_ablation": "the tool's own ablation, which removes the whole plugin",
     "skill_removed": "the same plugin with only skills/{skill}/ removed, in a second invocation of the tool: "
                      "its MCP server and tools stay",
+    # never stored: how the report says `skill_removed` of a result whose tools were answered from mocks
+    "skill_removed_mocks": "the same plugin with only skills/{skill}/ removed, in a second invocation of the tool: "
+                           "the mocked tools stay",
 }
 AROUND = ("done by the kit around the native tool: tiers as tags, setup.files through a scaffold script, "
           "script validators on the files each run left, the forbidden-path check on each trace, the cascade, "
@@ -424,12 +443,14 @@ def summarize(records: list[dict]) -> dict:
                 money["judge_usd"] += judge
                 money["judge_uncounted_usd"] += 0 if run.get("judge_counted") else judge
                 money["judge_not_triggered_usd"] += judge if run["status"] == "not_triggered" else 0
+    mocked = sum(1 for record in records if (record.get("mcp") or {}).get("mocks"))  # answered from mock files
     served = [bool((record.get("mcp") or {}).get("served")) for record in records
-              if (record.get("mcp") or {}).get("declared")]
+              if (record.get("mcp") or {}).get("declared") and not (record.get("mcp") or {}).get("mocks")]
     tools = {"without_tools": served.count(False), "mcp_served": served.count(True),
              "mcp_calls": sum(int(run.get("mcp_calls") or 0) for record in records for run in record["arms"].get("with") or []),
              "mcp_calls_without": sum(int(run.get("mcp_calls") or 0) for record in records
-                                      for run in record["arms"].get("without") or [])}
+                                      for run in record["arms"].get("without") or []),
+             **({"mcp_mocked": mocked} if mocked else {})}  # a key that is there only then
     used, base = arms["with"], arms["without"]
     checked = used["runs"] - used["cheated"] - sum(used[status] for status in UNUSABLE)
     triggered = checked - used["not_triggered"]
@@ -567,17 +588,20 @@ def _context(args) -> dict:
             "out": pathlib.Path(os.path.realpath(args.out)) if args.out else kit / "03-tools" / "out" / "skill-evals"}
 
 
-def select(root, skills: list[str] | None, tier: str | None) -> dict[str, list[dict]]:
-    """The selected cases by skill, sorted; a CaseError when a named skill, or the root, has none."""
+def select(root, skills: list[str] | None, tier: str | None, kit=None) -> dict[str, list[dict]]:
+    """The selected cases by skill, sorted; a CaseError when a named skill, or the root, has none.
+
+    `kit` is the checkout whose MCP catalog the mocks of a case are checked against.
+    """
     scope = f" of tier {tier}" if tier else ""
     groups: dict[str, list[dict]] = {}
     if skills:
         for skill in sorted(set(skills)):
-            groups[skill] = list(skill_eval.iter_cases(root, skill=skill, tier=tier))
+            groups[skill] = list(skill_eval.iter_cases(root, skill=skill, tier=tier, kit=kit))
             if not groups[skill]:
                 raise CaseError(f"no case{scope} for the skill {skill!r} under {root}")
         return groups
-    for case in skill_eval.iter_cases(root, tier=tier):
+    for case in skill_eval.iter_cases(root, tier=tier, kit=kit):
         groups.setdefault(case["skill"], []).append(case)
     if not groups:
         raise CaseError(f"no case{scope} under {root}")
@@ -599,13 +623,18 @@ def plan_skill(ctx: dict, skill: str, cases: list[dict], use_cache: bool, runs: 
     plan["kit_plugin"] = bool(kit_plugin)  # the skill from the kit plugin, which starts its own server
     # this checkout's server is started only for a skill that declares its tools, and never beside the plugin's
     plan["kit_mcp"] = bool(kit_mcp and plan["mcp_tools"] and not kit_plugin)
+    # a run answers the kit's tools from the cases' mock files unless a flag asks for the real server
+    mocked = [case for case in cases if case["mocks_dir"]]
+    plan["mocks"] = bool(mocked) and not (kit_mcp or kit_plugin)
+    plan["mock_cases"], plan["mock_tools"] = len(mocked), sorted({tool for case in mocked for tool in case["mocks"]})
+    plan["mocks_left_out_by"] = ("--kit-plugin" if kit_plugin else "--kit-mcp") if mocked and not plan["mocks"] else None
     packed = kit_plugin_digest(ctx) if plan["kit_plugin"] and asked is not None else None
     for case in cases:
         digest = skill_eval.case_hash(case, skill_dir) if plan["has_skill"] else None
         stored = load_record(ctx["out"], case, digest) if digest else None
         case_runs = native.runs_of(case, runs)
         differs = (settings_differ(stored, {**asked, "runs": case_runs, "kit_mcp": plan["kit_mcp"],
-                                            "kit_plugin": plan["kit_plugin"]})
+                                            "kit_plugin": plan["kit_plugin"], "mocks": plan["mocks"]})
                    if stored and asked is not None else [])
         if (stored and asked is not None and plan["kit_plugin"] and not differs
                 and (packed is None or stored.get("kit_plugin_digest") != packed)):
@@ -615,8 +644,9 @@ def plan_skill(ctx: dict, skill: str, cases: list[dict], use_cache: bool, runs: 
                                 "runs": case_runs, "differs": differs})
         if not cached:
             plan["to_run"].append(case)
-    # the tool's own ablation removes the whole plugin: a plugin that carries a server keeps it in both arms instead
-    plan["without_arm"] = "skill_removed" if plan["kit_mcp"] or plan["kit_plugin"] else "native_ablation"
+    # the tool's own ablation removes the whole plugin: a plugin that carries a server, or stands for one
+    # through mocks, keeps it in both arms instead
+    plan["without_arm"] = "skill_removed" if plan["kit_mcp"] or plan["kit_plugin"] or plan["mocks"] else "native_ablation"
     plan["invocations"] = 0 if not plan["to_run"] else 2 if plan["without_arm"] == "skill_removed" else 1
     return plan
 
@@ -638,13 +668,27 @@ def plan_lines(plan: dict, ceiling: float) -> list[str]:
     elif plan["kit_mcp"]:
         lines.append(f"  {plan['skill']}: --kit-mcp starts this checkout's MCP server for its runs (it runs as you, outside "
                      f"the tool's sandbox) and allows the {declared} tool(s) the skill declares")
+    elif plan["mocks"]:
+        bare = sorted(tool.rsplit("__", 1)[-1] for tool in plan["mcp_tools"])
+        lacking = [tool for tool in bare if tool not in plan["mock_tools"]]
+        lines.append(f"  {plan['skill']}: mocks: {len(plan['mock_tools'])} tool(s) of the kit's MCP server "
+                     f"({', '.join(plan['mock_tools']) or 'none by a file of its own'}) answer from the mock files of its "
+                     f"case(s), in both arms; the real server is not started"
+                     + (f"; {len(lacking)} declared tool(s) have no mock and are not available: {', '.join(lacking)}"
+                        if lacking else ""))
     elif declared:
         lines.append(f"  {plan['skill']} declares {declared} MCP tool(s) of the kit's server, which this run does not start: "
                      f"the skill runs without its tools, so its verdict cannot be `works` (add --kit-mcp to start the server)")
+    if plan["mocks_left_out_by"]:
+        answers = ("so the real server answers and" if plan["kit_mcp"] or plan["kit_plugin"] else
+                   "and the skill declares no MCP tool, so no server is started and")
+        lines.append(f"  {plan['skill']}: {plan['mocks_left_out_by']} was given, {answers} the mock files of "
+                     f"{plan['mock_cases']} case(s) are left out")
     if plan["invocations"] == 2:
         first, second = share_ceiling(ceiling, 2)
+        stay = "the mocked tools stay" if plan["mocks"] else "the server and its tools stay"
         lines.append(f"  {plan['skill']}: the arm without the skill runs on the same plugin with only skills/{plan['skill']}/ "
-                     f"removed, so the server and its tools stay in both arms: the tool is started twice with "
+                     f"removed, so {stay} in both arms: the tool is started twice with "
                      f"--ablation none, under USD {first:g} and at most USD {second:g} of the ceiling")
     if plan["tools_root"]:
         where = "the plugin's own tools folder" if plan["kit_plugin"] else str(plan["tools_dir"])
@@ -668,7 +712,10 @@ def plan_data(plan: dict, ceiling: float) -> dict:
               "stored_at": (entry["record"] or {}).get("stored_at"), "differs": entry["differs"]}
              for entry in plan["entries"]]
     to_run = [case for case in cases if case["state"] == "to run"]
-    return {"skill": plan["skill"], "has_skill": plan["has_skill"], "arms": list(ARMS), "cases": cases,
+    # said only for a skill that has a case with mocks: the plan of any other is the one written before
+    mocks = ({"mocks": {"used": plan["mocks"], "tools": plan["mock_tools"], "cases": plan["mock_cases"]}}
+             if plan["mock_cases"] else {})
+    return {"skill": plan["skill"], "has_skill": plan["has_skill"], "arms": list(ARMS), "cases": cases, **mocks,
             "to_run": len(to_run), "cached": len(cases) - len(to_run),
             "native_runs": sum(len(ARMS) * case["runs"] for case in to_run),
             "native_invocations": plan["invocations"], "without_arm": plan["without_arm"],
@@ -697,7 +744,7 @@ def _failure(reason: str, spent: float) -> NativeError:
 
 
 def _invoke(plugin_dir, native_out, cases: list[dict], args, *, ceiling: float, served, scaffold: bool,
-            real_servers: bool, ablation: str = native.ABLATIONS[0]) -> dict:
+            real_servers: bool, ablation: str = native.ABLATIONS[0], mocks: bool = False) -> dict:
     """Start the native tool once on `plugin_dir`, keep what it said under `native_out`, return its result.
 
     A NativeError says in one line why the invocation left nothing to score; the kept directories
@@ -707,7 +754,7 @@ def _invoke(plugin_dir, native_out, cases: list[dict], args, *, ceiling: float, 
     argv = native.build_argv(native.claude_bin(), plugin_dir, native_out, max_cost_usd=ceiling,
                              tier=args.tier, runs=args.runs, model=args.model, judge_model=args.judge_model,
                              allow_tools=native.gated_tools(cases, served), scaffold=scaffold,
-                             real_servers=real_servers, ablation=ablation)
+                             real_servers=real_servers, ablation=ablation, mocks=mocks)
     (native_out / "command.json").write_text(json.dumps(argv) + "\n", encoding="utf-8")
     arms = 1 if ablation == "none" else len(ARMS)
     timeout = 300 + sum(arms * native.runs_of(case, args.runs) * (case["timeout_seconds"] or 300) for case in cases)
@@ -819,17 +866,30 @@ def execute(ctx: dict, plan: dict, args) -> None:
             measured = {"kit_plugin_digest": laid["digest"]}
         else:
             try:
-                laid = build.layout_plugin(_build_kit(ctx), skill, work / "plugin", local_mcp=plan["kit_mcp"], render_tools=True)
+                # a mock stands for a server the plugin declares: the layout is the one of --kit-mcp, the server not started
+                laid = build.layout_plugin(_build_kit(ctx), skill, work / "plugin",
+                                           local_mcp=plan["kit_mcp"] or plan["mocks"], render_tools=True)
             except build.BuildError as exc:
                 raise NativeError(f"the skill cannot be packed: {_one_line(exc)}") from exc
             served = laid["mcp_tools"]  # empty unless --kit-mcp was asked for a skill that declares tools
-            mcp_prefix = build.plugin_tool_name(laid["name"], build.MCP_PREFIX) if plan["kit_mcp"] else None
+            if plan["mocks"]:  # only a tool with a mock file is there to call
+                served = sorted({build.plugin_tool_name(laid["name"], build.MCP_PREFIX + tool)
+                                 for case in cases for tool in case["mocks"]})
+            mcp_prefix = (build.plugin_tool_name(laid["name"], build.MCP_PREFIX)
+                          if plan["kit_mcp"] or plan["mocks"] else None)
             plugin = None
             package = {"form": "skill_package", "plugin": laid["name"], "version": laid["version"], "invoke": laid["invoke"]}
             measured = {}
         starts_server = plan["kit_mcp"] or plan["kit_plugin"]  # the plugin under test carries a server with no mock
+        tool_list, unlisted = skill_eval.kit_tool_list(ctx["kit"]) if plan["mocks"] else (None, None)
+        if unlisted:
+            raise NativeError(f"the tool list of the kit's MCP server cannot be read, so a mocked tool would have no "
+                              f"schema: {unlisted}")
         how = {"served": served, "real_servers": starts_server,
-               "scaffold": native.write_suite(work / "plugin", cases, extra_tools=served)}
+               "scaffold": native.write_suite(work / "plugin", cases, extra_tools=served, mocks=plan["mocks"],
+                                              tool_list=tool_list)}
+        if plan["mocks"]:  # a key of its own, so the call of a run without mocks is the one made before
+            how["mocks"] = True
         if plan["without_arm"] == "skill_removed":
             result, ceilings = _both_arms(work, native_out, skill, cases, args, **how)
         else:
@@ -842,13 +902,17 @@ def execute(ctx: dict, plan: dict, args) -> None:
             if entry["cached"] or case["name"] not in by_name:
                 continue
             record = score_case(case, by_name.pop(case["name"]), work / "scratch", mcp_prefix, plugin)
+            # stored only by a run that used mocks: the result of any other run is the one stored before
+            mock_mcp = {"mocks": bool(case["mocks_dir"]), "mocked": case["mocks"]} if plan["mocks"] else {}
+            mock_setting = {"mocks": True} if plan["mocks"] else {}
             record.update(runner_version=RUNNER_VERSION, case=case["id"], skill=skill, tier=case["tier"],
                           hash=entry["hash"], stored_at=time.strftime("%Y-%m-%dT%H:%M:%S%z"),
                           expected_skills=case["expected_skills"], skill_tokens=tokens, token_method=method,
-                          mcp={"declared": plan["mcp_tools"], "served": bool(served)}, package=package, **measured,
+                          mcp={"declared": plan["mcp_tools"], "served": bool(served) and not plan["mocks"], **mock_mcp},
+                          package=package, **measured,
                           without_arm={"how": plan["without_arm"], "invocations": len(ceilings), "ceilings_usd": ceilings},
                           settings={"model": args.model, "judge_model": args.judge_model, "runs": entry["runs"],
-                                    "kit_mcp": plan["kit_mcp"], "kit_plugin": plan["kit_plugin"],
+                                    "kit_mcp": plan["kit_mcp"], "kit_plugin": plan["kit_plugin"], **mock_setting,
                                     "max_cost_usd": args.max_cost_usd,
                                     "claude_version": result.get("claudeVersion")})
             save_record(ctx["out"], case, entry["hash"], record)
@@ -883,8 +947,12 @@ def skill_report(plan: dict, failure: str | None = None, unstored_usd: float = 0
                                       "tools_called": run.get("tools_called") or []} for run in arms.get(arm, [])]
                                for arm in ARMS}})
     calls = f"; {summary['mcp_calls_without']} call(s) to its tools in the runs without the skill"
-    built = [WITHOUT_ARM[how].format(skill=plan["skill"]) + (calls if how == "skill_removed" else "")
-             for how in sorted({without_arm(record) for record in records})]
+    def how_built(record: dict) -> str:
+        how = without_arm(record)
+        return "skill_removed_mocks" if how == "skill_removed" and (record.get("mcp") or {}).get("mocks") else how
+
+    built = [WITHOUT_ARM[how].format(skill=plan["skill"]) + (calls if how.startswith("skill_removed") else "")
+             for how in sorted({how_built(record) for record in records})]
     return {"skill": plan["skill"], **verdict(summary, len(plan["entries"]), failure), "selected": len(plan["entries"]),
             "cached": sum(1 for case in cases if case["state"] == "cached"), "summary": summary,
             "measured_as": sorted({measured_as(record) for record in records}), "without_arm": built,
@@ -923,6 +991,9 @@ def report_lines(report: dict) -> list[str]:
         if summary["without_tools"]:
             lines.append(f"  without its tools: the skill declares MCP tools and the kit's server was not started in "
                          f"{summary['without_tools']} of {summary['cases']} case(s), so the verdict cannot be `works`")
+        if summary.get("mcp_mocked"):
+            lines.append(f"  mocked tools: answered from the mock files of {summary['mcp_mocked']} case(s), the real "
+                         f"server not started; {summary['mcp_calls']} call(s) to them in the runs with the skill")
         if summary["mcp_served"]:
             lines.append(f"  kit MCP server: started for {summary['mcp_served']} case(s); {summary['mcp_calls']} call(s) to "
                          f"its tools in the runs with the skill")
@@ -969,11 +1040,13 @@ def cmd_run(args) -> int:
     asked = {"model": args.model, "judge_model": args.judge_model}
     plans = [plan_skill(ctx, skill, cases, use_cache=not args.no_cache, runs=args.runs, asked=asked, kit_mcp=args.kit_mcp,
                         kit_plugin=args.kit_plugin)
-             for skill, cases in select(ctx["root"], args.skill, args.tier).items()]
+             for skill, cases in select(ctx["root"], args.skill, args.tier, ctx["kit"]).items()]
     paying = [plan for plan in plans if plan["to_run"]]
-    if not math.isfinite(args.max_cost_usd) and any(plan["invocations"] == 2 for plan in plans):
+    twice = [plan for plan in plans if plan["invocations"] == 2]
+    if not math.isfinite(args.max_cost_usd) and twice:
+        carries = "mocked tools" if all(plan["mocks"] for plan in twice) else "the kit's MCP server"
         raise CaseError(f"--max-cost-usd {args.max_cost_usd:g} cannot be shared between the two invocations a run with "
-                        f"the kit's MCP server makes: give a finite number")
+                        f"{carries} makes: give a finite number")
     total = args.max_cost_usd * len(paying)
     if args.real:  # the ceiling comes before anything that can spend
         print(f"skill-eval: cost ceiling USD {total:.2f} (USD {args.max_cost_usd:.2f} for each of {len(paying)} "
@@ -1004,6 +1077,6 @@ def cmd_run(args) -> int:
 def cmd_report(args) -> int:
     ctx = _context(args)
     plans = [plan_skill(ctx, skill, cases, use_cache=True)
-             for skill, cases in select(ctx["root"], args.skill, args.tier).items()]
+             for skill, cases in select(ctx["root"], args.skill, args.tier, ctx["kit"]).items()]
     _print_report(plans, {}, args.json)
     return 0

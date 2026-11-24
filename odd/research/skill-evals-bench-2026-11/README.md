@@ -109,3 +109,25 @@ right decision unaided. Where a skill reads `works`, the difference is mostly th
 (the sections of a PR message, the four parts of a review comment, the fields of a brief), and in `change-card`
 and `clean-pass` a rule about what not to write.
 
+## Mocked tools answer in both arms (run 8, the proof of the mechanism)
+
+Two real runs on a temp copy of `repo-metrics/smoke-tool-drift`, one run per arm, `haiku` for model and judge,
+ceiling USD 0.10 each, USD 0.0232 in all [Measured]. The copy differs from the kit's case in three ways:
+`mocks/metodo/job_status.md` was added (its body is the case's own `setup/job-status.json`, byte for byte),
+that file is no longer staged, and one sentence of the prompt asks the job for its status instead of pointing
+at the file. The mock and the prompt are kept beside this page as `run8-mocks-proof.job_status.mock.md` and
+`run8-mocks-proof.prompt.md`.
+
+| run | tool list file | verdict line | mocked tool calls, with / without | file |
+|---|---|---|---|---|
+| 1 | none | `review`: with rejected by the judge, without failed a validator | 1 / 1 | `run8-mocks-proof-no-tool-list.stdout.txt` |
+| 2 | generated from the kit's server | `works`: with 1.00, without 0.00 | 1 / 1 | `run8-mocks-proof-with-tool-list.stdout.txt` |
+
+What it proves [Measured, Claude Code 2.1.330]: a hand-written mock under `mocks/<server>/<tool>.md` is answered
+for a server the plugin declares, with the real server not started; the arm without the skill, run as a second
+invocation on the plugin less the skill's folder, keeps the mocked tool and called it; without the tool list
+file each run carries a warning that the tool was served with a permissive schema and no description, and with
+the file in the shape `{"tools": [...]}` the warning is gone. What it does not prove: one run per arm is no
+verdict; the difference between the two runs cannot be put on the tool list file alone; a declared tool with
+no mock (`metrics_delta` here) is not available to the model, so a case must mock every tool its scenario
+needs.

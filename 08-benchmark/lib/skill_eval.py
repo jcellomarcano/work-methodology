@@ -8,6 +8,8 @@ A case is a folder `<root>/<skill>/<case>/` (the kit's root is `08-benchmark/eva
   setup/        optional: fixed files the run starts from
   testdata/     optional: the answer key of the validators; never staged, always a forbidden path
   validators/   optional: scripts that check the files a run left
+  mocks/        optional: fixed answers of the kit's MCP tools, `mocks/<server>/<tool>.md`, in the
+                eval tool's own format (below); a run that uses them starts no real server
 
 `case.json` is one JSON object. `schema_version` (the integer 1), `skill` (the name of the folder
 the case sits in) and `tier` (`smoke`, `core` or `deep`) are required, and so is at least one
@@ -39,35 +41,52 @@ resolved. A `setup.files` entry that reaches `testdata/` is a problem, and so ar
 that stage a file at the same destination. A link to a file inside the case is staged as a
 regular file; a link to a folder is refused.
 
+Mocks. The format is the one `claude plugin eval` reads (its documentation, "Mock files"), and the
+kit only checks the files and copies them: it never writes or rewrites one. `<server>` is the name
+of the kit's MCP server and `<tool>` a tool of its catalog (03-tools/mcp/catalog.py of the checkout
+named by `kit`, this one by default). The body of `<tool>.md` is what the tool answers; its front
+matter is optional and may name only MOCK_KEYS. Beside the tool files the format also names
+`_server.md` (its keys: MOCK_SERVER_KEYS), `_tools.json` (read here as JSON, nothing more),
+`fixtures/` and `mocks/.replay/<server>/`; any other file under `mocks/` is a problem, and so is a
+link. Front matter is read for its top-level keys only: the kit ships no YAML parser.
+
 Functions the runner builds on:
-  validate_case(case_dir) -> list[str]   the problems of one case, one line each, [] when valid
-  load_case(case_dir) -> dict            the validated case: every key above (absent lists are [],
+  validate_case(case_dir, kit=None) -> list[str]   the problems of one case, one line each, [] when valid
+  load_case(case_dir, kit=None) -> dict  the validated case: every key above (absent lists are [],
                                          absent limits None), `name`, `id` ("<skill>/<case>"),
                                          `prompt` (the text) and `paths` (absolute: `case_dir`,
                                          `prompt`, `testdata` or None, `setup_files`, `validators`);
-                                         "testdata/**" joins `forbidden_paths` when testdata/ exists
-  iter_cases(root, skill=None, tier=None)   the loaded cases, sorted by skill then case folder
+                                         "testdata/**" joins `forbidden_paths` when testdata/ exists;
+                                         `mocks` (the tools that have a mock file, sorted) and
+                                         `mocks_dir` (the folder, or None)
+  iter_cases(root, skill=None, tier=None, kit=None)   the loaded cases, sorted by skill then case folder
   stage(case, dest) -> list[str]         copies `setup.files` into dest, returns what it wrote
+  stage_mocks(case, dest) -> list[str]   copies `mocks/` into dest byte for byte, returns what it wrote
+  kit_tool_list(kit=None)                what the kit's MCP server lists for each of its tools
   case_hash(case, skill_dir) -> str      sha256 over the relative paths and bytes of the case's
                                          files and the skill's files: no mtime, no absolute path
 A CaseError is raised for a case that is not valid or a path that cannot be read.
 
 Usage (bin/skill-eval.sh is the short form: it passes its arguments to this file):
     lib/skill_eval.py list [--root DIR]
-    lib/skill_eval.py validate [ROOT]
+    lib/skill_eval.py validate [ROOT] [--kit DIR]
     lib/skill_eval.py run [SKILL ... | --all] [--skill NAME ...] [--tier TIER] [--kit-mcp | --kit-plugin] [--real] ...
     lib/skill_eval.py report [--skill NAME ...] [--tier TIER] ...
 
 `list` prints one line per skill that has a case, sorted: `<skill>: <case> [<tier>], ...`.
 Exit 0; 2 a root that cannot be read, that holds no case, or that holds a case that is not valid.
 
-`validate` prints `<skill>/<case>: <problem>` lines, sorted, then one summary line.
+`validate` prints `<skill>/<case>: <problem>` lines, sorted, then one summary line. `--kit DIR` is
+the checkout whose MCP catalog the mocks of a case are checked against (default: this one).
 Exit 0 every case is valid; 1 any problem; 2 a usage error or an unreadable path, as one
 `skill-eval:` line on stderr.
 
 `run` takes the skills to evaluate as arguments, with `--skill NAME`, or both; a skill named twice
 counts once. `--all` is every skill that has a case, and so is no name at all. Skills named
 together with `--all` are a usage error (exit 2).
+
+A skill whose case carries `mocks/` runs on them, with no real server, unless `--kit-mcp` or
+`--kit-plugin` is given: the plan says which of the two a run uses.
 
 `run` and `report` live in lib/skill_eval_run.py, which documents their flags, the scoring and the
 verdict. `run` prints a plan and spends nothing unless `--real` is given; `report` never spends.
@@ -84,6 +103,7 @@ import os
 import pathlib
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import unicodedata
@@ -103,6 +123,17 @@ TESTDATA_DIR = "testdata"
 TESTDATA_GLOB = "testdata/**"
 # Left behind by tools, not part of a case or a skill: they would change the hash for no reason.
 HASH_SKIP = ("__pycache__", ".DS_Store")
+# Tool mocks, in the eval tool's own format: what its documentation names under `mocks/`, and no more.
+MOCKS_DIR = "mocks"
+MOCK_KEYS = ("type", "expect", "error", "abort_when")  # front matter of `<tool>.md`
+MOCK_SERVER_KEYS = MOCK_KEYS + ("tools",)              # front matter of `_server.md`
+MOCK_SERVER_FILE, MOCK_TOOLS_FILE, MOCK_FIXTURES, MOCK_REPLAY = "_server.md", "_tools.json", "fixtures", ".replay"
+_FRONT_KEY_RE = re.compile(r"([A-Za-z_][A-Za-z0-9_-]*)\s*:")
+_KIT_MCP: dict[str, tuple] = {}  # checkout -> (server name, tool names, why they cannot be read)
+_TOOL_LISTS: dict[str, tuple] = {}  # checkout -> (what `kit_tool_list` answers)
+# Run with the tools folder as its argument: what the kit's server answers to `tools/list`, without starting it.
+_TOOL_LIST_CODE = ("import json, sys\nsys.dont_write_bytecode = True\nsys.path.insert(0, sys.argv[1])\n"
+                   "from mcp import server\nprint(json.dumps(server.tools_list()))\n")
 _DRIVE_RE = re.compile(r"^[A-Za-z]:")
 
 
@@ -294,7 +325,180 @@ def _check_prompt(case_real: str, problems: list[str]) -> str:
     return text
 
 
-def _inspect(case_dir) -> tuple[list[str], dict | None]:
+# --------------------------------------------------------------------------------------- mocks
+
+def kit_mcp(kit=None) -> tuple[str | None, frozenset | None, str | None]:
+    """(the name of the kit's MCP server, the tools of its catalog, why they cannot be read), read once.
+
+    Both come from 03-tools/lib/skill_build.py, which reads the catalog of the checkout `kit` (this
+    one by default) in a process of its own. Only a case that carries mocks asks for them.
+    """
+    key = os.path.realpath(kit) if kit else str(HERE.parent.parent)
+    if key not in _KIT_MCP:
+        if str(HERE) not in sys.path:  # `python3 -I`, or this file imported by path
+            sys.path.insert(0, str(HERE))
+        try:
+            import skill_eval_run
+            build = skill_eval_run._skill_build()
+            names, error = build.Kit(key).catalog()
+            _KIT_MCP[key] = (build.MCP_SERVER, names, error)
+        except Exception as exc:  # whatever stops the reading is said as a problem of the case
+            _KIT_MCP[key] = (None, None, _one_line(exc))
+    return _KIT_MCP[key]
+
+
+def kit_tool_list(kit=None) -> tuple[dict | None, str | None]:
+    """({"server": its name, "tools": {tool name: its entry}}, None), or (None, why it cannot be read); read once.
+
+    An entry is what the kit's MCP server answers for that tool to `tools/list` (`name`,
+    `description`, `inputSchema`): 03-tools/mcp/server.py of the checkout `kit` is asked in a
+    process of its own, as a module, so no server is started.
+    """
+    key = os.path.realpath(kit) if kit else str(HERE.parent.parent)
+    if key not in _TOOL_LISTS:
+        server, _names, error = kit_mcp(kit)
+        tools = os.path.join(key, "03-tools")
+        try:
+            if server is None:
+                raise ValueError(error)
+            proc = subprocess.run([sys.executable, "-I", "-c", _TOOL_LIST_CODE, tools], capture_output=True, text=True,
+                                  timeout=60)
+            if proc.returncode != 0:
+                raise ValueError((proc.stderr.strip().splitlines() or ["no output"])[-1])
+            listed = json.loads(proc.stdout)["tools"]
+            _TOOL_LISTS[key] = ({"server": server, "tools": {entry["name"]: entry for entry in listed}}, None)
+        except (OSError, ValueError, KeyError, TypeError, subprocess.TimeoutExpired) as exc:
+            _TOOL_LISTS[key] = (None, _one_line(exc))
+    return _TOOL_LISTS[key]
+
+
+def _mock_files(folder: str) -> list[tuple[str, str]]:
+    """(relative POSIX path, path) of every file and every link under `folder`, sorted; a link is not followed."""
+    def refuse(error: OSError) -> None:
+        raise error
+
+    found = []
+    for current, dirnames, filenames in os.walk(folder, onerror=refuse):
+        dirnames[:] = sorted(d for d in dirnames if d not in HASH_SKIP)
+        links = [d for d in dirnames if os.path.islink(os.path.join(current, d))]
+        dirnames[:] = [d for d in dirnames if d not in links]
+        for name in [f for f in filenames if f not in HASH_SKIP] + links:
+            path = os.path.join(current, name)
+            found.append((pathlib.Path(os.path.relpath(path, folder)).as_posix(), path))
+    return sorted(found)
+
+
+def _front_matter_keys(path: str) -> tuple[list[str], str | None]:
+    """(the top-level keys of a mock file's front matter, a problem or None); no front matter is no key."""
+    try:
+        lines = pathlib.Path(path).read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError) as exc:
+        return [], f"cannot be read: {_one_line(exc)}"
+    if not lines or lines[0].strip() != "---":
+        return [], None
+    end = next((index for index, line in enumerate(lines[1:], 1) if line.strip() == "---"), None)
+    if end is None:
+        return [], "its front matter is not closed by a '---' line"
+    keys = []
+    for line in lines[1:end]:
+        if not line.strip() or line[0] in " \t#-":  # the value of the key above, a blank or a comment
+            continue
+        match = _FRONT_KEY_RE.match(line)
+        if not match:
+            return keys, f"its front matter line {line.strip()[:60]!r} is not 'key: value'"
+        keys.append(match.group(1))
+    return keys, None
+
+
+def _check_mocks(case_real: str, kit, problems: list[str]) -> list[str]:
+    """Check `mocks/` of a case against the eval tool's mock format; the tools that have a mock file, sorted."""
+    folder = os.path.join(case_real, MOCKS_DIR)
+    if not os.path.lexists(folder):
+        return []
+    if os.path.islink(folder) or not os.path.isdir(folder):
+        problems.append(f"{MOCKS_DIR}/ must be a folder of the case, not a link or a file")
+        return []
+    try:
+        files = _mock_files(folder)
+    except OSError as exc:
+        problems.append(f"{MOCKS_DIR}/ cannot be read: {exc.strerror or _one_line(exc)}")
+        return []
+    server, names, error = kit_mcp(kit)
+    if server is None:
+        problems.append(f"{MOCKS_DIR}/ cannot be checked: {error}")
+        return []
+    tools, mocks, catalog_said, before = [], 0, False, len(problems)
+    for relative, path in files:
+        shown, parts = f"{MOCKS_DIR}/{relative}", relative.split("/")
+        keys: tuple | None = None
+        if os.path.islink(path):
+            problems.append(f"{shown} is a symlink, which is not staged")
+        elif len(parts) >= 3 and parts[0] == MOCK_REPLAY and parts[1] == server:
+            pass  # an adopted recording of an agent mock
+        elif len(parts) < 2 or parts[0] == MOCK_REPLAY:
+            problems.append(f"{shown} is not a file the native mock format names (a mock is "
+                            f"{MOCKS_DIR}/{server}/<tool>.md)")
+        elif parts[0] != server:
+            problems.append(f"{shown}: {parts[0]!r} is not the kit's MCP server ({server!r})")
+        elif len(parts) >= 3 and parts[1] == MOCK_FIXTURES:
+            pass  # inserted into a body with {{file:fixtures/...}}
+        elif len(parts) > 2:
+            problems.append(f"{shown} is not a file the native mock format names (a mock is "
+                            f"{MOCKS_DIR}/{server}/<tool>.md)")
+        elif parts[1] == MOCK_TOOLS_FILE:
+            try:
+                json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
+            except (OSError, UnicodeDecodeError, ValueError) as exc:
+                problems.append(f"{shown} is not valid JSON: {_one_line(exc)}")
+        elif parts[1] == MOCK_SERVER_FILE:
+            keys, mocks = MOCK_SERVER_KEYS, mocks + 1
+        elif parts[1].endswith(".md") and not parts[1].startswith("_"):
+            tool = parts[1][:-len(".md")]
+            keys, mocks = MOCK_KEYS, mocks + 1
+            if names is None:
+                problems += [] if catalog_said else [f"{MOCKS_DIR}/: the kit's MCP catalog cannot be read: {error}"]
+                catalog_said = True
+            elif tool not in names:
+                problems.append(f"{shown}: {tool!r} is not in the kit's MCP catalog")
+            else:
+                tools.append(tool)
+        else:
+            problems.append(f"{shown} is not a file the native mock format names (a mock is "
+                            f"{MOCKS_DIR}/{server}/<tool>.md)")
+        if keys:
+            found, fault = _front_matter_keys(path)
+            problems += [f"{shown}: {fault}"] if fault else []
+            problems += [f"{shown}: front matter key {key!r} is not one the native mock format names "
+                         f"({', '.join(keys)})" for key in found if key not in keys]
+    if not mocks and len(problems) == before:  # every file is one the format names, and none is a mock
+        problems.append(f"{MOCKS_DIR}/ holds no mock (a mock is {MOCKS_DIR}/{server}/<tool>.md)")
+    return sorted(tools)
+
+
+def stage_mocks(case: dict, dest) -> list[str]:
+    """Copy the case's `mocks/` into `dest` byte for byte and return the relative paths written, sorted.
+
+    Nothing is written unless every file can be: a link under `mocks/`, planted after the case was
+    loaded, is a CaseError. A case with no mocks writes nothing.
+    """
+    if not case["mocks_dir"]:
+        return []
+    try:
+        files = _mock_files(case["mocks_dir"])
+        links = [f"{MOCKS_DIR}/{relative} is a symlink, which is not staged"
+                 for relative, path in files if os.path.islink(path)]
+        if links:
+            raise _case_error(case["id"], links)
+        for relative, path in files:
+            target = _join(str(dest), relative)
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            shutil.copyfile(path, target)
+    except OSError as exc:
+        raise _case_error(case["id"], [f"cannot stage {MOCKS_DIR}/: {exc.strerror or _one_line(exc)}"]) from exc
+    return [relative for relative, _path in files]
+
+
+def _inspect(case_dir, kit=None) -> tuple[list[str], dict | None]:
     """The problems of a case and, when there is none, the loaded case."""
     case_real = os.path.realpath(case_dir)
     # A case is named by where it was found, not by where a link leads: `<skill>/<case>` is the
@@ -341,6 +545,7 @@ def _inspect(case_dir) -> tuple[list[str], dict | None]:
             problems.append(f"{key!r} must be a positive integer, got {value!r}")
     _check_setup(case_real, raw.get("setup", {}), problems)
     _check_validators(case_real, raw.get("validators", []), problems)
+    mocks = _check_mocks(case_real, kit, problems)
     if not any(raw.get(key) for key in SCORER_KEYS):
         problems.append(f"no scorer: needs at least one of {', '.join(SCORER_KEYS)}")
     prompt = _check_prompt(case_real, problems)
@@ -356,7 +561,8 @@ def _inspect(case_dir) -> tuple[list[str], dict | None]:
     has_testdata = os.path.isdir(testdata)
     if has_testdata and TESTDATA_GLOB not in case["forbidden_paths"]:
         case["forbidden_paths"].append(TESTDATA_GLOB)
-    case.update(name=name, id=f"{folder}/{name}", prompt=prompt)
+    case.update(name=name, id=f"{folder}/{name}", prompt=prompt, mocks=mocks,
+                mocks_dir=os.path.join(case_real, MOCKS_DIR) if os.path.isdir(os.path.join(case_real, MOCKS_DIR)) else None)
     case["paths"] = {
         "case_dir": case_real,
         "prompt": os.path.join(case_real, "prompt.md"),
@@ -367,14 +573,17 @@ def _inspect(case_dir) -> tuple[list[str], dict | None]:
     return [], case
 
 
-def validate_case(case_dir) -> list[str]:
-    """The problems of the case in `case_dir`, one line each; empty when the case is valid."""
-    return _inspect(case_dir)[0]
+def validate_case(case_dir, kit=None) -> list[str]:
+    """The problems of the case in `case_dir`, one line each; empty when the case is valid.
+
+    `kit` is the checkout whose MCP catalog the mocks of the case are checked against (this one by default).
+    """
+    return _inspect(case_dir, kit)[0]
 
 
-def load_case(case_dir) -> dict:
+def load_case(case_dir, kit=None) -> dict:
     """The validated case with its absolute paths resolved; a CaseError names every problem."""
-    problems, case = _inspect(case_dir)
+    problems, case = _inspect(case_dir, kit)
     if case is None:
         path = pathlib.Path(os.path.abspath(case_dir))
         raise _case_error(f"{path.parent.name}/{path.name}", problems)
@@ -392,10 +601,10 @@ def _case_dirs(root, skill: str | None = None) -> list[pathlib.Path]:
         raise CaseError(f"cannot read the evals root {root}: {exc.strerror or _one_line(exc)}") from exc
 
 
-def iter_cases(root, skill: str | None = None, tier: str | None = None):
+def iter_cases(root, skill: str | None = None, tier: str | None = None, kit=None):
     """The loaded cases under `root`, sorted by skill then case folder, optionally one skill or one tier."""
     for case_dir in _case_dirs(root, skill):
-        case = load_case(case_dir)
+        case = load_case(case_dir, kit)
         if tier in (None, case["tier"]):
             yield case
 
@@ -520,7 +729,7 @@ def cmd_validate(args) -> int:
         raise CaseError(f"no case found under {args.root} (a case is <skill>/<case>/case.json)")
     lines, with_problems = [], 0
     for case_dir in case_dirs:
-        problems = validate_case(case_dir)
+        problems = validate_case(case_dir, args.kit)
         with_problems += bool(problems)
         lines += [f"{case_dir.parent.name}/{case_dir.name}: {problem}" for problem in problems]
     for line in sorted(lines):
@@ -588,6 +797,8 @@ def main(argv: list[str] | None = None) -> int:
     validate = commands.add_parser("validate", help="check every case under ROOT; exit 1 on any problem")
     validate.add_argument("root", nargs="?", default=str(DEFAULT_ROOT), metavar="ROOT",
                           help="folder of <skill>/<case>/ folders (default: the kit's 08-benchmark/evals)")
+    validate.add_argument("--kit", metavar="DIR",
+                          help="the checkout whose MCP catalog the mocks of a case are checked against (default: this one)")
     validate.set_defaults(run=cmd_validate)
     run = commands.add_parser("run", help="plan the evals of the named skills, or of every skill; with --real, run "
                                           "them on `claude plugin eval`")
@@ -609,10 +820,12 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--kit-mcp", action="store_true",
                      help="for a skill that declares MCP tools: start this checkout's MCP server in its runs "
                           "(it runs as you, outside the tool's sandbox), in both arms: the arm without the skill is "
-                          "the same plugin less the skill's folder, in a second invocation; off by default")
+                          "the same plugin less the skill's folder, in a second invocation; a case's mocks are "
+                          "then left out; off by default")
     run.add_argument("--kit-plugin", action="store_true",
                      help="evaluate the skill from the kit plugin (every skill plus the kit's MCP server, started from "
-                          "the plugin's own files) instead of its own package; never with --kit-mcp")
+                          "the plugin's own files) instead of its own package; a case's mocks are then left out; "
+                          "never with --kit-mcp")
     run.add_argument("--runs", type=_above_zero(int), metavar="N", help="runs per arm, instead of each case's own")
     run.add_argument("--model", metavar="M", help="model of the agent under test (default: the session's)")
     run.add_argument("--judge-model", metavar="M", help="model of the judge (default: the tool's)")

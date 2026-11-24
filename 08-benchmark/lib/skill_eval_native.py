@@ -29,6 +29,17 @@ the kit's MCP server, the server's tools join every case's `allowed_tools` under
 plugin exposes them by, and the command line carries `--allow-real-servers`: without it the tool
 starts no server of a plugin that has no mock.
 
+Mocks. A case may carry `mocks/<server>/<tool>.md`, the tool's own mock format (lib/skill_eval.py
+checks it). When the runner says a run uses them, the folder is copied as it is into the native
+case folder, `evals/<case>/mocks/`, and the command line says `--mocks record` and never
+`--allow-real-servers`: the tool then answers each mocked tool from its file, under the name the
+plugin exposes it by, and starts no server. Beside the copied files the kit writes
+`mocks/<server>/_tools.json`, which the tool reads for the real description and input schema of
+each mocked tool (without it the model sees a tool with no description and any input): it is
+`{"tools": [...]}`, what the kit's own server answers to `tools/list`, cut down to the tools that
+have a mock file. A case that carries the file itself keeps its own. Otherwise `mocks/` never
+enters the plugin.
+
 Every command line this module builds carries REQUIRED_FLAGS. `--no-publish` is the one that
 matters most: without it the tool publishes its HTML report to claude.ai. `--threshold 0` makes
 exit 1 mean a failure of the tool and not a low score, which is the kit's to judge.
@@ -63,6 +74,7 @@ import skill_eval
 
 NATIVE_SCHEMA_VERSION = "1.1"
 ARMS = ("with", "without")
+MOCK_MODE = "record"  # of the tool's two (`record`, `off`): answer the mocked tools from their files
 ABLATIONS = ("with-without", "none")  # of the tool: its own two arms (the default), or the plugin alone
 DEFAULT_RUNS = 3  # the tool's own default, written out so a case never depends on it
 DEFAULT_ALLOWED_TOOLS = ("Read", "Glob", "Grep", "Skill")  # the list of `claude plugin eval init --bare`
@@ -279,8 +291,27 @@ def native_case(case: dict, extra_tools=()) -> dict:
     return document
 
 
-def write_suite(plugin_dir, cases: list[dict], extra_tools=()) -> bool:
-    """Write every case under `<plugin_dir>/evals/`; True when any of them has a scaffold script."""
+def write_tool_list(case: dict, mocks_dir, tool_list: dict) -> None:
+    """Write `<mocks_dir>/<server>/_tools.json` for the tools the case mocks, unless the case carries one.
+
+    `tool_list` is `skill_eval.kit_tool_list`: the entries are the kit server's own, never rewritten.
+    """
+    target = pathlib.Path(mocks_dir) / tool_list["server"] / skill_eval.MOCK_TOOLS_FILE
+    if not case["mocks"] or target.exists():
+        return
+    unlisted = [tool for tool in case["mocks"] if tool not in tool_list["tools"]]
+    if unlisted:
+        raise NativeError(f"the kit's MCP server lists no tool {', '.join(unlisted)}, which {case['id']} mocks")
+    listed = {"tools": [tool_list["tools"][tool] for tool in case["mocks"]]}
+    target.write_text(json.dumps(listed, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def write_suite(plugin_dir, cases: list[dict], extra_tools=(), mocks: bool = False, tool_list: dict | None = None) -> bool:
+    """Write every case under `<plugin_dir>/evals/`; True when any of them has a scaffold script.
+
+    `mocks` copies each case's `mocks/` folder beside its `case.yaml`, byte for byte; `tool_list`
+    (`skill_eval.kit_tool_list`) then adds the tool list file of the mocked tools.
+    """
     scaffold = False
     for case in cases:
         folder = pathlib.Path(plugin_dir) / "evals" / case["name"]
@@ -290,6 +321,10 @@ def write_suite(plugin_dir, cases: list[dict], extra_tools=()) -> bool:
             skill_eval.stage(case, folder / SCAFFOLD_FILES)  # the same refusals as any staging
             (folder / SCAFFOLD_SCRIPT).write_text(SCAFFOLD_TEXT, encoding="utf-8")
             scaffold = True
+        if mocks:
+            skill_eval.stage_mocks(case, folder / skill_eval.MOCKS_DIR)  # a link under it is refused here too
+            if tool_list is not None:
+                write_tool_list(case, folder / skill_eval.MOCKS_DIR, tool_list)
     return scaffold
 
 
@@ -309,15 +344,18 @@ def unmatched_exempt_paths(case: dict) -> list[str]:
 def build_argv(claude: str, plugin_dir, out_dir, *, max_cost_usd: float, tier: str | None = None,
                runs: int | None = None, model: str | None = None, judge_model: str | None = None,
                allow_tools=(), scaffold: bool = False, real_servers: bool = False,
-               ablation: str = ABLATIONS[0]) -> list[str]:
+               ablation: str = ABLATIONS[0], mocks: bool = False) -> list[str]:
     """The one command line of the runner. Every flag of REQUIRED_FLAGS is always in it.
 
     `real_servers` lets the tool start the plugin's own MCP server (it has no mock): the server
     runs as the user, outside the sandbox that confines the run's shell tools. `ablation` is one
-    of ABLATIONS: the tool's own two arms, or `none` for the plugin alone.
+    of ABLATIONS: the tool's own two arms, or `none` for the plugin alone. `mocks` says the cases
+    carry mock files: the tool's mock mode is written out, and the real servers are never asked for.
     """
     if ablation not in ABLATIONS:
         raise NativeError(f"the ablation {ablation!r} is not one of {', '.join(ABLATIONS)}")
+    if mocks and real_servers:
+        raise NativeError("a run that answers from mocks never starts the real servers: ask for one of the two")
     argv = [claude, "plugin", "eval", str(plugin_dir), "--no-publish", "--trust-plugin", "--keep-temp",
             "--ablation", ablation, "--threshold", "0", "--max-cost-usd", f"{max_cost_usd:g}",
             "--output-dir", str(out_dir), "--json", str(pathlib.Path(out_dir) / "result.json"),
@@ -327,6 +365,8 @@ def build_argv(claude: str, plugin_dir, out_dir, *, max_cost_usd: float, tier: s
             argv += [flag, str(value)]
     if real_servers:
         argv.append("--allow-real-servers")
+    if mocks:
+        argv += ["--mocks", MOCK_MODE]
     if allow_tools:
         argv += ["--allow-tools", *allow_tools]
     return argv

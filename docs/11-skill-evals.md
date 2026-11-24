@@ -43,10 +43,9 @@ The zip is the plugin the eval runs, so what is measured is what ships. `BUILD.j
 | `setup/` | fixed files the run starts from |
 | `testdata/` | the answer key: never given to the run; a run that reads it is `cheated` |
 | `validators/` | scripts that compare the files the run left with `testdata/`; exit 0 passes |
+| `mocks/` | optional `mocks/metodo/<tool>.md`, the eval tool's own format: what the kit tool answers in both arms, no real server; a server flag drops it |
 
 To write one, copy `08-benchmark/evals/post-review-comment/smoke-render/`. Run the validator by hand on a wrong file first: a case that cannot fail measures nothing.
-
-Both seed cases, `post-review-comment/smoke-render` and `change-card/smoke-missing-field`, fail when the run's file is missing or fails its answer key.
 
 ## 4. The commands
 
@@ -59,7 +58,7 @@ Both seed cases, `post-review-comment/smoke-render` and `change-card/smoke-missi
 ```
 
 - `--real` is the only flag that spends. It prints its ceiling first; the default is USD 0.50 per skill [Measured: `08-benchmark/lib/skill_eval_run.py`].
-- `--kit-mcp` starts this checkout's MCP server for a skill that declares its tools; 14 of the 17 do [Measured: the `deps` of each `BUILD.json`]. It runs as you, outside the tool's sandbox. Without it such a skill has no tools and its verdict is never `works`. With it or `--kit-plugin` (section 8) the tool runs twice on one ceiling: the arm without the skill is the same plugin less the skill's folder, so it keeps the server.
+- `--kit-mcp` starts this checkout's MCP server for a skill that declares its tools; 14 of the 17 do [Measured: the `deps` of each `BUILD.json`]. It runs as you, outside the tool's sandbox. Without it or a mock such a skill has no tools and is never `works`. With it or `--kit-plugin` (section 8) the tool runs twice on one ceiling: the arm without the skill is the same plugin less the skill's folder, so it keeps the server.
 - A case reruns only when its files, the skill's, the kit plugin's or the settings (model, judge, runs, server, form) change; `--no-cache` forces it.
 
 ## 5. Reading the verdict

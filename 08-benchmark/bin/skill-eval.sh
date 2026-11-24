@@ -8,7 +8,7 @@
 #   bin/skill-eval.sh run <skill>... [--real] [--kit-mcp | --kit-plugin] [--tier TIER] [--runs N]
 #                         [--model M] [--judge-model M] [--max-cost-usd USD] [--no-cache] [--json FILE]
 #   bin/skill-eval.sh run --all [the same flags]
-#   bin/skill-eval.sh validate [ROOT]
+#   bin/skill-eval.sh validate [ROOT] [--kit DIR]
 #   bin/skill-eval.sh report [--skill NAME ...] [--tier TIER] [--json FILE]
 #
 # list      one line per skill that has a case: `<skill>: <case> [<tier>], ...`.
@@ -20,7 +20,12 @@
 #           counts once; `--skill NAME` is the same as naming it. Give the
 #           names together, before the flags or after them: a name that
 #           comes after a flag once others were given is refused (exit 2).
-# validate  checks every case under ROOT (default: the kit's 08-benchmark/evals).
+#           A skill whose case carries mocks/ answers the kit's tools from
+#           those files, in both arms, and starts no real server; --kit-mcp
+#           and --kit-plugin start the real one and leave the mocks out. The
+#           plan says which of the two a run uses.
+# validate  checks every case under ROOT (default: the kit's 08-benchmark/evals),
+#           its mocks against the MCP catalog of the checkout --kit names.
 # report    the verdict per skill from the stored results; starts nothing.
 # `run --help` and `report --help` list every flag, --root, --kit and --out too.
 #
