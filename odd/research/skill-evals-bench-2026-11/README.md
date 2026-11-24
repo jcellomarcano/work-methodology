@@ -136,7 +136,7 @@ needs.
 
 Each row is the last proof run a writer made of a case after it gained its mocks: one run per arm, `haiku` for
 model and judge, ceiling USD 0.10, through `08-benchmark/bin/skill-eval.sh run <skill> --real`. One run per arm
-is a signal, never a verdict [Measured]. Spend: USD 0.1749 over 15 runs (0.0678 + 0.0454 + 0.0458 + 0.0159).
+is a signal, never a verdict [Measured]. Spend: USD 0.1749 over 13 runs (0.0678 + 0.0454 + 0.0458 + 0.0159).
 
 | skill | tools mocked | with the skill | without it | mocked calls, with / without |
 |---|---|---|---|---|
