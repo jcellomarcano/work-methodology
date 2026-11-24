@@ -1,0 +1,180 @@
+{
+  "runner_version": 5,
+  "skills": [
+    {
+      "cached": 0,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Skill",
+                  "ToolSearch",
+                  "Read",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "mcp__plugin_change-card_metodo__change_card_extract",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "ToolSearch",
+                  "Skill",
+                  "Read",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_filled_card.py: exit 1: never-filled: \"What it risks\" is in the file; only the author writes it",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "ToolSearch",
+                  "Read",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "mcp__plugin_change-card_metodo__change_card_extract",
+                  "Bash (error)",
+                  "Glob",
+                  "Grep (error)",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__domain_invariants (error)",
+                  "mcp__plugin_change-card_metodo__cartography (error)",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "validators/check_filled_card.py: exit 1: never-filled: \"What it risks\" is in the file; only the author writes it",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "ToolSearch",
+                  "Read",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "Grep",
+                  "Bash (error)",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__domain_invariants (error)",
+                  "mcp__plugin_change-card_metodo__cartography (error)",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "validators/check_filled_card.py: exit 1: never-filled: \"What it risks\" is in the file; only the author writes it",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "ToolSearch",
+                  "Read",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "mcp__plugin_change-card_metodo__change_card_extract",
+                  "Grep (error)",
+                  "Glob",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              }
+            ]
+          },
+          "case": "change-card/smoke-missing-field",
+          "hash": "77cbba4920cd6c2b3c5f04e3025ed7994b40e299a9d8942f10a0a2e2c5736ef1",
+          "state": "run now",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package change-card 1.0.0, invoked as change-card:change-card"
+      ],
+      "reasons": [
+        "it triggers and the result is better than without it"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 385,
+      "skill": "change-card",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 3,
+            "runs": 3,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 3,
+            "unreadable": 0,
+            "validator_failed": 3
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 3,
+        "delta": 1.0,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0,
+        "judge_uncounted_usd": 0.0034231000000000005,
+        "judge_usd": 0.005976899999999999,
+        "mcp_calls": 7,
+        "mcp_calls_without": 8,
+        "mcp_served": 1,
+        "not_counted": 0,
+        "runs_per_arm": 3,
+        "scored_per_arm": 3,
+        "spend_usd": 0.03691301,
+        "triggered": 3,
+        "validated": 3,
+        "with_score": 1.0,
+        "without_score": 0.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "works",
+      "without_arm": [
+        "the same plugin with only skills/change-card/ removed, in a second invocation of the tool: its MCP server and tools stay; 8 call(s) to its tools in the runs without the skill"
+      ]
+    }
+  ],
+  "thresholds": {
+    "delta_min": 0.1,
+    "judge_pass_min": 0.8,
+    "runs_per_arm_min": 3,
+    "trigger_rate_min": 0.8,
+    "validator_pass_min": 0.8
+  }
+}

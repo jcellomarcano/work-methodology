@@ -1,0 +1,177 @@
+{
+  "runner_version": 5,
+  "skills": [
+    {
+      "cached": 0,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Skill",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "rejected: expect-03",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "Glob",
+                  "Skill",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "Read",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Skill",
+                  "Read",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "exit 1: Reached maximum number of turns (10)",
+                "status": "errored",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Glob",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "Grep (error)",
+                  "mcp__plugin_change-card_metodo__change_card_extract",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__domain_invariants (error)",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "exit 1: Reached maximum number of turns (10)",
+                "status": "errored",
+                "tools_called": [
+                  "Glob",
+                  "ToolSearch",
+                  "Glob",
+                  "Read",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "mcp__plugin_change-card_metodo__change_card_extract",
+                  "Bash (error)",
+                  "Glob",
+                  "Grep",
+                  "Grep (error)",
+                  "Glob (error)",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "validators/check_filled_card.py: exit 1: never-filled: \"What it risks\" is in the file; only the author writes it",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Grep",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "mcp__plugin_change-card_metodo__domain_invariants (error)",
+                  "Grep",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              }
+            ]
+          },
+          "case": "change-card/smoke-missing-field",
+          "hash": "f173ec4ff02546a03a63e8b460a6a08adc63d06cf2af9214c176a003f05ca259",
+          "state": "run now",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package change-card 1.0.0, invoked as change-card:change-card"
+      ],
+      "reasons": [
+        "the judge rejects it"
+      ],
+      "selected": 1,
+      "signal": true,
+      "size_tokens": 385,
+      "skill": "change-card",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 1,
+            "not_triggered": 0,
+            "passed": 2,
+            "runs": 3,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 2,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 3,
+            "unreadable": 0,
+            "validator_failed": 1
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 3,
+        "delta": 0.6666666666666666,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0,
+        "judge_uncounted_usd": 0.0012717999999999998,
+        "judge_usd": 0.0038109000000000007,
+        "mcp_calls": 6,
+        "mcp_calls_without": 8,
+        "mcp_served": 1,
+        "not_counted": 2,
+        "runs_per_arm": 3,
+        "scored_per_arm": 1,
+        "spend_usd": 0.03261323000000001,
+        "triggered": 3,
+        "validated": 3,
+        "with_score": 0.6666666666666666,
+        "without_score": 0.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "review",
+      "without_arm": [
+        "the same plugin with only skills/change-card/ removed, in a second invocation of the tool: its MCP server and tools stay; 8 call(s) to its tools in the runs without the skill"
+      ]
+    }
+  ],
+  "thresholds": {
+    "delta_min": 0.1,
+    "judge_pass_min": 0.8,
+    "runs_per_arm_min": 3,
+    "trigger_rate_min": 0.8,
+    "validator_pass_min": 0.8
+  }
+}

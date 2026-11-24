@@ -2,7 +2,7 @@
 
 One command answers it per skill: `works`, `review` or `not measured`, and why. It runs fixed cases with and without the skill on Claude Code's own eval tool, `claude plugin eval`, and scores them itself. Nothing is spent without `--real`.
 
-All 17 skills have a BUILD and two have a case [Tested: `03-tools/bin/skill-build.sh test --all`]. Their first runs read `review` at one run per arm, a signal, not a verdict (section 6). The whole kit against plain Claude Code is another instrument: [09-measurement.md](09-measurement.md). Tags, from `08-benchmark/METRICS.md`: **Measured**, **Tested**, **Inferred**, **Assumed**, **Unknown**.
+All 17 skills have a BUILD and two have a case [Tested: `03-tools/bin/skill-build.sh test --all`]. At three runs per arm both read `review` on their last run; `change-card` read `works` on the one before (section 6). The whole kit against plain Claude Code is another instrument: [09-measurement.md](09-measurement.md). Tags, from `08-benchmark/METRICS.md`: **Measured**, **Tested**, **Inferred**, **Assumed**, **Unknown**.
 
 ## 1. The two files you write
 
@@ -79,15 +79,13 @@ Each run passes three scorers in order: the skill was invoked, the validators pa
 
 ## 6. What a run costs, and what leaves your machine
 
-| Run, one per arm, model and judge `haiku` | USD | Verdict |
+| Run, three per arm, model and judge `haiku` | USD | Verdict |
 |---|---|---|
-| `post-review-comment/smoke-render` | 0.011 | `review`: its output fails a validator |
-| the same case, run again | 0.013 | `not measured`: the run with the skill hit the case's 240 s limit |
-| `change-card/smoke-missing-field`, with `--kit-mcp` | 0.007 | `review`: it does not trigger when it should |
-| the same case, with `--kit-plugin` | 0.007 | `review`: not triggered; the plugin's server answered the tool call |
-| the same card, the prompt naming the skill (a probe), with `--kit-plugin` | 0.007 | `works`: skill invoked, its tool answered, validator and judge passed |
+| `post-review-comment/smoke-render` | 0.035 | `review`: triggered 1 of 3; one run hit the 240 s limit |
+| `change-card/smoke-missing-field`, with `--kit-mcp` | 0.037 | `works`: with 1.00, without 0.00; triggered 3 of 3 |
+| the same case, run again after its validator was corrected | 0.033 | `review` [signal]: with 0.67, without 0.00; a split judge vote rejected one right answer |
 
-Source: the `spend:` line of each run, 2026-11-24, logged in `odd/tasks/skill-evals.md` [Tested, n=1 each]. The tool checks the ceiling before each run, so the run in flight may pass it.
+Source: the `spend:` line of each run, 2026-11-24, kept in `odd/research/skill-evals-bench-2026-11/` [Tested, n=3 each]. One run per arm cost USD 0.007 to 0.013. The tool checks the ceiling before each run, so the run in flight may pass it.
 
 The eval tool publishes its HTML report to claude.ai by default. The kit passes `--no-publish` on every command line; a test fails if it is missing [Tested: `08-benchmark/tests/test_skill_eval_run.py`]. Never call `claude plugin eval` by hand without it. Each run is a Claude Code session on your own credential; results stay under the tools folder's `out/skill-evals/`.
 
@@ -95,10 +93,11 @@ The eval tool publishes its HTML report to claude.ai by default. The kit passes 
 
 | Gap | State | Tag |
 |---|---|---|
-| A verdict, not a signal | no case has run three times per arm; that spend is the owner's decision | Measured |
+| A verdict beyond one case | each of the two skills has one case, run three times per arm on one model | Measured |
+| A steady verdict | at three runs the limit of 0.8 needs three of three, so one judge vote flips it | Tested |
 | 15 of the 17 skills | they have no case | Measured |
-| The skill apart from its tools, in a real run | both arms keep the server only in stub tests; section 6's server rows predate it: their arm without the skill lost the server | Unknown |
-| Why `change-card` does not trigger | both runs of the seed prompt called the server's tool directly; a probe naming the skill triggered | Tested, n=1 each |
+| `--kit-plugin` with the server in both arms | proven in stub tests only; `--kit-mcp` has a real run | Unknown |
+| Why `post-review-comment` triggers once in three | the runs that skipped it went straight to the shell; its case needs the look `change-card` got | Tested, n=3 |
 | Why the shell calls of `post-review-comment` failed | a stored result keeps tool names, not commands | Unknown |
 | Strict typing of a skill's Python | no checker installed; the three command lines in `03-tools/lib/skill_build.py` are unverified | Measured |
 | Any runtime but Claude Code | the eval tool is Claude Code's own | Measured |
