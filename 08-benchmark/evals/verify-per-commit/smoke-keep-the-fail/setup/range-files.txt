@@ -1,0 +1,15 @@
+db9b57c feat(cart): add a coupon field
+
+src/cart/Coupon.kt
+3b8e05e docs(readme): describe the coupon flow
+
+README.md
+826e6da refactor(cart): extract price rounding
+
+src/cart/Rounding.kt
+0a0f9a3 feat(checkout): apply the coupon before tax
+
+src/cart/Apply.kt
+253c58d feat(cart): show the coupon on the receipt
+
+src/cart/Receipt.kt

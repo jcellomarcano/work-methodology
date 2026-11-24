@@ -1,0 +1,46 @@
+{
+  "commits": [
+    {
+      "log": "out/verify/db9b57cbe136257f0e9dad5af6108320327c6278.log",
+      "sha": "db9b57cbe136257f0e9dad5af6108320327c6278",
+      "subject": "feat(cart): add a coupon field",
+      "verdict": "PASS"
+    },
+    {
+      "log": "out/verify/3b8e05e4b321287b2914ac933e318572d434ee87.log",
+      "sha": "3b8e05e4b321287b2914ac933e318572d434ee87",
+      "subject": "docs(readme): describe the coupon flow",
+      "verdict": "FAIL"
+    },
+    {
+      "log": "out/verify/826e6da922165ce2cb203685f299b2c5f7c9447f.log",
+      "sha": "826e6da922165ce2cb203685f299b2c5f7c9447f",
+      "subject": "refactor(cart): extract price rounding",
+      "verdict": "PASS"
+    },
+    {
+      "log": "out/verify/0a0f9a33d43b155baef59e2a0206f6eef5fc0daf.log",
+      "sha": "0a0f9a33d43b155baef59e2a0206f6eef5fc0daf",
+      "subject": "feat(checkout): apply the coupon before tax",
+      "verdict": "FAIL"
+    },
+    {
+      "log": "out/verify/253c58db4c76f01be018d330745882727309242f.log",
+      "sha": "253c58db4c76f01be018d330745882727309242f",
+      "subject": "feat(cart): show the coupon on the receipt",
+      "verdict": "FAIL"
+    }
+  ],
+  "range": "v2.3.0..HEAD",
+  "repo_dirty": false,
+  "repo_sha": "253c58db4c76f01be018d330745882727309242f",
+  "schema_version": "1.0.0",
+  "tool_sha": "da725bc1ac45d6a90aa0742b53b5c44ebb50c9ee",
+  "tool_versions": {
+    "detekt": "1.23.8",
+    "java": "21.0.12",
+    "ktlint": "1.8.0",
+    "pmd": "7.27.0",
+    "python": "3.11.9"
+  }
+}

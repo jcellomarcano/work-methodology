@@ -1,0 +1,41 @@
+{
+  "saved_file": "battery-report.md",
+  "min_sha_chars": 7,
+  "verdict_words": {
+    "PASS": [
+      "PASS",
+      "PASSED"
+    ],
+    "FAIL": [
+      "FAIL",
+      "FAILED"
+    ]
+  },
+  "commits": [
+    {
+      "sha": "db9b57cbe136257f0e9dad5af6108320327c6278",
+      "subject": "feat(cart): add a coupon field",
+      "verdict": "PASS"
+    },
+    {
+      "sha": "3b8e05e4b321287b2914ac933e318572d434ee87",
+      "subject": "docs(readme): describe the coupon flow",
+      "verdict": "FAIL"
+    },
+    {
+      "sha": "826e6da922165ce2cb203685f299b2c5f7c9447f",
+      "subject": "refactor(cart): extract price rounding",
+      "verdict": "PASS"
+    },
+    {
+      "sha": "0a0f9a33d43b155baef59e2a0206f6eef5fc0daf",
+      "subject": "feat(checkout): apply the coupon before tax",
+      "verdict": "FAIL"
+    },
+    {
+      "sha": "253c58db4c76f01be018d330745882727309242f",
+      "subject": "feat(cart): show the coupon on the receipt",
+      "verdict": "FAIL"
+    }
+  ]
+}

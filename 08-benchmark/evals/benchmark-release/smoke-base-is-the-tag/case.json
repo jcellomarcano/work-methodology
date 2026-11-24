@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "skill": "benchmark-release",
+  "tier": "smoke",
+  "expected_skills": [
+    "benchmark-release"
+  ],
+  "setup": {
+    "files": [
+      {
+        "from": "setup/out/benchmark",
+        "to": "out/benchmark"
+      }
+    ]
+  },
+  "validators": [
+    "validators/check_release_benchmark.py"
+  ],
+  "expectations": [
+    "The answer says the write-up compares release-2.4 against v2.3.0, the release that is live.",
+    "The answer tells the owner that the comparison against main was left out of the write-up, or that it is not the one to judge this release by."
+  ],
+  "max_turns": 14,
+  "timeout_seconds": 240,
+  "allowed_tools": [
+    "Read",
+    "Glob",
+    "Write",
+    "Skill"
+  ],
+  "runs": 1
+}

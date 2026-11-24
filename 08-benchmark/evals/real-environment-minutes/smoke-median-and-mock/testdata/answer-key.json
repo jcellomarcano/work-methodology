@@ -1,0 +1,28 @@
+{
+  "saved_file": "bench-minutes.md",
+  "samples_file": "bench/samples.csv",
+  "metric_column": "tap_to_approved_ms",
+  "unit": "ms",
+  "arms": [
+    {
+      "arm": "A",
+      "ref": "v2.3.0",
+      "median": 422,
+      "mean_as_printed": ["557.0", "557"],
+      "operator": "Marta Ruiz",
+      "simulation": false
+    },
+    {
+      "arm": "B",
+      "ref": "release-2.4",
+      "median": 131,
+      "mean_as_printed": ["186.7", "186.67", "187"],
+      "operator": "Dario Vega",
+      "simulation": true
+    }
+  ],
+  "simulation_stems": [
+    "simulat",
+    "mock"
+  ]
+}

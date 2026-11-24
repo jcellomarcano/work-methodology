@@ -1,0 +1,4 @@
+tap-bench 0.9  session 2026-11-20  terminal T-07
+arm A  ref v2.3.0       n=6  mean=557.0 ms  min=395  max=1260
+arm B  ref release-2.4  n=6  mean=186.7 ms  min=127  max=468
+B vs A: -66.5 % (mean)

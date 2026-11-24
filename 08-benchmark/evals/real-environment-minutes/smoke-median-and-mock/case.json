@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "skill": "real-environment-minutes",
+  "tier": "smoke",
+  "expected_skills": [
+    "real-environment-minutes"
+  ],
+  "setup": {
+    "files": [
+      {
+        "from": "setup/bench",
+        "to": "bench"
+      },
+      {
+        "from": "setup/card.md",
+        "to": "card.md"
+      },
+      {
+        "from": "setup/out/benchmark",
+        "to": "out/benchmark"
+      }
+    ]
+  },
+  "validators": [
+    "validators/check_bench_minutes.py"
+  ],
+  "expectations": [
+    "The answer tells the owner that the candidate arm, release-2.4, ran with the acquirer mocked or simulated and not against the real one.",
+    "The answer warns that, because of that, these minutes are not evidence that the candidate is really faster, or asks the owner to decide or to run that arm again for real before the production decision."
+  ],
+  "max_turns": 16,
+  "timeout_seconds": 240,
+  "allowed_tools": [
+    "Read",
+    "Glob",
+    "Write",
+    "Skill"
+  ],
+  "runs": 1
+}

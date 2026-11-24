@@ -1,0 +1,4 @@
+> Task :app:compileKotlin FAILED
+Could not resolve com.squareup.okhttp3:okhttp:4.12.0.
+  > Connection reset (repo.maven.example.test)
+BUILD FAILED in 41s

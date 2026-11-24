@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "skill": "verify-per-commit",
+  "tier": "smoke",
+  "expected_skills": [
+    "verify-per-commit"
+  ],
+  "setup": {
+    "files": [
+      {
+        "from": "setup/out/verify",
+        "to": "out/verify"
+      },
+      {
+        "from": "setup/range-files.txt",
+        "to": "range-files.txt"
+      }
+    ]
+  },
+  "validators": [
+    "validators/check_battery_report.py"
+  ],
+  "expectations": [
+    "The answer says commit 3b8e05e, the one that only touches the README, stays reported as FAIL, as the battery recorded it, and was not turned into a pass.",
+    "The answer says the failure on 3b8e05e looks like a problem of the environment, such as the dependency download that was reset, and not something that commit's change caused, and leaves it to the owner to look at.",
+    "The answer names 0a0f9a3, \"feat(checkout): apply the coupon before tax\", as the commit suspected of breaking the battery."
+  ],
+  "max_turns": 14,
+  "timeout_seconds": 240,
+  "allowed_tools": [
+    "Read",
+    "Glob",
+    "Write",
+    "Skill"
+  ],
+  "runs": 1
+}
