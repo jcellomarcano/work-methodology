@@ -834,13 +834,89 @@ class ArmWithoutTheSkill(RunnerTest):
                          (2, "skill_removed", [0.25, 0.25], 0.5))
         plain = self.cli("run", "--skill", "demo-skill", *self.where(), "--tier", "smoke", "--json", str(target))
         self.assert_clean(plain, 0)
-        self.assertIn("2 native run(s) in 1 native invocation(s); ceiling USD 0.50", plain.stdout)
         self.assertNotIn("--ablation none", plain.stdout)
         (skill,) = json.loads(target.read_text())["skills"]
         self.assertEqual((skill["native_invocations"], skill["without_arm"], skill["ceilings_usd"]),
                          (1, "native_ablation", [0.5]))
         self.assertEqual(self.calls(), [])
         self.assertFalse((self.out / "store").exists())
+
+    def test_without_a_server_the_plan_is_the_one_printed_before_and_names_no_invocation(self):  # T10 B3, previous output
+        target = self.tmp / "plan.json"
+        plain = self.cli("run", "--skill", "demo-skill", *self.where(), "--tier", "smoke", "--json", str(target))
+        self.assert_clean(plain, 0)
+        self.assertEqual(plain.stdout.splitlines()[0],
+                         "demo-skill: 1 case(s), 1 to run, 0 cached; arms with, without; 2 native run(s); ceiling USD 0.50")
+        self.assertNotIn("invocation", plain.stdout)
+        data = json.loads(target.read_text())
+        (skill,) = data["skills"]
+        before = {"skill": "demo-skill", "has_skill": True, "arms": ["with", "without"], "to_run": 1, "cached": 0,
+                  "native_runs": 2, "ceiling_usd": 0.5, "kit_mcp": False, "kit_plugin": False, "mcp_tools": [self.TOOL]}
+        self.assertEqual({key: skill[key] for key in before}, before)  # every key the plan had before S14, as it was
+        self.assertEqual((data["mode"], data["max_cost_usd"], data["ceiling_usd"]), ("plan", 0.5, 0.5))
+        self.assertEqual(self.calls(), [])
+
+    def test_a_ceiling_that_is_not_a_finite_number_is_never_a_traceback(self):  # T10 A1
+        plain = self.cli("run", "--skill", "demo-skill", *self.where(), "--tier", "smoke", "--max-cost-usd", "inf")
+        self.assert_clean(plain, 0)  # no server: the plan the older runner printed
+        self.assertEqual(plain.stdout.splitlines()[0],
+                         "demo-skill: 1 case(s), 1 to run, 0 cached; arms with, without; 2 native run(s); ceiling USD inf")
+        for flags in (["--kit-mcp"], ["--kit-plugin"], ["--kit-mcp", "--real"]):
+            res = self.cli("run", "--skill", "demo-skill", *self.where(), "--tier", "smoke", "--max-cost-usd", "inf", *flags)
+            self.assertNotIn("Traceback", res.stdout + res.stderr, flags)
+            self.assertEqual((res.returncode, res.stdout), (2, ""), (flags, res.stderr))
+            self.assertEqual(len(res.stderr.splitlines()), 1, res.stderr)
+            self.assertTrue(res.stderr.startswith("skill-eval: --max-cost-usd inf"), res.stderr)
+            self.assertIn("finite", res.stderr)
+        self.assertEqual(self.calls(), [])
+        self.assertFalse((self.out / "store").exists())
+
+    def test_a_failure_of_either_invocation_names_and_reports_all_that_was_spent_so_far(self):  # T10 B2
+        target = self.tmp / "report.json"
+        runs = {"smoke-basic": {"with": {**GOOD_RUN, "mcp": [self.OWN]}, "without": {}}}  # USD 0.011 each
+
+        def failed(started, *flags, **scenario):
+            """The failure line, the report's spend as data and the report as printed."""
+            self.log.unlink(missing_ok=True)
+            self.play(cases=runs, **scenario)
+            res = self.run_real("--kit-mcp", "--runs", "1", "--json", str(target), *flags)
+            self.assert_clean(res, 1)
+            self.assertEqual(len(self.calls()), started)
+            (line,) = [line for line in res.stderr.splitlines() if line.startswith("skill-eval: demo-skill: ")]
+            self.assertIn("demo-skill: not measured", res.stdout)
+            self.assertFalse((self.out / "store").exists(), "a failed run must not be stored as a result")
+            self.assertEqual(sorted(self.kept.glob("e-*")), [])  # nothing half-made is left
+            return line, json.loads(target.read_text())["skills"][0]["summary"], res.stdout
+
+        line, summary, printed = failed(2, exit_bare=1, stderr="the suite failed to load")  # the second fails alone
+        self.assertIn("the arm without the skill: the native tool exited 1", line)
+        self.assertIn("USD 0.0220 spent by the two invocations, USD 0.0110 of it by the arm with the skill", line)
+        self.assertAlmostEqual(summary["spend_usd"], 0.022)
+        self.assertAlmostEqual(summary["spend_unstored_usd"], 0.022)
+        self.assertIn("  spend that left no stored result: USD 0.0220", printed)
+
+        line, summary, printed = failed(1, exit=1, stderr="the suite failed to load")  # the first fails: no second
+        self.assertIn("the arm with the skill: the native tool exited 1", line)
+        self.assertIn("USD 0.0110 spent", line)
+        self.assertAlmostEqual(summary["spend_usd"], 0.011)
+        self.assertIn("  spend that left no stored result: USD 0.0110", printed)
+
+        runs["smoke-basic"]["with"]["cost"] = 0.30  # the first leaves nothing of the ceiling: the second is not started
+        line, summary, printed = failed(1, "--max-cost-usd", "0.25")
+        self.assertIn("the arm with the skill spent USD 0.3010 of the ceiling of USD 0.25", line)
+        self.assertAlmostEqual(summary["spend_usd"], 0.301)
+        self.assertIn("  spend that left no stored result: USD 0.3010", printed)
+
+    def test_a_failure_with_no_server_is_reported_as_before(self):  # previous output of a run with one invocation
+        target = self.tmp / "report.json"
+        self.play(exit=1, stderr="the suite failed to load", cases=BOTH_GOOD)
+        res = self.run_real("--json", str(target))
+        self.assert_clean(res, 1)
+        self.assertIn("skill-eval: demo-skill: the native tool exited 1", res.stderr)
+        self.assertIn("USD 0.0220 spent: the suite failed to load; nothing was stored\n", res.stderr)
+        self.assertNotIn("spend that left no stored result", res.stdout)
+        summary = json.loads(target.read_text())["skills"][0]["summary"]
+        self.assertEqual((summary["spend_usd"], "spend_unstored_usd" in summary), (0.0, False))
 
     def test_the_report_and_the_stored_result_say_how_the_arm_without_the_skill_was_built(self):
         self.play(cases={"smoke-basic": {"with": {**GOOD_RUN, "mcp": [self.OWN]}, "without": {"mcp": [self.OWN]}}})

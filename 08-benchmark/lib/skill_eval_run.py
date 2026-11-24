@@ -9,8 +9,8 @@ Usage (through lib/skill_eval.py, which owns the command line):
     lib/skill_eval.py report [--skill NAME ...] [--tier smoke|core|deep] [--root DIR] [--kit DIR]
                              [--out DIR] [--json FILE]
 
-`run` without `--real` prints the plan (per skill: its cases, the two arms, the runs, the native
-invocations and the cost ceiling) and spends nothing; `--json FILE` then holds that plan (`mode` "plan"), not a report. With `--real` it prints the ceiling first, then for every skill that
+`run` without `--real` prints the plan (per skill: its cases, the two arms, the runs, the cost
+ceiling and, when a server makes them two, the native invocations) and spends nothing; `--json FILE` then holds that plan (`mode` "plan"), not a report. With `--real` it prints the ceiling first, then for every skill that
 has a case with no stored result: lays the skill's package out as a throwaway plugin holding only
 that skill (03-tools/lib/skill_build.py, so what is measured is what ships), writes its cases in
 the native layout (lib/skill_eval_native.py), runs `claude plugin eval` once, with and without the
@@ -31,7 +31,12 @@ is shared: half for the first invocation, and for the second what is left of the
 the first one's spend is known (`share_ceiling`), so the two never add up to more than the ceiling
 asked and the overrun stays one run in flight. When the first leaves nothing, the second is not
 started and the skill is `not measured`. A failure of either invocation is that skill's failure:
-nothing is stored. The stored result says which way its arm was built (`without_arm`), the report
+nothing is stored, the line that says it names all that the invocations spent so far, and the
+report of that run counts it in the skill's spend (`spend_usd`), names it apart
+(`spend_unstored_usd`, a key that is there only then) and prints it (`spend that left no stored
+result:`). A ceiling that is not a finite number (`inf`) cannot be shared between two invocations:
+under a server the command says so in one line and exits 2 before anything starts; with no server
+it is passed on as it always was. The stored result says which way its arm was built (`without_arm`), the report
 prints it (`arm without the skill:`), and the tool's own scores kept with it then count the
 `tool_used: Skill` grader, which under `--ablation none` is scored and fails in the second.
 
@@ -619,9 +624,10 @@ def plan_skill(ctx: dict, skill: str, cases: list[dict], use_cache: bool, runs: 
 def plan_lines(plan: dict, ceiling: float) -> list[str]:
     native_runs = sum(len(ARMS) * entry["runs"] for entry in plan["entries"] if not entry["cached"])
     cached = sum(1 for entry in plan["entries"] if entry["cached"])
+    # the count of invocations is said only when a server makes it two: with none the line is the one printed before
+    twice = f" in {plan['invocations']} native invocation(s)" if plan["invocations"] == 2 else ""
     lines = [f"{plan['skill']}: {len(plan['entries'])} case(s), {len(plan['to_run'])} to run, {cached} cached; "
-             f"arms {', '.join(ARMS)}; {native_runs} native run(s) in {plan['invocations']} native invocation(s); "
-             f"ceiling USD {ceiling if plan['to_run'] else 0:.2f}"]
+             f"arms {', '.join(ARMS)}; {native_runs} native run(s){twice}; ceiling USD {ceiling if plan['to_run'] else 0:.2f}"]
     if not plan["has_skill"]:
         lines.append(f"  skill folder not found at {plan['skill_dir']}: a real run reports it as not measured")
     declared = len(plan["mcp_tools"])
@@ -683,6 +689,13 @@ def _discard_kept(result: dict) -> None:
                     pass
 
 
+def _failure(reason: str, spent: float) -> NativeError:
+    """Why an invocation left nothing to score, with what the invocations of the skill had spent by then (`spent_usd`)."""
+    error = NativeError(reason)
+    error.spent_usd = spent
+    return error
+
+
 def _invoke(plugin_dir, native_out, cases: list[dict], args, *, ceiling: float, served, scaffold: bool,
             real_servers: bool, ablation: str = native.ABLATIONS[0]) -> dict:
     """Start the native tool once on `plugin_dir`, keep what it said under `native_out`, return its result.
@@ -718,7 +731,7 @@ def _invoke(plugin_dir, native_out, cases: list[dict], args, *, ceiling: float, 
             reason = str(unread)
         else:
             reason = f"the native tool gave a partial result ({result.get('partialReason') or 'no reason given'}){spent}"
-        raise NativeError(f"{reason}; nothing was stored")
+        raise _failure(f"{reason}; nothing was stored", _money(result.get("costUsd")) if result is not None else 0.0)
     return result
 
 
@@ -763,17 +776,21 @@ def _both_arms(work, native_out, skill: str, cases: list[dict], args, **how) -> 
     try:
         used = _invoke(work / "plugin", native_out / "with", cases, args, ceiling=ceilings[0], ablation="none", **how)
     except NativeError as exc:
-        raise NativeError(f"the arm with the skill: {exc}") from exc
+        raise _failure(f"the arm with the skill: {exc}", getattr(exc, "spent_usd", 0.0)) from exc
     spent = _money(used.get("costUsd"))
     ceilings[1] = _cut(min(ceilings[1], args.max_cost_usd - spent))  # an overrun of the first comes out of the second
+    if ceilings[1] <= 0:
+        _discard_kept(used)
+        raise _failure(f"the arm without the skill: it was not started, since the arm with the skill spent "
+                       f"USD {spent:.4f} of the ceiling of USD {args.max_cost_usd:.2f} and nothing is left for the arm "
+                       f"without it; nothing was stored", spent)
     try:
-        if ceilings[1] <= 0:
-            raise NativeError(f"it was not started, since the arm with the skill spent USD {spent:.4f} of the ceiling of "
-                              f"USD {args.max_cost_usd:.2f} and nothing is left for the arm without it; nothing was stored")
         without = _invoke(bare, native_out / "without", cases, args, ceiling=ceilings[1], ablation="none", **how)
     except NativeError as exc:
         _discard_kept(used)
-        raise NativeError(f"the arm without the skill: {exc}") from exc
+        total = spent + getattr(exc, "spent_usd", 0.0)  # the line of the second alone would leave the first one's out
+        raise _failure(f"the arm without the skill: {exc}; USD {total:.4f} spent by the two invocations, "
+                       f"USD {spent:.4f} of it by the arm with the skill", total) from exc
     return _merge_arms(used, without), ceilings
 
 
@@ -846,10 +863,16 @@ def execute(ctx: dict, plan: dict, args) -> None:
 
 # -------------------------------------------------------------------------------------- report
 
-def skill_report(plan: dict, failure: str | None = None) -> dict:
-    """Everything the report says about one skill, as data."""
+def skill_report(plan: dict, failure: str | None = None, unstored_usd: float = 0.0) -> dict:
+    """Everything the report says about one skill, as data.
+
+    `unstored_usd` is what the invocations of this run spent and left no stored result for: it is
+    counted in the spend and named apart, under a key that is there only when it is above zero.
+    """
     records = [entry["record"] for entry in plan["entries"] if entry["record"]]
     summary = summarize(records)
+    if unstored_usd > 0:
+        summary.update(spend_usd=summary["spend_usd"] + unstored_usd, spend_unstored_usd=unstored_usd)
     tokens, method = skill_tokens(plan["skill_dir"]) if plan["has_skill"] else (None, "the skill folder is missing")
     cases = []
     for entry in plan["entries"]:
@@ -893,6 +916,10 @@ def report_lines(report: dict) -> list[str]:
         ]
         lines += [f"  measured as: {form}" for form in report["measured_as"]]
         lines += [f"  arm without the skill: {how}" for how in report["without_arm"]]
+    if summary.get("spend_unstored_usd"):
+        lines.append(f"  spend that left no stored result: USD {summary['spend_unstored_usd']:.4f}, by the native "
+                     f"invocations of this run that failed{' (counted in the spend above)' if summary['cases'] else ''}")
+    if summary["cases"]:
         if summary["without_tools"]:
             lines.append(f"  without its tools: the skill declares MCP tools and the kit's server was not started in "
                          f"{summary['without_tools']} of {summary['cases']} case(s), so the verdict cannot be `works`")
@@ -922,8 +949,8 @@ def _write_json(json_path, data: dict) -> None:
         raise CaseError(f"cannot write {json_path}: {exc.strerror or _one_line(exc)}") from exc
 
 
-def _print_report(plans: list[dict], failures: dict, json_path) -> None:
-    reports = [skill_report(plan, failures.get(plan["skill"])) for plan in plans]
+def _print_report(plans: list[dict], failures: dict, json_path, unstored: dict | None = None) -> None:
+    reports = [skill_report(plan, failures.get(plan["skill"]), (unstored or {}).get(plan["skill"], 0.0)) for plan in plans]
     limits = ", ".join(f"{key} {value:g}" for key, value in THRESHOLDS.items())
     print(f"skill-eval report (runner v{RUNNER_VERSION}; thresholds: {limits})")
     for report in reports:
@@ -944,6 +971,9 @@ def cmd_run(args) -> int:
                         kit_plugin=args.kit_plugin)
              for skill, cases in select(ctx["root"], args.skill, args.tier).items()]
     paying = [plan for plan in plans if plan["to_run"]]
+    if not math.isfinite(args.max_cost_usd) and any(plan["invocations"] == 2 for plan in plans):
+        raise CaseError(f"--max-cost-usd {args.max_cost_usd:g} cannot be shared between the two invocations a run with "
+                        f"the kit's MCP server makes: give a finite number")
     total = args.max_cost_usd * len(paying)
     if args.real:  # the ceiling comes before anything that can spend
         print(f"skill-eval: cost ceiling USD {total:.2f} (USD {args.max_cost_usd:.2f} for each of {len(paying)} "
@@ -957,15 +987,17 @@ def cmd_run(args) -> int:
         print(f"skill-eval: plan only: nothing was run and nothing was spent; a real run has a ceiling of "
               f"USD {total:.2f} (add --real to run it)")
         return 0
-    failures = {}
+    failures, unstored = {}, {}
     for plan in paying:
         try:
             execute(ctx, plan, args)
         except Exception as exc:  # whatever stops one skill is that skill's failure; the others still run
             failures[plan["skill"]] = (_one_line(exc) if isinstance(exc, NativeError) else
                                        f"unexpected error: {type(exc).__name__}: {_one_line(exc)}")
+            if plan["invocations"] == 2:  # with one invocation its line names the spend and the report stays as it was
+                unstored[plan["skill"]] = getattr(exc, "spent_usd", 0.0)
             print(f"skill-eval: {plan['skill']}: {failures[plan['skill']]}", file=sys.stderr, flush=True)
-    _print_report(plans, failures, args.json)
+    _print_report(plans, failures, args.json, unstored)
     return 1 if failures else 0
 
 

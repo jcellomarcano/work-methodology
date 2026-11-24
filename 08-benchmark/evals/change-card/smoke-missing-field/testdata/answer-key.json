@@ -22,17 +22,6 @@
     "Medido",
     "Probado"
   ],
-  "card_terms": [
-    "webhook",
-    "payment",
-    "paid",
-    "retry",
-    "retries",
-    "retried",
-    "duplicate",
-    "twice",
-    "applied"
-  ],
   "author_fields": {
     "Why": {
       "text": "The provider drops about one webhook in two hundred, and a dropped one leaves the order unpaid in our records.",

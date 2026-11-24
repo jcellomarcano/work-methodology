@@ -14,6 +14,8 @@ Environment:
                  (`plugin`) and the sha256 of each of its files (`sha256`)
   STUB_SCENARIO  JSON file, every key optional:
     exit      exit code (default 0)            stderr   text printed on stderr
+    exit_bare exit code of a call made under `--ablation none` on a plugin that does not hold
+              `skills/<measured>/` (default: `exit`): the second invocation fails alone
     result    "none": no result file; "garbage": not JSON; "shape": JSON of the wrong shape
     partial   true marks the result partial    stray    true leaves a kept directory no result names
     drop      list of case names the result leaves out
@@ -192,6 +194,8 @@ def main():
     ablation = flag(argv, "--ablation", "with-without")
     skill = (scenario.get("measured", "demo-skill") if ablation == "none"
              else sorted(p.name for p in (target / "skills").iterdir())[0])
+    if ablation == "none" and not (target / "skills" / skill).is_dir():
+        code = scenario.get("exit_bare", code)
     kept_root = pathlib.Path(os.environ["STUB_KEPT"])
     kept_root.mkdir(parents=True, exist_ok=True)
     taken = len(list(kept_root.glob("e-*")))
