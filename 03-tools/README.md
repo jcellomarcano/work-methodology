@@ -57,9 +57,9 @@ bin/bench.sh collect|report|status|adopt <repo> [--tools D]   # measurement inst
                                          # Code only); only bench.enabled: false in config/project.json stops it
                                          # `report` is also the MCP tool bench_report (a job)
 bin/bench.sh ab <repo> <run|judge|report> [args] [--tools D]   # the A/B runner of <instance>/bench/lib
-bin/skill-build.sh test|build [SKILL ...] [--all] [--no-cache]   # kit only: each skill's BUILD.json, five targets, one
-                                         # PASS, FAIL or SKIP line each; `build` writes the plugin zip the skill evals
-                                         # run (08-benchmark/lib/skill_eval.py; docs/11-skill-evals.md)
+bin/skill-build.sh test|build [SKILL ...] [--all] [--kit-plugin] [--no-cache]   # kit only: each skill's BUILD.json,
+                                         # five targets, one PASS, FAIL or SKIP line each; `build` writes the plugin zip
+                                         # the skill evals run; --kit-plugin: the whole kit as one plugin (docs/11-skill-evals.md)
 bin/init.sh <repo> --uninstall [--instance D] [--audit D] [--purge] [--runtime claude|pi|agy|all] [--dry-run]
                                          # unplug: report <instance>/out/uninstall/<repo_sha>.json; instance and
                                          # audit stay; --purge deletes them only if untouched; exit 1 = kit left
@@ -84,7 +84,9 @@ bin/install-agy.sh <repo> [--tools D] [--uninstall]    # one agy workspace plugi
 bin/sync-instance.sh <instance>          # code to an instance; config/ only what is missing; personal assets never
 bin/skill-build.sh test [<skill>...] [--all] [--no-cache] [--json FILE]   # 02-skills/<skill>/BUILD.json: one line
                                          # per target, PASS | FAIL | SKIP and why; a PASS is cached by input hash
-bin/skill-build.sh build [<skill>...] [--all] [--out DIR]   # <out>/<skill>/<skill>-<version>.zip, same bytes each time
+bin/skill-build.sh build [<skill>...] [--all] [--kit-plugin] [--out DIR]   # <out>/<skill>/<skill>-<version>.zip, same
+                                         # bytes each time; --kit-plugin (02-skills/BUILD.json): every skill plus the MCP
+                                         # server as one plugin zip, and a marketplace/ folder that lists it
 python3 lib/suggest.py <repo> [--tools D] [--runtime claude|pi|agy|all] [--read-global-config]   # never installs
 python3 lib/detect_repo.py <repo>        # language, build files, base ref, ticket keys (JSON)
 python3 lib/base_ref.py <repo> [--config project.json] [--base REF]

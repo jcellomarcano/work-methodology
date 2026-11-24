@@ -832,5 +832,427 @@ class RealKitTests(unittest.TestCase):
         self.assertTrue(proc.stderr.startswith("skill-build: "), proc.stderr)
 
 
+KIT_DECL = {"name": "demo-kit", "version": "0.3.0", "description": "The demo kit as one plugin.",
+            "marketplace": "demo-market", "owner": "Demo Owner"}
+KIT_TOOL = "mcp__plugin_demo-kit_metodo__demo_tool"
+
+
+class KitPluginCase(KitCase):
+    """A kit with one declared skill, one skill without a BUILD file, the kit-level declaration
+    (02-skills/BUILD.json) and a tools folder shaped like 03-tools, with its benchmark beside it."""
+
+    def setUp(self):
+        super().setUp()
+        self.add_skill(md=skill_md(body=f"Call `{DEMO_TOOL}` first.\n"))
+        self.add_skill("plain", build=False)
+        self.declare()
+        self.tool("mcp/server.py", "print('server')\n")
+        self.tool("lib/helper.py", "VALUE = 1\n")
+        self.tool("bin/run.sh", "#!/usr/bin/env bash\necho run\n", mode=0o755)
+        self.tool("schemas/a.schema.json", "{}\n")
+        self.tool("hooks/guard.py", "GUARD = 1\n")
+        self.tool("config/project.json", "{}\n")
+        self.write("08-benchmark/lib/bench.py", "BENCH = 1\n")
+
+    def declare(self, **changes) -> None:
+        data = {"schema_version": 1, "kit_plugin": {**KIT_DECL, **changes}}
+        (self.root / "02-skills" / "BUILD.json").write_text(json.dumps(data), encoding="utf-8")
+
+    def write(self, relative: str, text: str, mode=None) -> Path:
+        path = self.root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        if mode is not None:
+            path.chmod(mode)
+        return path
+
+    def tool(self, relative: str, text: str, mode=None) -> Path:
+        return self.write(f"03-tools/{relative}", text, mode)
+
+    def plan(self) -> dict:
+        plan, problems = skill_build.inspect_kit_plugin(self.kit)
+        self.assertEqual(problems, [])
+        return plan
+
+    def problems(self) -> list[str]:  # of the kit plugin, not of one skill
+        plan, problems = skill_build.inspect_kit_plugin(self.kit)
+        self.assertIsNone(plan)
+        return problems
+
+    def held(self) -> dict:
+        return dict(self.plan()["entries"])
+
+    def build(self, out="dist") -> dict:
+        return skill_build.build_kit_plugin(self.kit, self.tmp / out)
+
+
+class KitPluginTests(KitPluginCase):
+    def test_the_kit_declaration_names_the_plugin_and_a_bad_one_is_one_problem_line_each(self):
+        declared, problems = skill_build.load_kit_build(self.kit)
+        self.assertEqual((declared, problems), (KIT_DECL, []))
+        self.declare(name="Demo Kit", surprise=1)
+        declared, problems = skill_build.load_kit_build(self.kit)
+        self.assertIsNone(declared)
+        self.assertEqual(len(problems), 2, problems)
+        self.assertTrue(any("'surprise'" in line for line in problems), problems)
+        self.assertTrue(any("kebab-case" in line and "'Demo Kit'" in line for line in problems), problems)
+        self.declare(name="demo")  # the name of a skill: `demo:demo` would read as that skill's own package
+        self.assertTrue(any("is the name of a skill" in line for line in skill_build.load_kit_build(self.kit)[1]))
+        (self.root / "02-skills" / "BUILD.json").unlink()
+        declared, problems = skill_build.load_kit_build(self.kit)
+        self.assertIsNone(declared)
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("02-skills/BUILD.json", problems[0])
+
+    def test_it_holds_the_plugin_manifest_every_declared_skill_the_server_and_a_manifest_of_what_it_holds(self):
+        plan = self.plan()
+        held = dict(plan["entries"])
+        for name in (".claude-plugin/plugin.json", ".mcp.json", "MANIFEST.json", "skills/demo/SKILL.md",
+                     "tools/mcp/server.py", "tools/mcp/catalog.py", "tools/lib/helper.py"):
+            self.assertIn(name, held)
+        self.assertFalse([name for name in held if name.startswith("skills/plain/")])  # it has no BUILD file
+        plugin = json.loads(held[".claude-plugin/plugin.json"])
+        self.assertEqual(plugin, {"name": "demo-kit", "version": "0.3.0", "description": KIT_DECL["description"],
+                                  "author": {"name": "Demo Owner"}})
+        manifest = json.loads(held["MANIFEST.json"])
+        self.assertEqual((manifest["kind"], manifest["name"], manifest["version"]), ("kit_plugin", "demo-kit", "0.3.0"))
+        self.assertEqual(manifest["files"], sorted(name for name in held if name != "MANIFEST.json"))
+        self.assertEqual(manifest["skills"], [{"name": "demo", "version": "1.2.0", "invoke": "demo-kit:demo",
+                                               "files": ["SKILL.md"], "mcp_tools": [KIT_TOOL]}])
+        self.assertEqual(manifest["skills_left_out"], [{"name": "plain", "why": "no BUILD.json"}])
+        self.assertEqual(manifest["mcp_server"]["name"], "metodo")
+        self.assertEqual(manifest["mcp_server"]["tool_prefix"], "mcp__plugin_demo-kit_metodo__")
+        self.assertEqual(manifest["mcp_server"]["tools_root"], "tools")
+
+    def test_the_skills_name_the_tools_as_this_plugin_exposes_them_in_the_text_and_in_allowed_tools(self):
+        text = self.held()["skills/demo/SKILL.md"].decode("utf-8")
+        self.assertIn(f"allowed-tools: [Read, {KIT_TOOL}]", text)
+        self.assertIn(f"Call `{KIT_TOOL}` first.", text)
+        self.assertNotIn("mcp__metodo__", text)
+        # previous behavior: the package of the skill alone keeps the names as they are written
+        with zipfile.ZipFile(skill_build.build_package(self.kit, "demo", self.tmp / "alone")) as package:
+            self.assertIn(DEMO_TOOL, package.read("skills/demo/SKILL.md").decode("utf-8"))
+
+    def test_the_server_config_uses_the_two_plugin_variables_and_no_absolute_path(self):
+        raw = self.held()[".mcp.json"].decode("utf-8")
+        server = json.loads(raw)["mcpServers"]["metodo"]
+        self.assertEqual(server["command"], "python3")
+        self.assertEqual(server["args"], ["${CLAUDE_PLUGIN_ROOT}/tools/mcp/server.py"])
+        self.assertEqual(server["env"]["METODO_TOOLS"], "${CLAUDE_PLUGIN_ROOT}/tools")
+        self.assertEqual(server["env"]["METODO_REPO"], "${CLAUDE_PROJECT_DIR}")
+        self.assertNotIn(str(self.root), raw)
+        for value in [server["command"], *server["args"], *server["env"].values()]:
+            self.assertFalse(value.startswith("/"), value)
+
+    def test_the_tools_folder_is_taken_by_the_rule_of_sync_instance(self):
+        self.tool("lib/nested/deep.py", "DEEP = 1\n")
+        self.tool("README.md", "# not synced: only the listed folders are\n")
+        self.write("08-benchmark/protocols/ab.md", "protocol\n")
+        self.write("08-benchmark/evals/demo/case.json", "{}\n")  # the benchmark's lib, bin and protocols only
+        tools = sorted(name for name in self.held() if name.startswith("tools/"))
+        self.assertEqual(tools, [
+            "tools/bench/lib/bench.py", "tools/bench/protocols/ab.md", "tools/bin/run.sh",
+            "tools/config/project.json", "tools/hooks/guard.py", "tools/lib/helper.py", "tools/lib/nested/deep.py",
+            "tools/mcp/__init__.py", "tools/mcp/catalog.py", "tools/mcp/server.py", "tools/schemas/a.schema.json"])
+        self.assertEqual(self.plan()["modes"]["tools/bin/run.sh"] & 0o777, 0o755)  # a script stays runnable
+        self.assertEqual(self.plan()["modes"]["tools/lib/helper.py"] & 0o777, 0o644)
+
+    def test_it_never_holds_a_personal_asset_and_never_opens_one(self):
+        secret = [self.tool("config/output-lint.personal.json", "{}\n"),
+                  self.tool("lib/personal/notes.py", "NOTES = 1\n"),
+                  self.write("08-benchmark/lib/calls.personal.py", "CALLS = 1\n")]
+        for path in secret:
+            path.chmod(0)  # a build that opened one would stop on it
+            self.addCleanup(path.chmod, 0o600)
+        names = list(self.held())
+        self.assertFalse([name for name in names if ".personal." in name or "/personal/" in name], names)
+        self.assertIn("tools/lib/helper.py", names)
+        # a skill that lists one is refused by its path, before any of its files is read
+        (self.root / "02-skills" / "demo" / "voice.personal.md").write_text("mine\n", encoding="utf-8")
+        self.write_build("demo", {"schema_version": 1, **all_targets(srcs=["SKILL.md", "voice.personal.md"])})
+        self.assertTrue(any("voice.personal.md" in line and "personal" in line for line in self.problems()))
+
+    def test_it_never_holds_a_test(self):
+        self.tool("tests/test_helper.py", "import unittest\n")
+        self.tool("tests/fixtures/data.json", "{}\n")
+        self.tool("lib/test_helper.py", "import unittest\n\n\nclass T(unittest.TestCase):\n    pass\n")
+        self.tool("lib/test_sectors.py", "SECTORS = 1  # a tool whose name starts with test_\n")
+        self.write("08-benchmark/tests/test_bench.py", "import unittest\n")
+        names = list(self.held())
+        self.assertFalse([name for name in names if "/tests/" in name or name.endswith("test_helper.py")], names)
+        self.assertIn("tools/lib/test_sectors.py", names)
+        (self.root / "02-skills" / "demo" / "test_demo.py").write_text("import unittest\n", encoding="utf-8")
+        self.write_build("demo", {"schema_version": 1, **all_targets(srcs=["SKILL.md", "test_demo.py"])})
+        self.assertTrue(any("test_demo.py is a test" in line for line in self.problems()))
+
+    def test_it_never_holds_a_build_file_a_cache_an_out_or_a_vendor_folder(self):
+        for relative in ("lib/BUILD.json", "lib/__pycache__/helper.cpython-312.pyc", "lib/stale.pyc", "lib/.DS_Store",
+                         "out/runs/runs.jsonl", "vendor/pmd/pmd.jar", "baselines/latest.json", "lib/out/kept.json",
+                         "hooks/vendor/x.py"):
+            self.tool(relative, "x\n")
+        names = list(self.held())
+        for part in ("BUILD.json", "__pycache__", ".pyc", ".DS_Store", "/out/", "/vendor/", "/baselines/"):
+            self.assertFalse([name for name in names if part in name], (part, names))
+        self.assertNotIn("skills/BUILD.json", names)
+        self.assertNotIn("skills/demo/BUILD.json", names)
+
+    def test_a_text_file_holding_the_home_path_of_this_machine_fails_the_target(self):
+        home = os.path.expanduser("~")
+        self.assertFalse(any(home.encode() in data for data in self.held().values()))
+        self.tool("config/where.json", json.dumps({"instance": f"{home}/my-tools"}) + "\n")
+        problems = self.problems()
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("tools/config/where.json", problems[0])
+        self.assertIn("home path", problems[0])
+        self.assertNotIn(home, problems[0])  # the report does not repeat it
+
+    def test_the_zip_is_byte_identical_for_identical_inputs(self):
+        first, second = self.build("one"), self.build("two")
+        self.assertEqual(first["zip"].name, "demo-kit-0.3.0.zip")
+        self.assertEqual(first["zip"].parent, self.tmp / "one" / "demo-kit")
+        self.assertEqual(sha256(first["zip"]), sha256(second["zip"]))
+        self.assertEqual(first["sha256"], sha256(first["zip"]))
+        os.utime(self.root / "03-tools" / "lib" / "helper.py", (1, 1))  # a date is not an input
+        self.assertEqual(sha256(self.build("three")["zip"]), first["sha256"])
+        with zipfile.ZipFile(first["zip"]) as package:
+            self.assertEqual(package.namelist(), sorted(package.namelist()))
+            self.assertEqual({info.date_time for info in package.infolist()}, {(1980, 1, 1, 0, 0, 0)})
+            self.assertEqual(sorted(package.namelist()), sorted(self.held()))
+        self.tool("lib/helper.py", "VALUE = 2\n")
+        self.assertNotEqual(sha256(self.build("four")["zip"]), first["sha256"])
+
+    def test_a_skill_that_names_a_tool_the_catalog_lacks_fails_the_target(self):
+        ghost = "mcp__metodo__ghost_tool"
+        self.add_skill("declares", build=all_targets(deps=[ghost]), md=skill_md("declares", tools=("Read", ghost)))
+        self.assertTrue(any(line.startswith("declares: ") and f"{ghost} is not in the MCP catalog" in line
+                            for line in self.problems()))
+        shutil.rmtree(self.root / "02-skills" / "declares")
+        self.add_skill("mentions", md=skill_md("mentions", body=f"Then call `{ghost}`.\n"))  # only in its text
+        problems = self.problems()
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("mentions: SKILL.md names mcp__metodo__ghost_tool, which is not in the MCP catalog", problems[0])
+        self.assertEqual(self.cli("build", "--kit-plugin", "--out", str(self.tmp / "dist"))[0], 1)
+
+    def test_an_empty_catalog_lacks_every_tool_a_skill_mentions(self):
+        (self.root / "03-tools" / "mcp" / "catalog.py").write_text("BY_NAME = {}\n", encoding="utf-8")
+        self.kit = skill_build.Kit(self.root)  # a Kit reads its catalog once
+        self.write_build("demo", {"schema_version": 1, **all_targets(deps=[])})
+        (self.root / "02-skills" / "demo" / "SKILL.md").write_text(
+            skill_md(tools=("Read",), body=f"Call `{DEMO_TOOL}` first.\n"), encoding="utf-8")
+        problems = self.problems()
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("demo: SKILL.md names mcp__metodo__demo_tool, which is not in the MCP catalog", problems[0])
+
+    def test_a_marketplace_folder_that_is_a_link_is_never_written_through(self):
+        elsewhere = self.tmp / "elsewhere"
+        (elsewhere / ".claude-plugin").mkdir(parents=True)
+        (elsewhere / ".claude-plugin" / "marketplace.json").write_text("{}\n", encoding="utf-8")
+        link = self.tmp / "linked" / "demo-kit" / "marketplace"
+        link.parent.mkdir(parents=True)
+        link.symlink_to(elsewhere, target_is_directory=True)
+        with self.assertRaises(skill_build.BuildError):
+            self.build("linked")
+        self.assertEqual((elsewhere / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8"), "{}\n")
+        self.assertFalse((elsewhere / "plugins").exists())
+
+    def test_a_packed_skill_that_still_says_the_bare_server_prefix_fails_the_target(self):
+        self.assertEqual(skill_build.expose_tools(f"x {DEMO_TOOL} y".encode(), "demo-kit"), f"x {KIT_TOOL} y".encode())
+        with mock.patch.object(skill_build, "expose_tools", lambda data, plugin: data):  # a rewrite that missed one
+            problems = self.problems()
+        self.assertEqual(len(problems), 1, problems)
+        self.assertIn("demo: SKILL.md still says mcp__metodo__", problems[0])
+
+    def test_the_tools_root_a_skill_names_is_the_tools_folder_of_the_plugin(self):
+        body = 'Run `POST="${METODO_TOOLS:-__TOOLS_DEFAULT__}/lib/post.py"`.\n'
+        self.add_skill("poster", build=all_targets(deps=[DEMO_TOOL, "03-tools"]), md=skill_md("poster", body=body))
+        text = self.held()["skills/poster/SKILL.md"].decode("utf-8")
+        self.assertIn('${METODO_TOOLS:-${CLAUDE_PLUGIN_ROOT}/tools}/lib/post.py', text)
+        self.assertNotIn("__TOOLS_DEFAULT__", text)
+
+    def test_the_manifest_says_where_the_server_writes_and_that_no_setting_moves_it(self):
+        manifest = json.loads(self.held()["MANIFEST.json"])
+        writes = manifest["mcp_server"]["writes"]
+        self.assertEqual(writes["folder"], "tools/out")
+        self.assertIsNone(writes["setting"])
+        self.assertFalse(writes["survives_a_plugin_update"])
+        self.assertEqual(writes["settings_of_a_part"], ["METODO_HOOKS_DIR", "METODO_RDD_DIR", "METODO_RUNS_DIR"])
+        self.assertTrue(any("tools/out" in limit for limit in manifest["limits"]), manifest["limits"])
+        self.assertTrue(any("hooks" in limit and "role" in limit for limit in manifest["limits"]), manifest["limits"])
+
+    def test_a_marketplace_folder_listing_this_one_plugin_is_written_beside_the_zip(self):
+        built = self.build()
+        self.assertEqual(built["marketplace"], built["zip"].parent / "marketplace")
+        listing = json.loads((built["marketplace"] / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8"))
+        self.assertEqual((listing["name"], listing["owner"]), ("demo-market", {"name": "Demo Owner"}))
+        self.assertEqual(listing["description"], KIT_DECL["description"])  # without one, a strict validation warns
+        self.assertEqual(listing["plugins"], [{"name": "demo-kit", "source": "./plugins/demo-kit", "version": "0.3.0",
+                                               "description": KIT_DECL["description"]}])
+        folder = built["marketplace"] / "plugins" / "demo-kit"
+        self.assertEqual(built["plugin_dir"], folder)
+        on_disk = {p.relative_to(folder).as_posix(): p.read_bytes() for p in folder.rglob("*") if p.is_file()}
+        with zipfile.ZipFile(built["zip"]) as package:
+            self.assertEqual(on_disk, {name: package.read(name) for name in package.namelist()})
+        self.assertTrue(os.access(folder / "tools" / "bin" / "run.sh", os.X_OK))
+        self.tool("lib/helper.py", "VALUE = 2\n")
+        (self.root / "03-tools" / "hooks" / "guard.py").unlink()
+        again = self.build()  # a second build replaces the folder: nothing of the first one is left behind
+        self.assertFalse((again["plugin_dir"] / "tools" / "hooks" / "guard.py").exists())
+        self.assertEqual((again["plugin_dir"] / "tools" / "lib" / "helper.py").read_text(encoding="utf-8"), "VALUE = 2\n")
+        stranger = self.tmp / "taken" / "demo-kit" / "marketplace"
+        stranger.mkdir(parents=True)
+        (stranger / "mine.txt").write_text("not a marketplace this command wrote\n", encoding="utf-8")
+        with self.assertRaises(skill_build.BuildError):
+            self.build("taken")
+        self.assertTrue((stranger / "mine.txt").exists())
+
+    def test_the_layout_for_a_run_is_the_plugin_folder_and_says_how_each_skill_is_invoked(self):
+        laid = skill_build.layout_kit_plugin(self.kit, self.tmp / "laid")
+        self.assertEqual((laid["name"], laid["version"], laid["plugin_dir"]), ("demo-kit", "0.3.0", str(self.tmp / "laid")))
+        self.assertEqual(laid["tool_prefix"], "mcp__plugin_demo-kit_metodo__")
+        self.assertEqual(laid["skills"], {"demo": {"invoke": "demo-kit:demo", "mcp_tools": [KIT_TOOL]}})
+        self.assertEqual(sorted(laid["files"]), sorted(self.held()))
+        self.assertTrue((self.tmp / "laid" / ".mcp.json").is_file())
+        with self.assertRaises(skill_build.BuildError):
+            skill_build.layout_kit_plugin(self.kit, self.tmp / "laid")  # a folder of its own, as for a skill
+
+
+class KitPluginCommandTests(KitPluginCase):
+    def test_build_takes_one_more_option_and_prints_the_zip_and_its_hash(self):
+        out = self.tmp / "dist"
+        code, stdout, stderr = self.cli("build", "--kit-plugin", "--out", str(out))
+        self.assertEqual(code, 0, stdout + stderr)
+        lines = stdout.splitlines()
+        self.assertEqual(len(lines), 1, stdout)
+        self.assertRegex(lines[0], LINE_RE)
+        package = out / "demo-kit" / "demo-kit-0.3.0.zip"
+        self.assertEqual(lines[0], f"PASS demo-kit:kit_plugin {package} sha256:{sha256(package)}")
+        self.assertIn("1 PASS", stderr)
+        code, stdout, _stderr = self.cli("build", "demo", "--kit-plugin", "--out", str(out))  # with a skill: both
+        self.assertEqual(code, 0)
+        self.assertEqual([line.split()[1] for line in stdout.splitlines()], ["demo:agent_skill", "demo-kit:kit_plugin"])
+
+    def test_test_checks_the_kit_plugin_and_writes_nothing(self):
+        code, stdout, stderr = self.cli("test", "--kit-plugin")
+        self.assertEqual(code, 0, stdout + stderr)
+        self.assertEqual(len(stdout.splitlines()), 1, stdout)
+        self.assertRegex(stdout.splitlines()[0], LINE_RE)
+        self.assertIn("PASS demo-kit:kit_plugin packs 1 skill", stdout)
+        self.assertIn("1 left out", stdout)
+        self.assertFalse((self.root / "03-tools" / "out").exists())
+
+    def test_a_kit_plugin_that_cannot_be_packed_is_fail_lines_and_exit_1(self):
+        self.tool("lib/where.py", f"HOME = '{os.path.expanduser('~')}'\n")
+        code, stdout, stderr = self.cli("build", "--kit-plugin", "--out", str(self.tmp / "dist"))
+        self.assertEqual(code, 1, stdout + stderr)
+        self.assertRegex(stdout.splitlines()[0], LINE_RE)
+        self.assertTrue(stdout.startswith("FAIL demo-kit:kit_plugin tools/lib/where.py"), stdout)
+        self.assertFalse((self.tmp / "dist").exists())
+        (self.root / "02-skills" / "BUILD.json").unlink()
+        code, stdout, _stderr = self.cli("test", "--kit-plugin")
+        self.assertEqual(code, 1)
+        self.assertTrue(stdout.startswith("FAIL kit:kit_plugin 02-skills/BUILD.json"), stdout)
+
+    def test_without_the_option_the_command_is_what_it_was(self):  # previous behavior of build and test
+        out = self.tmp / "dist"
+        code, stdout, _stderr = self.cli("build", "--all", "--out", str(out))
+        self.assertEqual(code, 0)
+        self.assertNotIn("kit_plugin", stdout)
+        self.assertTrue((out / "demo" / "demo-1.2.0.zip").is_file())
+        self.assertFalse((out / "demo-kit").exists())
+        code, stdout, _stderr = self.cli("test", "--all", "--no-cache")
+        self.assertNotIn("kit_plugin", stdout)
+        self.assertIn("SKIP plain:BUILD no BUILD.json", stdout)
+        self.assertEqual(self.cli("build")[0], 2)  # nothing named is still a usage error
+        self.assertEqual(skill_build.load_build(self.kit, "demo")[1], [])  # the kit's file is not a skill's
+
+
+@unittest.skipUnless((KIT_ROOT / "02-skills").is_dir(), "kit only: the instance does not carry 02-skills/")
+class RealKitPluginTests(unittest.TestCase):
+    """The plugin of this checkout, built once into a temp folder; nothing is written to the kit."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = Path(os.path.realpath(tempfile.mkdtemp(prefix="kit-plugin-")))
+        cls.addClassCleanup(shutil.rmtree, cls.tmp, True)
+        cls.kit = skill_build.Kit(KIT_ROOT)
+        cls.built = skill_build.build_kit_plugin(cls.kit, cls.tmp / "dist")
+        cls.folder = cls.built["plugin_dir"]
+        cls.files = sorted(p.relative_to(cls.folder).as_posix() for p in cls.folder.rglob("*") if p.is_file())
+
+    def test_it_holds_every_skill_of_the_kit_under_the_names_the_plugin_gives_its_tools(self):
+        manifest = json.loads((self.folder / "MANIFEST.json").read_text(encoding="utf-8"))
+        shipped = sorted(p.parent.name for p in (KIT_ROOT / "02-skills").glob("*/BUILD.json"))
+        self.assertEqual([skill["name"] for skill in manifest["skills"]], shipped)
+        self.assertGreaterEqual(len(shipped), 17)
+        self.assertEqual(manifest["skills_left_out"], [])
+        prefix = manifest["mcp_server"]["tool_prefix"]
+        for skill in shipped:
+            text = (self.folder / "skills" / skill / "SKILL.md").read_text(encoding="utf-8")
+            self.assertNotIn("mcp__metodo__", text, skill)
+            self.assertNotIn("__TOOLS_DEFAULT__", text, skill)
+        card = (self.folder / "skills" / "change-card" / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn(f"allowed-tools: [Read, {prefix}change_card_validate, {prefix}change_card_extract]", card)
+
+    def test_it_holds_nothing_personal_no_test_no_build_file_no_cache_and_no_home_path(self):
+        home = os.path.expanduser("~").encode()
+        for name in self.files:
+            parts = name.split("/")
+            self.assertFalse(".personal." in name or "personal" in parts, name)
+            self.assertFalse({"tests", "out", "vendor", "baselines", "__pycache__"} & set(parts), name)
+            self.assertFalse(name.endswith((".pyc", "BUILD.json")), name)
+            data = (self.folder / name).read_bytes()
+            self.assertNotIn(home, data, name)
+            if name.endswith(".py"):
+                self.assertIsNone(re.search(rb"^(import unittest|from unittest)", data, re.M), name)
+
+    def test_the_tools_folder_is_what_sync_instance_copies_minus_the_tests(self):
+        instance = self.tmp / "instance"
+        instance.mkdir()
+        proc = subprocess.run(["bash", str(TOOLS_ROOT / "bin" / "sync-instance.sh"), str(instance)],
+                              capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        synced = {p.relative_to(instance).as_posix() for p in instance.rglob("*") if p.is_file()}
+        tests = {name for name in synced if skill_build.is_test(name, (instance / name).read_bytes())}
+        noise = {name for name in synced if set(name.split("/")) & set(skill_build.CACHE_PARTS)}  # a .DS_Store, never a rule
+        packed = {name[len("tools/"):] for name in self.files if name.startswith("tools/")}
+        self.assertEqual(packed, synced - tests - noise)
+        self.assertTrue(any(name.startswith("tests/") for name in tests))
+        self.assertIn("lib/test_test_sectors.py", tests)  # a test that sits in lib/ is still a test
+        self.assertIn("lib/test_sectors.py", packed)
+
+    def test_the_packed_server_answers_from_the_plugin_folder_alone(self):
+        tools = self.folder / "tools"
+        env = {"PATH": os.environ.get("PATH", ""), "METODO_TOOLS": str(tools), "METODO_REPO": "${CLAUDE_PROJECT_DIR}",
+               "PYTHONDONTWRITEBYTECODE": "1", "METODO_MEMORY": "off"}
+        card = (KIT_ROOT / "08-benchmark" / "evals" / "change-card" / "smoke-missing-field" / "setup" / "card.md")
+        calls = [{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+                 {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
+                 {"jsonrpc": "2.0", "id": 3, "method": "tools/call",
+                  "params": {"name": "change_card_validate", "arguments": {"card_text": card.read_text(encoding="utf-8")}}}]
+        proc = subprocess.run([shutil.which("python3") or "python3", "-I", str(tools / "mcp" / "server.py")],
+                              input="".join(json.dumps(call) + "\n" for call in calls), capture_output=True, text=True,
+                              env=env, cwd=self.tmp, timeout=120)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        answers = [json.loads(line) for line in proc.stdout.splitlines()]
+        names, _error = self.kit.catalog()
+        self.assertEqual({tool["name"] for tool in answers[1]["result"]["tools"]}, set(names))
+        verdict = answers[2]["result"]
+        self.assertFalse(verdict["isError"], verdict)
+        self.assertEqual(verdict["structuredContent"]["verdict"], "FAIL")  # the seed card lacks one field
+        self.assertIn(f"tools_root={tools}", proc.stderr)  # its tools root is the plugin's folder, not this checkout
+        self.assertNotIn(str(TOOLS_ROOT), proc.stderr)
+
+    def test_the_marketplace_folder_lists_the_one_plugin(self):
+        listing = json.loads((self.built["marketplace"] / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8"))
+        self.assertEqual([plugin["source"] for plugin in listing["plugins"]], [f"./plugins/{self.built['name']}"])
+
+    @unittest.skipUnless(shutil.which("claude"), "claude is not installed: the plugin folder was not validated by it")
+    def test_claude_validates_the_built_plugin_strictly(self):
+        for target in (self.folder, self.built["marketplace"]):
+            proc = subprocess.run(["claude", "plugin", "validate", str(target), "--strict", "--json"],
+                                  capture_output=True, text=True, timeout=300)
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()

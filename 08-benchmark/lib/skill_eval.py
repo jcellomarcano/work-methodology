@@ -54,7 +54,7 @@ A CaseError is raised for a case that is not valid or a path that cannot be read
 
 Usage:
     lib/skill_eval.py validate [ROOT]
-    lib/skill_eval.py run [--skill NAME ...] [--tier TIER] [--kit-mcp] [--real] ...
+    lib/skill_eval.py run [--skill NAME ...] [--tier TIER] [--kit-mcp | --kit-plugin] [--real] ...
     lib/skill_eval.py report [--skill NAME ...] [--tier TIER] ...
 
 `validate` prints `<skill>/<case>: <problem>` lines, sorted, then one summary line.
@@ -546,6 +546,9 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--kit-mcp", action="store_true",
                      help="for a skill that declares MCP tools: start this checkout's MCP server in its runs "
                           "(it runs as you, outside the tool's sandbox); off by default")
+    run.add_argument("--kit-plugin", action="store_true",
+                     help="evaluate the skill from the kit plugin (every skill plus the kit's MCP server, started from "
+                          "the plugin's own files) instead of its own package; never with --kit-mcp")
     run.add_argument("--runs", type=_above_zero(int), metavar="N", help="runs per arm, instead of each case's own")
     run.add_argument("--model", metavar="M", help="model of the agent under test (default: the session's)")
     run.add_argument("--judge-model", metavar="M", help="model of the judge (default: the tool's)")
@@ -557,7 +560,7 @@ def main(argv: list[str] | None = None) -> int:
         args = parser.parse_args(argv)
         return args.run(args)
     except UsageError as exc:
-        print(f"skill-eval: {_one_line(exc)} (usage: skill_eval.py validate [ROOT] | run [--kit-mcp] [--real] ... | report ...)",
+        print(f"skill-eval: {_one_line(exc)} (usage: skill_eval.py validate [ROOT] | run [--kit-mcp | --kit-plugin] [--real] ... | report ...)",
               file=sys.stderr)
         return 2
     except CaseError as exc:

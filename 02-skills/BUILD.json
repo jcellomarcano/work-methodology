@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "kit_plugin": {
+    "name": "metodo",
+    "version": "0.1.0",
+    "description": "The working-methodology kit as one plugin: every skill, plus the metodo MCP server those skills call.",
+    "marketplace": "metodo-kit",
+    "owner": "metodo kit"
+  }
+}

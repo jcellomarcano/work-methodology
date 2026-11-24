@@ -78,6 +78,7 @@ PATH_INPUT_KEYS = ("file_path", "path", "notebook_path", "pattern", "glob", "com
 MAX_TRACE_BYTES = 64 * 1024 * 1024
 STOP_GRACE_SECONDS = 5  # between asking a run that timed out to end and killing it
 MAX_WORKSPACE_BYTES = 256 * 1024 * 1024
+MAX_ANSWER_CHARS = 300  # of a tool's result kept with its call
 _KEPT_RE = re.compile(r"^e-[A-Za-z0-9_-]{4,16}$")
 # What a path is made of inside a tool input; a quote is `\\"` in the trace, so a backslash ends it too.
 _PATH_CHAR = r"""[^\s"'\\]"""
@@ -340,9 +341,17 @@ def kept_dir(trace_path) -> str:
     return real
 
 
+def answer_text(content) -> str:
+    """The text of a tool result (a string, or a list of blocks), on one line, at most MAX_ANSWER_CHARS."""
+    if isinstance(content, list):
+        content = " ".join(block["text"] for block in content
+                           if isinstance(block, dict) and isinstance(block.get("text"), str))
+    return _one_line(content if isinstance(content, str) else "")[:MAX_ANSWER_CHARS]
+
+
 def read_trace(kept: str) -> dict:
-    """What the kit needs from a trace: the tool calls (each with whether its result was an error),
-    the final answer, the tokens and the cwd."""
+    """What the kit needs from a trace: the tool calls (each with whether its result was an error and
+    an excerpt of that result), the final answer, the tokens and the cwd."""
     path = os.path.join(kept, "out", "trace.jsonl")
     try:
         if os.path.islink(path) or os.path.getsize(path) > MAX_TRACE_BYTES:
@@ -352,6 +361,7 @@ def read_trace(kept: str) -> dict:
         raise NativeError(f"the trace {path} cannot be read: {getattr(exc, 'strerror', None) or _one_line(exc)}") from exc
     trace = {"tool_uses": [], "final_message": None, "tokens": {}, "cwd": None, "lines": 0}
     failed: set = set()  # ids of the tool calls whose result came back as an error
+    answers: dict = {}   # id of a tool call -> an excerpt of its result
     for number, line in enumerate(lines, 1):
         if not line.strip():
             continue
@@ -374,6 +384,8 @@ def read_trace(kept: str) -> dict:
                 elif isinstance(block, dict) and block.get("type") == "text" and trace["final_message"] is None:
                     trace["last_text"] = block.get("text")
         elif event.get("type") == "user":
+            answers.update((block.get("tool_use_id"), answer_text(block.get("content"))) for block in content
+                           if isinstance(block, dict) and block.get("type") == "tool_result")
             failed.update(block.get("tool_use_id") for block in content
                           if isinstance(block, dict) and block.get("type") == "tool_result" and block.get("is_error"))
         elif event.get("type") == "result":
@@ -386,6 +398,7 @@ def read_trace(kept: str) -> dict:
     if not trace["lines"]:
         raise NativeError(f"the trace {path} is empty")
     for use in trace["tool_uses"]:
+        use["answer"] = answers.get(use["id"], "")
         use["error"] = use.pop("id") in failed
     if trace["final_message"] is None:
         trace["final_message"] = trace.get("last_text")

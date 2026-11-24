@@ -19,7 +19,8 @@ Environment:
     cases     {case name: {"with": RUN, "without": RUN}}; RUN is one object, or a list with one
               object per run (the last one repeats)
   RUN keys: skill (with arm: the Skill tool is called; default true), skill_error (that call
-    comes back as an error, as for a skill that is not loaded), touch (paths read),
+    comes back as an error, as for a skill that is not loaded), skill_as (the name that call
+    gives the skill; default `<plugin>:<first skill of the plugin>`), touch (paths read),
     bash (commands run), mcp (names of MCP tools called), write ({path: content} edited in the
     workspace), judge (true, false or a
     list, one per llm grader; default true), cost, judge_cost, answer, error,
@@ -71,7 +72,7 @@ def play(target, plugin, skill, case, arm, spec, kept, scaffold):
 
     fired = arm == "with" and spec.get("skill", True)
     if fired:
-        use("Skill", {"skill": f"{plugin}:{skill}", "args": ""}, failed=bool(spec.get("skill_error")))
+        use("Skill", {"skill": spec.get("skill_as", f"{plugin}:{skill}"), "args": ""}, failed=bool(spec.get("skill_error")))
     for path in spec.get("touch", []):
         use("Read", {"file_path": str(cwd / path)})
     for command in spec.get("bash", []):

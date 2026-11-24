@@ -470,6 +470,143 @@ class KitMcp(RunnerTest):
         self.assertNotIn("__TOOLS_DEFAULT__", text)
 
 
+class KitPlugin(RunnerTest):
+    """`--kit-plugin`: the skill is evaluated from the kit plugin, whose server runs from the plugin's own files."""
+
+    TOOL = "mcp__metodo__demo_tool"
+    EXPOSED = "mcp__plugin_demo-kit_metodo__demo_tool"
+    BETTER = {"smoke-basic": {"with": {**GOOD_RUN, "mcp": [EXPOSED]}, "without": {}}}
+    FORM = "measured as: the kit plugin demo-kit 0.3.0, invoked as demo-kit:demo-skill"
+    OWN = "measured as: its own package demo-skill 0.1.0, invoked as demo-skill:demo-skill"
+
+    def setUp(self):
+        super().setUp()
+        self.play(cases=self.BETTER)
+        server = self.kit / "03-tools" / "mcp"
+        server.mkdir(parents=True)
+        (server / "__init__.py").write_text("")
+        (server / "catalog.py").write_text('BY_NAME = {"demo_tool": None}\n')
+        (server / "server.py").write_text("print('a server that no test starts')\n")
+        self.kit_build = self.kit / "02-skills" / "BUILD.json"
+        self.kit_build.write_text(json.dumps({"schema_version": 1, "kit_plugin": {
+            "name": "demo-kit", "version": "0.3.0", "description": "The demo kit as one plugin.",
+            "marketplace": "demo-market", "owner": "Demo Owner"}}))
+        skill = self.kit / "02-skills" / "demo-skill"
+        (skill / "BUILD.json").write_text(json.dumps({"schema_version": 1,
+                                                      "agent_skill": {"srcs": ["SKILL.md"], "deps": [self.TOOL]}}))
+        head, rest = (skill / "SKILL.md").read_text().split("\n---\n", 1)
+        (skill / "SKILL.md").write_text(f"{head}\nallowed-tools: [Read, Edit, {self.TOOL}]\n---\n{rest}"
+                                        f"4. Check the result with `{self.TOOL}`.\n")
+
+    def test_the_flag_evaluates_the_skill_from_the_kit_plugin_with_the_plugins_own_server(self):
+        plan = self.cli("run", "--skill", "demo-skill", *self.where(), "--tier", "smoke", "--kit-plugin")
+        self.assert_clean(plan, 0)
+        self.assertIn("demo-skill: --kit-plugin evaluates it from the kit plugin", plan.stdout)
+        self.assertNotIn("which this run does not start", plan.stdout)
+        res = self.run_real("--kit-plugin")
+        self.assert_clean(res, 0)
+        call = self.calls()[0]
+        self.assertIn("skills/other-skill/SKILL.md", call["files"])  # the whole kit, not a package of one skill
+        self.assertIn("tools/mcp/server.py", call["files"])
+        self.assertEqual(call["mcp"]["mcpServers"]["metodo"]["args"], ["${CLAUDE_PLUGIN_ROOT}/tools/mcp/server.py"])
+        self.assertNotIn(str(self.kit), json.dumps(call["mcp"]))  # the server of the plugin, not of this checkout
+        self.assertIn("--allow-real-servers", call["argv"])
+        self.assertIn(self.EXPOSED, call["argv"][call["argv"].index("--allow-tools") + 1:])
+        self.assertIn(self.EXPOSED, call["cases"]["smoke-basic"]["execution"]["allowed_tools"])
+        self.assertIn(self.EXPOSED, call["skill_text"])
+        self.assertNotIn(self.TOOL, call["skill_text"])
+        for flag in native.REQUIRED_FLAGS:
+            self.assertIn(flag, call["argv"])
+        self.assertIn("demo-skill: works", res.stdout)
+        self.assertIn("kit MCP server: started for 1 case(s); 1 call(s) to its tools", res.stdout)
+        self.assertTrue(self.stored()["mcp"]["served"])
+
+    def test_a_stored_run_keeps_what_each_served_tool_answered(self):
+        self.assert_clean(self.run_real("--kit-plugin"), 0)
+        record = self.stored()
+        self.assertEqual(record["arms"]["with"][0]["mcp_answers"], [{"tool": self.EXPOSED, "error": False, "answer": "ok"}])
+        self.assertEqual(record["arms"]["without"][0]["mcp_answers"], [])
+        long = native.answer_text([{"type": "text", "text": "x" * 900}, {"type": "image"}])
+        self.assertEqual(len(long), native.MAX_ANSWER_CHARS)  # an excerpt: a result may be a whole file
+        self.assertEqual(native.answer_text("  two\n lines "), "two lines")
+
+    def test_the_report_says_the_kit_plugin_was_measured(self):
+        res = self.run_real("--kit-plugin")
+        self.assert_clean(res, 0)
+        shown = self.report("--json", str(self.tmp / "report.json"))
+        for said in (res, shown):
+            self.assertIn(self.FORM, said.stdout)
+            self.assertNotIn("its own package", said.stdout)
+        self.assertEqual(self.stored()["package"], {"form": "kit_plugin", "plugin": "demo-kit", "version": "0.3.0",
+                                                    "invoke": "demo-kit:demo-skill"})
+        self.assertTrue(self.stored()["settings"]["kit_plugin"])
+        data = json.loads((self.tmp / "report.json").read_text())
+        self.assertEqual(data["skills"][0]["measured_as"], [self.FORM[len("measured as: "):]])
+
+    def test_without_the_flag_the_skill_package_is_measured_and_the_report_says_so(self):  # previous behavior
+        res = self.run_real()
+        self.assert_clean(res, 0)
+        call = self.calls()[0]
+        self.assertNotIn("skills/other-skill/SKILL.md", call["files"])
+        self.assertNotIn(".mcp.json", call["files"])
+        self.assertFalse([name for name in call["files"] if name.startswith("tools/")])
+        self.assertIn(self.TOOL, call["skill_text"])
+        self.assertIn(self.OWN, res.stdout)
+        self.assertEqual(self.stored()["package"]["form"], "skill_package")
+        self.assertFalse(self.stored()["settings"]["kit_plugin"])
+
+    def test_under_the_kit_plugin_the_trigger_is_read_as_the_plugin_then_the_skill(self):
+        other = {"smoke-basic": {"with": {**GOOD_RUN, "skill_as": "demo-skill:demo-skill"}, "without": {}}}
+        self.play(cases=other)  # the name the skill has in a package of its own: not this plugin's skill
+        self.assert_clean(self.run_real("--kit-plugin"), 0)
+        self.assertEqual(self.statuses()["with"], ["not_triggered"])
+        self.play(cases={"smoke-basic": {"with": {**GOOD_RUN, "skill_as": "demo-kit:demo-skill"}, "without": {}}})
+        self.assert_clean(self.run_real("--kit-plugin", "--no-cache"), 0)
+        self.assertEqual(self.statuses()["with"], ["passed"])
+        self.play(cases=other)  # previous behavior: for the skill's own package any prefix names it
+        self.assert_clean(self.run_real("--no-cache"), 0)
+        self.assertEqual(self.statuses()["with"], ["passed"])
+
+    def test_a_result_of_one_form_is_not_reused_for_the_other(self):
+        self.assert_clean(self.run_real(), 0)
+        self.assert_clean(self.run_real("--kit-plugin"), 0)
+        self.assertEqual(len(self.calls()), 2)
+        again = self.cli("run", "--skill", "demo-skill", *self.where(), "--tier", "smoke", "--kit-plugin")
+        self.assertIn("1 cached", again.stdout)
+        back = self.cli("run", "--skill", "demo-skill", *self.where(), "--tier", "smoke")
+        self.assertIn("the stored result used other settings: the kit plugin True, now False", back.stdout)
+
+    def test_a_result_stored_before_the_flag_existed_is_still_reused_without_it(self):  # previous behavior of the cache
+        self.assert_clean(self.run_real(), 0)
+        path = sorted((self.out / "store" / SMOKE).glob("*.json"))[0]
+        record = json.loads(path.read_text())
+        del record["settings"]["kit_plugin"], record["package"]
+        path.write_text(json.dumps(record))
+        res = self.run_real()
+        self.assert_clean(res, 0)
+        self.assertEqual(len(self.calls()), 1)
+        self.assertIn("  measured as: its own package\n", res.stdout)
+
+    def test_the_kit_plugin_and_the_checkout_server_together_are_a_usage_error(self):
+        res = self.run_real("--kit-plugin", "--kit-mcp")
+        self.assert_clean(res, 2)
+        self.assertEqual(len(res.stderr.splitlines()), 1, res.stderr)
+        self.assertIn("--kit-plugin or --kit-mcp, not both", res.stderr)
+        self.assertEqual(self.calls(), [])
+
+    def test_a_kit_plugin_that_cannot_be_packed_or_lacks_the_skill_is_not_measured(self):
+        (self.kit / "02-skills" / "demo-skill" / "BUILD.json").unlink()
+        res = self.run_real("--kit-plugin")
+        self.assert_clean(res, 1)
+        self.assertIn("demo-skill: not measured", res.stdout)
+        self.assertIn("the kit plugin does not hold the skill demo-skill", res.stderr)
+        self.kit_build.unlink()
+        res = self.run_real("--kit-plugin")
+        self.assert_clean(res, 1)
+        self.assertIn("the kit plugin cannot be packed", res.stderr)
+        self.assertEqual(self.calls(), [])
+
+
 class Cascade(RunnerTest):
     def test_run_that_did_not_trigger_is_not_judged_and_its_judge_spend_is_shown_apart(self):
         self.play(cases={"smoke-basic": {"with": {"skill": False, "judge": False, "judge_cost": 0.002},

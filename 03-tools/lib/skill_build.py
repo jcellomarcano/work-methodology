@@ -81,13 +81,51 @@ Functions the eval runner builds on:
       tool, `mcp__plugin_<plugin>_metodo__<tool>`; `mcp_tools` lists the declared ones that way.
 A BuildError is raised by the last two for a skill that cannot be packed.
 
+The kit plugin (`--kit-plugin`) is one more target, declared once for the kit in
+`02-skills/BUILD.json`: `schema_version` and `kit_plugin`, an object with `name` (kebab-case, never
+the name of a skill), `version`, `description`, `marketplace` (kebab-case) and `owner`. It is one
+Claude Code plugin holding every skill that has a BUILD.json, plus the kit's MCP server, for the
+skills that cannot work from a package of their own because they call that server:
+  .claude-plugin/plugin.json   name, version, description and author (the owner)
+  .mcp.json                    the `metodo` server: `python3 ${CLAUDE_PLUGIN_ROOT}/tools/mcp/server.py`
+                               with METODO_TOOLS=${CLAUDE_PLUGIN_ROOT}/tools and
+                               METODO_REPO=${CLAUDE_PROJECT_DIR}; no absolute path
+  MANIFEST.json                the files, the skills (how each is invoked, its tools), the skills
+                               left out, where the server writes, and the limits
+  skills/<skill>/<src>         each src, with every `mcp__metodo__` name written as this plugin
+                               exposes it (`mcp__plugin_<name>_metodo__<tool>`, in the text and in
+                               `allowed-tools`) and the tools-root token as ${CLAUDE_PLUGIN_ROOT}/tools
+  tools/...                    what bin/sync-instance.sh gives an instance, by the same rule: lib,
+                               bin, schemas, mcp, hooks and config of 03-tools, and the benchmark's
+                               lib, bin and protocols under bench/
+It never holds a personal asset (a path component `personal`, or `*.personal.*`: decided by the
+path, the file is never opened), a test (a `tests` folder, or a `.py` file that imports unittest), a
+BUILD file, a cache, an `out`, `vendor` or `baselines` folder. The target FAILs, one line per
+problem, when a skill cannot be packed, when a skill names a tool the catalog lacks (declared or
+only in its text), when a packed skill still says `mcp__metodo__`, or when a text file holds the
+home path of this machine. `build --kit-plugin` writes `<out>/<name>/<name>-<version>.zip`, the same
+bytes for the same inputs (a script keeps its mode), and beside it `marketplace/`, a marketplace
+folder that lists this one plugin from `plugins/<name>/`, the plugin laid out as a folder; that
+folder is replaced on every build. `test --kit-plugin` checks the same and writes nothing; it is
+never cached. Limit: the server writes under its tools root, `tools/out` inside the plugin, and no
+single setting moves that folder (METODO_RDD_DIR, METODO_RUNS_DIR and METODO_HOOKS_DIR each move a
+part); Claude Code replaces a plugin's folder on an update, so nothing written there survives one.
+
+  load_kit_build(kit)             (the kit_plugin declaration or None, problems, one line each)
+  inspect_kit_plugin(kit)         (what the plugin holds: name, version, manifest, entries, modes; or None, problems)
+  build_kit_plugin(kit, out_dir)  writes the zip and the marketplace folder; returns zip, sha256,
+                                  marketplace, plugin_dir, name and version
+  layout_kit_plugin(kit, dest)    lays the plugin out in `dest` (absent or empty) for a run and returns
+                                  plugin_dir, name, version, files, manifest, tool_prefix and skills
+                                  ({skill: {invoke: "<plugin>:<skill>", mcp_tools}})
+
 Usage:
-    lib/skill_build.py test  [SKILL ...] [--all] [--no-cache] [--json FILE]
-    lib/skill_build.py build [SKILL ...] [--all] [--out DIR]
+    lib/skill_build.py test  [SKILL ...] [--all] [--kit-plugin] [--no-cache] [--json FILE]
+    lib/skill_build.py build [SKILL ...] [--all] [--kit-plugin] [--out DIR]
 
 One line per target on stdout, `<STATUS> <skill>:<target> <reason>`; a skill with no BUILD.json
 is one `SKIP <skill>:BUILD` line and a declaration with problems one `FAIL <skill>:BUILD` line
-per problem. The counts go to stderr. Exit 0 no FAIL; 1 any FAIL; 2 a usage error or a path
+per problem. The kit plugin is `<name>:kit_plugin` (`kit:kit_plugin` while its declaration is unread). The counts go to stderr. Exit 0 no FAIL; 1 any FAIL; 2 a usage error or a path
 that cannot be written, as one `skill-build:` line on stderr.
 
 Python 3 stdlib only; runs under `python3 -I`. No network, no model call, no agent process.
@@ -152,7 +190,31 @@ _BLOCK_RE = re.compile(r"^[|>][+-]?[0-9]?[+-]?$")  # the indicator of a YAML blo
 _RAN_RE = re.compile(r"^Ran (\d+) tests? in", re.MULTILINE)
 _CATALOG_CODE = ("import json, sys\nsys.dont_write_bytecode = True\nsys.path.insert(0, sys.argv[1])\n"
                  "from mcp import catalog\nprint(json.dumps(sorted(catalog.BY_NAME)))\n")
-USAGE = "usage: skill-build.sh test|build [SKILL ...] [--all] [--no-cache] [--json FILE] [--out DIR]"
+USAGE = "usage: skill-build.sh test|build [SKILL ...] [--all] [--kit-plugin] [--no-cache] [--json FILE] [--out DIR]"
+KIT_TARGET = "kit_plugin"
+KIT_KEYS = ("name", "version", "description", "marketplace", "owner")
+PLUGIN_TOOLS = "tools"  # the folder of the server inside the kit plugin
+PLUGIN_ROOT_VAR = "${CLAUDE_PLUGIN_ROOT}"
+PROJECT_VAR = "${CLAUDE_PROJECT_DIR}"
+# The rule of bin/sync-instance.sh: these folders of 03-tools, and the benchmark's under bench/.
+# Its tests/ folder is the one it copies and the plugin does not (a test checks the two agree).
+SYNC_DIRS = ("lib", "bin", "schemas", "mcp", "hooks", "config")
+BENCH_DIRS = ("lib", "bin", "protocols")
+NEVER_PARTS = ("tests", "out", "vendor", "baselines")  # never inside the plugin, at any depth
+# Each moves one part of what the server writes; nothing moves the whole of <tools root>/out.
+PARTIAL_WRITE_SETTINGS = ("METODO_HOOKS_DIR", "METODO_RDD_DIR", "METODO_RUNS_DIR")
+KIT_LIMITS = (
+    f"the server writes under its tools root, {PLUGIN_TOOLS}/out inside the plugin (jobs, runs, receipts, results per "
+    f"commit); no single setting moves that folder, and Claude Code replaces a plugin's folder on an update, so "
+    f"nothing written there survives one",
+    f"{PLUGIN_TOOLS}/config is the kit's default configuration, not one adapted to a repo",
+    "the kit's hooks and role agents are not in the plugin: a tool that reads a role contract finds it only in a "
+    "repo where the kit is installed",
+    "a tool that reads the repo needs METODO_REPO, set from ${CLAUDE_PROJECT_DIR}; when that variable is not "
+    "replaced the server falls back to the git repo of its working directory",
+)
+_KEBAB_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+_TEST_RE = re.compile(rb"^(import unittest|from unittest)\b", re.MULTILINE)
 
 
 class BuildError(Exception):
@@ -467,7 +529,8 @@ def _require_package(kit: Kit, skill: str) -> dict:
     return plan
 
 
-def _write_zip(path: pathlib.Path, entries: list[tuple[str, bytes]]) -> None:
+def _write_zip(path: pathlib.Path, entries: list[tuple[str, bytes]], modes: dict[str, int] | None = None) -> None:
+    """`modes` gives an entry another mode than ZIP_MODE (a script that stays runnable)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     partial = path.with_name(path.name + ".tmp")
     with zipfile.ZipFile(partial, "w", zipfile.ZIP_STORED) as package:
@@ -475,7 +538,7 @@ def _write_zip(path: pathlib.Path, entries: list[tuple[str, bytes]]) -> None:
             info = zipfile.ZipInfo(name, date_time=ZIP_TIME)
             info.compress_type = zipfile.ZIP_STORED  # no compressor version in the bytes
             info.create_system = 3
-            info.external_attr = ZIP_MODE << 16
+            info.external_attr = (modes or {}).get(name, ZIP_MODE) << 16
             package.writestr(info, data)
     os.replace(partial, path)
 
@@ -531,6 +594,258 @@ def layout_plugin(kit: Kit, skill: str, dest, local_mcp: bool = False, repo=None
             "manifest": plan["manifest"], "local_mcp": bool(local_mcp), "rendered_tools": render_tools,
             "mcp_tools": ([plugin_tool_name(plan["name"], tool) for tool in plan["manifest"]["requires"]["mcp_tools"]]
                           if local_mcp else [])}
+
+
+# ----------------------------------------------------------------------------------- kit plugin
+
+def is_personal(relative: str) -> bool:
+    """The convention of bin/sync-instance.sh, decided on the path alone: such a file is never opened."""
+    return "/personal/" in f"/{relative}/" or ".personal." in relative
+
+
+def is_test(relative: str, data: bytes) -> bool:
+    """A file under a `tests` folder, or Python that imports unittest (lib/test_sectors.py is a tool)."""
+    return "tests" in relative.split("/") or (relative.endswith(".py") and _TEST_RE.search(data) is not None)
+
+
+def expose_tools(data: bytes, plugin: str) -> bytes:
+    """Every name of the server's tools, declared or only mentioned, as the plugin `plugin` exposes it."""
+    return data.replace(MCP_PREFIX.encode(), plugin_tool_name(plugin, MCP_PREFIX).encode())
+
+
+def load_kit_build(kit: Kit) -> tuple[dict | None, list[str]]:
+    """The `kit_plugin` declaration of 02-skills/BUILD.json and its problems; None with any."""
+    label = f"{kit.skills.name}/{BUILD_FILE}"
+    try:
+        raw = json.loads((kit.skills / BUILD_FILE).read_bytes().decode("utf-8"))
+    except OSError as exc:
+        return None, [f"{label} cannot be read: {exc.strerror or _one_line(exc)}"]
+    except UnicodeDecodeError:
+        return None, [f"{label} is not UTF-8 text"]
+    except ValueError as exc:
+        return None, [f"{label} is not valid JSON: {_one_line(exc)}"]
+    if not isinstance(raw, dict) or not isinstance(raw.get(KIT_TARGET), dict):
+        return None, [f"{label} must be a JSON object with a {KIT_TARGET!r} object"]
+    decl = raw[KIT_TARGET]
+    problems = [f"{label}: unknown key {key!r}" for key in sorted(raw) if key not in ("schema_version", KIT_TARGET)]
+    if type(raw.get("schema_version")) is not int or raw["schema_version"] != SCHEMA_VERSION:
+        problems.append(f"{label}: 'schema_version' must be {SCHEMA_VERSION}, got {raw.get('schema_version')!r}")
+    problems += [f"{KIT_TARGET}: unknown key {key!r}" for key in sorted(decl) if key not in KIT_KEYS]
+    for key in KIT_KEYS:
+        value = decl.get(key)
+        if not isinstance(value, str) or not value.strip():
+            problems.append(f"{KIT_TARGET}.{key} must be a non-empty string, got {value!r}")
+        elif key in ("name", "marketplace") and not _KEBAB_RE.match(value):
+            problems.append(f"{KIT_TARGET}.{key} must be kebab-case (lowercase letters, digits, single hyphens), got {value!r}")
+        elif key == "version" and not _VERSION_RE.match(value):
+            problems.append(f"{KIT_TARGET}.version {value!r} cannot name a file")
+        elif key == "name" and (kit.skills / value).is_dir():
+            problems.append(f"{KIT_TARGET}.name {value!r} is the name of a skill: `{value}:{value}` would read as that "
+                            f"skill's own package")
+    return (None, problems) if problems else ({key: decl[key] for key in KIT_KEYS}, [])
+
+
+def _server_files(kit: Kit) -> list[tuple[str, str]]:
+    """(path under the plugin's tools folder, source file), sorted: what bin/sync-instance.sh copies,
+    without what the plugin never holds. Decided on the path: nothing is opened here."""
+    roots = [(folder, kit.tools / folder) for folder in SYNC_DIRS]
+    roots += [(f"bench/{folder}", kit.root / "08-benchmark" / folder) for folder in BENCH_DIRS]
+    left = CACHE_PARTS + NEVER_PARTS + ("personal",)
+    found = []
+    for label, root in roots:
+        for current, dirnames, filenames in os.walk(root):
+            dirnames[:] = sorted(name for name in dirnames if name not in left)
+            for name in filenames:
+                full = os.path.join(current, name)
+                relative = f"{label}/{pathlib.Path(os.path.relpath(full, root)).as_posix()}"
+                if (name in CACHE_PARTS or name == BUILD_FILE or name.endswith(".pyc") or is_personal(relative)
+                        or os.path.islink(full)):
+                    continue
+                found.append((relative, full))
+    return sorted(found)
+
+
+def _home_paths() -> list[bytes]:
+    home = os.path.expanduser("~")
+    return sorted({path.encode() for path in (home, os.path.realpath(home)) if len(path) > 1 and path != "~"})
+
+
+def _plan_kit_plugin(kit: Kit, decl: dict) -> tuple[dict | None, list[str]]:
+    """(what the kit plugin holds, []), or (None, the problems that keep it from being packed)."""
+    name = decl["name"]
+    problems: list[str] = []
+    entries: dict[str, bytes] = {}
+    modes: dict[str, int] = {}
+    skills: list[dict] = []
+    left_out: list[dict] = []
+    names, error = kit.catalog()
+    if names is None:
+        problems.append(f"the MCP catalog cannot be read: {error}")
+    named_tool = re.compile(re.escape(MCP_PREFIX).encode() + rb"([a-z0-9_]+)")
+    tools_root = f"{PLUGIN_ROOT_VAR}/{PLUGIN_TOOLS}"
+    for folder in sorted(p for p in kit.skills.iterdir() if (p / SKILL_FILE).is_file()):
+        skill = folder.name
+        if not (folder / BUILD_FILE).is_file():
+            left_out.append({"name": skill, "why": f"no {BUILD_FILE}"})
+            continue
+        build, found = load_build(kit, skill)
+        if build is None or "agent_skill" not in build:
+            problems += [f"{skill}: {problem}" for problem in (found or ["agent_skill is not declared"])]
+            continue
+        personal = [src for src in build["agent_skill"]["srcs"] if is_personal(f"{skill}/{src}")]
+        if personal:  # refused before any file of the skill is read
+            problems += [f"{skill}: {src} is a personal asset, which the kit plugin never holds" for src in personal]
+            continue
+        package, found = _inspect_package(kit, skill, build["agent_skill"])
+        if package is None:
+            problems += [f"{skill}: {problem}" for problem in found]
+            continue
+        prefix = f"skills/{skill}/"
+        for entry, data in package["entries"]:
+            if not entry.startswith(prefix):
+                continue  # the package's own plugin.json and manifest
+            src = entry[len(prefix):]
+            if is_test(src, data):
+                problems.append(f"{skill}: {src} is a test, which the kit plugin never holds")
+                continue
+            mentioned = {tool.decode("ascii") for tool in named_tool.findall(data)}
+            problems += [f"{skill}: {src} names {MCP_PREFIX}{tool}, which is not in the MCP catalog"
+                         for tool in sorted(mentioned - (names if names is not None else mentioned))]
+            data = expose_tools(data, name).replace(TOKEN.encode(), tools_root.encode())
+            if MCP_PREFIX.encode() in data:
+                problems.append(f"{skill}: {src} still says {MCP_PREFIX} after its tool names were written for the plugin")
+            entries[entry] = data
+        requires = package["manifest"]["requires"]
+        skills.append({"name": skill, "version": package["version"], "invoke": f"{name}:{skill}",
+                       "files": package["manifest"]["files"],
+                       "mcp_tools": [plugin_tool_name(name, tool) for tool in requires["mcp_tools"]]})
+    for relative, source in _server_files(kit):
+        try:
+            data = pathlib.Path(source).read_bytes()
+        except OSError as exc:
+            problems.append(f"{PLUGIN_TOOLS}/{relative} cannot be read: {exc.strerror or _one_line(exc)}")
+            continue
+        if is_test(relative, data):
+            continue
+        entries[f"{PLUGIN_TOOLS}/{relative}"] = data
+        if os.access(source, os.X_OK):
+            modes[f"{PLUGIN_TOOLS}/{relative}"] = ZIP_MODE | 0o111
+    server_file = f"{PLUGIN_TOOLS}/mcp/server.py"
+    if server_file not in entries:
+        problems.append(f"{TOOLS_DIR}/mcp/server.py is not in this checkout, so the plugin would hold no server")
+    server = {"command": "python3", "args": [f"{PLUGIN_ROOT_VAR}/{server_file}"],
+              "env": {"METODO_TOOLS": tools_root, "METODO_REPO": PROJECT_VAR, "PYTHONDONTWRITEBYTECODE": "1"}}
+    entries[".mcp.json"] = _json_bytes({"mcpServers": {MCP_SERVER: server}})
+    entries[".claude-plugin/plugin.json"] = _json_bytes({"name": name, "version": decl["version"],
+                                                         "description": decl["description"],
+                                                         "author": {"name": decl["owner"]}})
+    folders: dict[str, int] = {}
+    for entry in entries:
+        parts = entry.split("/")
+        top = "/".join(parts[:2]) if parts[0] == PLUGIN_TOOLS and len(parts) > 2 else parts[0] if len(parts) > 1 else "."
+        folders[top] = folders.get(top, 0) + 1
+    manifest = {
+        "schema_version": SCHEMA_VERSION, "kind": KIT_TARGET, "name": name, "version": decl["version"],
+        "description": decl["description"], "skills": skills, "skills_left_out": left_out,
+        "mcp_server": {"name": MCP_SERVER, "config": ".mcp.json", "tools_root": PLUGIN_TOOLS,
+                       "tool_prefix": plugin_tool_name(name, MCP_PREFIX),
+                       "variables": [PLUGIN_ROOT_VAR, PROJECT_VAR],
+                       "writes": {"folder": f"{PLUGIN_TOOLS}/out", "setting": None,
+                                  "settings_of_a_part": list(PARTIAL_WRITE_SETTINGS),
+                                  "survives_a_plugin_update": False}},
+        "tools_rule": f"bin/sync-instance.sh: {', '.join(SYNC_DIRS)} of {TOOLS_DIR}; {', '.join(BENCH_DIRS)} of "
+                      f"08-benchmark under bench/; no test, personal asset, BUILD file, cache, out, vendor or baselines",
+        "folders": dict(sorted(folders.items())), "limits": list(KIT_LIMITS), "files": sorted(entries),
+    }
+    entries["MANIFEST.json"] = _json_bytes(manifest)
+    homes = _home_paths()
+    for entry, data in sorted(entries.items()):
+        try:
+            data.decode("utf-8")
+        except UnicodeDecodeError:
+            continue  # not a text file
+        if any(home in data for home in homes):
+            problems.append(f"{entry} holds the home path of this machine")
+    if problems:
+        return None, problems
+    return {"name": name, "version": decl["version"], "decl": decl, "manifest": manifest,
+            "entries": sorted(entries.items()), "modes": {entry: modes.get(entry, ZIP_MODE) for entry in entries}}, []
+
+
+def inspect_kit_plugin(kit: Kit) -> tuple[dict | None, list[str]]:
+    """(what the kit plugin holds, []) from 02-skills/BUILD.json, or (None, why it cannot be packed)."""
+    decl, problems = load_kit_build(kit)
+    return (None, problems) if decl is None else _plan_kit_plugin(kit, decl)
+
+
+def _require_kit_plugin(kit: Kit) -> dict:
+    plan, problems = inspect_kit_plugin(kit)
+    if plan is None:
+        raise BuildError("the kit plugin: " + "; ".join(problems))
+    return plan
+
+
+def _lay_out(dest: pathlib.Path, plan: dict) -> None:
+    for entry, data in plan["entries"]:
+        path = pathlib.Path(_join(dest, entry))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        path.chmod(plan["modes"][entry] & 0o777)
+
+
+def _write_kit_plugin(plan: dict, out_dir) -> dict:
+    name, decl = plan["name"], plan["decl"]
+    package = package_path(out_dir, name, plan["version"])
+    market = package.parent / "marketplace"
+    listing = market / ".claude-plugin" / "marketplace.json"
+    if market.is_symlink() or (market.exists() and (not market.is_dir() or (any(market.iterdir()) and not listing.is_file()))):
+        raise BuildError(f"{market} is a link or holds something this command did not write: remove it or pass another --out")
+    _write_zip(package, plan["entries"], plan["modes"])
+    shutil.rmtree(market, ignore_errors=True)  # replaced whole: a file a build no longer packs is not left behind
+    _lay_out(market / "plugins" / name, plan)
+    listing.parent.mkdir(parents=True, exist_ok=True)
+    listing.write_bytes(_json_bytes({"name": decl["marketplace"], "owner": {"name": decl["owner"]},
+                                     "description": decl["description"], "plugins": [
+        {"name": name, "source": f"./plugins/{name}", "version": plan["version"], "description": decl["description"]}]}))
+    return {"zip": package, "sha256": hashlib.sha256(package.read_bytes()).hexdigest(), "marketplace": market,
+            "plugin_dir": market / "plugins" / name, "name": name, "version": plan["version"]}
+
+
+def build_kit_plugin(kit: Kit, out_dir) -> dict:
+    """Write the kit plugin's zip and, beside it, the marketplace folder that lists it."""
+    return _write_kit_plugin(_require_kit_plugin(kit), out_dir)
+
+
+def layout_kit_plugin(kit: Kit, dest) -> dict:
+    """Lay the kit plugin out as a plugin folder in `dest`, which is absent or empty."""
+    plan = _require_kit_plugin(kit)
+    dest = pathlib.Path(dest)
+    if dest.exists() and (not dest.is_dir() or any(dest.iterdir())):
+        raise BuildError(f"{dest} is not an empty folder: a plugin is laid out in a folder of its own")
+    _lay_out(dest, plan)
+    manifest = plan["manifest"]
+    return {"plugin_dir": str(dest), "name": plan["name"], "version": plan["version"],
+            "files": [entry for entry, _data in plan["entries"]], "manifest": manifest,
+            "tool_prefix": manifest["mcp_server"]["tool_prefix"],
+            "skills": {skill["name"]: {"invoke": skill["invoke"], "mcp_tools": skill["mcp_tools"]}
+                       for skill in manifest["skills"]}}
+
+
+def kit_plugin_results(kit: Kit, out_dir=None) -> list[dict]:
+    """The result lines of the kit plugin: checked only, or also written when `out_dir` is given."""
+    decl, problems = load_kit_build(kit)
+    label = decl["name"] if decl else "kit"
+    plan, problems = _plan_kit_plugin(kit, decl) if decl else (None, problems)
+    if plan is None:
+        return [_result(label, KIT_TARGET, "FAIL", problem) for problem in problems]
+    if out_dir is not None:
+        built = _write_kit_plugin(plan, out_dir)
+        return [_result(label, KIT_TARGET, "PASS", f"{built['zip']} sha256:{built['sha256']}")]
+    manifest = plan["manifest"]
+    count, served = len(manifest["skills"]), sum(1 for entry in manifest["files"] if entry.startswith(PLUGIN_TOOLS + "/"))
+    return [_result(label, KIT_TARGET, "PASS",
+                    f"packs {count} skill{'s' if count != 1 else ''} and {served} files of the {MCP_SERVER} server under "
+                    f"{PLUGIN_TOOLS}/; {len(manifest['skills_left_out'])} left out for having no {BUILD_FILE}; not cached")]
 
 
 # -------------------------------------------------------------------------------------- targets
@@ -844,7 +1159,9 @@ def _selected(kit: Kit, args) -> list[str]:
     if args.all:
         return sorted(p.name for p in kit.skills.iterdir() if (p / SKILL_FILE).is_file())
     if not args.skills:
-        raise UsageError("name at least one skill, or pass --all")
+        if args.kit_plugin:
+            return []  # the kit plugin alone
+        raise UsageError("name at least one skill, or pass --all or --kit-plugin")
     for skill in args.skills:
         if not _SKILL_RE.match(skill) or not (kit.skills / skill).is_dir():
             raise UsageError(f"no such skill under 02-skills: {skill!r}")
@@ -867,6 +1184,8 @@ def main(argv: list[str] | None = None, kit_root=None) -> int:
     for command in (test, build):
         command.add_argument("skills", nargs="*", metavar="SKILL", help="a folder name under 02-skills")
         command.add_argument("--all", action="store_true", help="every skill")
+        command.add_argument("--kit-plugin", action="store_true",
+                             help="also the kit plugin of 02-skills/BUILD.json: every skill plus the MCP server")
     try:
         args = parser.parse_args(argv)
         kit = Kit(kit_root)
@@ -876,6 +1195,8 @@ def main(argv: list[str] | None = None, kit_root=None) -> int:
                 results += run_skill(kit, skill, use_cache=not args.no_cache)
             else:
                 results += build_skill(kit, skill, args.out or kit.out / "dist")
+        if args.kit_plugin:
+            results += kit_plugin_results(kit, (args.out or kit.out / "dist") if args.command == "build" else None)
         for result in results:
             print(f"{result['status']} {result['skill']}:{result['target']} {result['reason']}")
         counts = {status: sum(r["status"] == status for r in results) for status in ("PASS", "FAIL", "SKIP")}

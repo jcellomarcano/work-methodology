@@ -4,7 +4,8 @@
 Usage (through lib/skill_eval.py, which owns the command line):
     lib/skill_eval.py run    [--skill NAME ...] [--tier smoke|core|deep] [--root DIR] [--kit DIR]
                              [--out DIR] [--runs N] [--model M] [--judge-model M]
-                             [--max-cost-usd USD] [--no-cache] [--kit-mcp] [--json FILE] [--real]
+                             [--max-cost-usd USD] [--no-cache] [--kit-mcp | --kit-plugin]
+                             [--json FILE] [--real]
     lib/skill_eval.py report [--skill NAME ...] [--tier smoke|core|deep] [--root DIR] [--kit DIR]
                              [--out DIR] [--json FILE]
 
@@ -26,6 +27,16 @@ out with this checkout's server, the tool is told to start it (`--allow-real-ser
 the user, outside the tool's sandbox) and to allow its declared tools, and the skill's text names
 them as the plugin exposes them. Without the flag such a skill runs without its tools: the plan
 and the report say so, and its verdict is never `works`.
+
+The kit plugin. `--kit-plugin` evaluates the skill from the kit plugin instead of its own package:
+the one plugin of 02-skills/BUILD.json, holding every skill and the kit's MCP server, laid out by
+`skill_build.layout_kit_plugin`. The server is the plugin's own (`${CLAUDE_PLUGIN_ROOT}/tools`, not
+this checkout's), so the tool is told to start it, as with `--kit-mcp`; the two flags together are a
+usage error. The trigger is then read as `<plugin>:<skill>` (or the bare `<skill>`): the name the
+skill has in a package of its own is another plugin's skill. The stored result keeps which form was
+measured (`package`), the report prints it (`measured as:`), and a result of one form is never
+reused for the other. Its hash is the skill's and the case's, not the server's files: after a
+change of the server, pass `--no-cache`.
 
 Scoring of one run, in this order; the first one that applies is the run's status:
   errored           the tool reports the run ended abnormally, with or without a trace
@@ -56,11 +67,13 @@ A verdict from fewer than runs_per_arm_min runs per arm is labelled a signal.
 
 Store: `<out>/store/<skill>/<case>/<case_hash>.v<RUNNER_VERSION>.json`. A case whose hash has a
 stored result with every run readable, made with the settings asked now (model, judge model, runs
-per arm, the kit's MCP server), is reported as cached and not run again, unless `--no-cache`.
+per arm, the kit's MCP server, the kit plugin), is reported as cached and not run again, unless
+`--no-cache`.
 `report` shows what is stored whatever it was run with. `<out>/native/<skill>/<stamp>/` keeps the
 tool's result, report and output. A run's trace is removed once it is scored, so its stored result
 keeps the names of the tools it called, in order (`tools_called`, a failed call marked), and the
-report prints them under a run that did not pass.
+report prints them under a run that did not pass. For the served MCP tools it also keeps an excerpt
+of what each call answered (`mcp_answers`): the proof that the server of the plugin answered.
 
 Exit: `run` 0, or 1 when a skill's real run failed for any reason (one `skill-eval: <skill>:
 <reason>` line on stderr and a `not measured` verdict; the other skills still run); `report` 0;
@@ -91,6 +104,7 @@ KIT_ROOT = HERE.parent.parent
 DEFAULT_MAX_COST_USD = 0.50  # per skill and invocation
 VALIDATOR_TIMEOUT_SECONDS = 60
 MAX_TOOLS_LISTED = 60  # tool calls of one run kept in its stored result
+MAX_ANSWERS_KEPT = 10  # calls to the served MCP tools kept with an excerpt of what each answered
 # The one table the verdict is decided on.
 THRESHOLDS = {
     "trigger_rate_min": 0.8,    # share of the runs with the skill in which every expected skill was invoked
@@ -113,7 +127,9 @@ REASONS = {
 WITHOUT_TOOLS = ("it ran without its MCP tools (the kit's server was not started), so a better result does not "
                  "show that the skill works: run it again with --kit-mcp")
 SETTING_NAMES = {"model": "model", "judge_model": "judge model", "runs": "runs per arm",
-                 "kit_mcp": "the kit's MCP server"}
+                 "kit_mcp": "the kit's MCP server", "kit_plugin": "the kit plugin"}
+SETTING_DEFAULTS = {"kit_plugin": False}  # what a result stored before the setting existed was run with
+FORMS = {"kit_plugin": "the kit plugin", "skill_package": "its own package"}
 AROUND = ("done by the kit around the native tool: tiers as tags, setup.files through a scaffold script, "
           "script validators on the files each run left, the forbidden-path check on each trace, the cascade, "
           "the verdict and the cache; the tool's own score of each run is kept in the stored result")
@@ -244,14 +260,17 @@ def run_validators(case: dict, workspace, timeout: float = VALIDATOR_TIMEOUT_SEC
     return results
 
 
-def score_run(case: dict, arm: str, native_run: dict, scratch, mcp_prefix: str | None = None) -> dict:
+def score_run(case: dict, arm: str, native_run: dict, scratch, mcp_prefix: str | None = None,
+              plugin: str | None = None) -> dict:
     """One run through the cascade (the module docstring lists the statuses in order).
 
     `mcp_prefix` is how the names of the served MCP tools start; the calls to them are counted.
+    `plugin` is the kit plugin the skill was loaded from: a Skill call then names the skill as
+    `<plugin>:<skill>` or `<skill>`, and any other prefix is another plugin's skill.
     """
     error = native_run.get("error")
     run = {"status": "", "detail": "", "triggered": None, "cheat": [], "validators": [], "judge": [], "mcp_calls": 0,
-           "tools_called": [],
+           "tools_called": [], "mcp_answers": [],
            "judge_counted": False, "cost_usd": _money(native_run.get("costUsd")),
            "judge_cost_usd": _money(native_run.get("judgeCostUsd")), "native_score": native_run.get("score"),
            "native_graders": {str(g["name"]): g.get("passed") for g in native_run["graders"]}, "tokens": {}}
@@ -278,7 +297,10 @@ def score_run(case: dict, arm: str, native_run: dict, scratch, mcp_prefix: str |
         run["tools_called"] = [use["name"] + (" (error)" if use["error"] else "")
                                for use in trace["tool_uses"][:MAX_TOOLS_LISTED]]
         if mcp_prefix:
-            run["mcp_calls"] = sum(1 for use in trace["tool_uses"] if use["name"].startswith(mcp_prefix) and not use["error"])
+            served = [use for use in trace["tool_uses"] if use["name"].startswith(mcp_prefix)]
+            run["mcp_calls"] = sum(1 for use in served if not use["error"])
+            run["mcp_answers"] = [{"tool": use["name"], "error": use["error"], "answer": use["answer"]}
+                                  for use in served[:MAX_ANSWERS_KEPT]]
         if error:
             return end("errored", error)
         run["cheat"] = native.touched(case["forbidden_paths"], trace["tool_uses"])
@@ -289,8 +311,10 @@ def score_run(case: dict, arm: str, native_run: dict, scratch, mcp_prefix: str |
             invoked = [use["input"].get("skill") for use in trace["tool_uses"]
                        if use["name"] == "Skill" and not use["error"]]
             invoked = [name for name in invoked if isinstance(name, str)]
-            missing = [skill for skill in case["expected_skills"]
-                       if not any(name == skill or name.endswith(":" + skill) for name in invoked)]
+            def names(skill: str, name: str) -> bool:
+                return name == skill or (name == f"{plugin}:{skill}" if plugin else name.endswith(":" + skill))
+
+            missing = [skill for skill in case["expected_skills"] if not any(names(skill, name) for name in invoked)]
             run["triggered"] = not missing
             if missing:
                 return end("not_triggered", "not invoked: " + ", ".join(missing))
@@ -316,10 +340,12 @@ def score_run(case: dict, arm: str, native_run: dict, scratch, mcp_prefix: str |
         shutil.rmtree(workspace, ignore_errors=True)
 
 
-def score_case(case: dict, native_result: dict, scratch, mcp_prefix: str | None = None) -> dict:
+def score_case(case: dict, native_result: dict, scratch, mcp_prefix: str | None = None,
+               plugin: str | None = None) -> dict:
     """Both arms of one case of a result, scored."""
     aggregates = native_result.get("aggregates") if isinstance(native_result.get("aggregates"), dict) else {}
-    return {"arms": {arm: [score_run(case, arm, run, scratch, mcp_prefix) for run in native_result["arms"].get(arm) or []]
+    return {"arms": {arm: [score_run(case, arm, run, scratch, mcp_prefix, plugin)
+                           for run in native_result["arms"].get(arm) or []]
                      for arm in ARMS},
             "native": {key: aggregates.get(key) for key in ("score", "scoreWithout", "delta")}}
 
@@ -428,8 +454,18 @@ def save_record(out, case: dict, digest: str, record: dict) -> None:
 def settings_differ(record: dict, asked: dict) -> list[str]:
     """What a stored result was run with that is not what is asked now, one phrase per setting."""
     stored = record.get("settings") if isinstance(record.get("settings"), dict) else {}
-    return [f"{SETTING_NAMES[key]} {stored.get(key)!r}, now {asked[key]!r}"
-            for key in SETTING_NAMES if key in asked and stored.get(key) != asked[key]]
+    was = {key: stored.get(key, SETTING_DEFAULTS.get(key)) for key in SETTING_NAMES}
+    return [f"{SETTING_NAMES[key]} {was[key]!r}, now {asked[key]!r}"
+            for key in SETTING_NAMES if key in asked and was[key] != asked[key]]
+
+
+def measured_as(record: dict) -> str:
+    """Which form of the skill a stored result measured, as the report says it."""
+    package = record.get("package") if isinstance(record.get("package"), dict) else {}
+    form = FORMS.get(package.get("form"), FORMS["skill_package"])  # before the kit plugin, every result was a package's
+    if not package.get("plugin"):
+        return form
+    return f"{form} {package['plugin']} {package.get('version')}, invoked as {package.get('invoke')}"
 
 
 def reusable(record: dict | None) -> bool:
@@ -465,7 +501,7 @@ def select(root, skills: list[str] | None, tier: str | None) -> dict[str, list[d
 
 
 def plan_skill(ctx: dict, skill: str, cases: list[dict], use_cache: bool, runs: int | None = None,
-               asked: dict | None = None, kit_mcp: bool = False) -> dict:
+               asked: dict | None = None, kit_mcp: bool = False, kit_plugin: bool = False) -> dict:
     """What a run of this skill would do: per case its hash and its stored result, and what is left to run.
 
     `asked` holds the model and the judge model of this run; a stored result made with other
@@ -475,12 +511,15 @@ def plan_skill(ctx: dict, skill: str, cases: list[dict], use_cache: bool, runs: 
     plan = {"skill": skill, "skill_dir": skill_dir, "has_skill": skill_dir.is_dir(), "entries": [], "to_run": [],
             "tools_dir": ctx["kit"] / "03-tools"}
     plan["mcp_tools"], plan["tools_root"] = declared_needs(ctx, skill) if plan["has_skill"] else ([], False)
-    plan["kit_mcp"] = bool(kit_mcp and plan["mcp_tools"])  # the server is started only for a skill that declares its tools
+    plan["kit_plugin"] = bool(kit_plugin)  # the skill from the kit plugin, which starts its own server
+    # this checkout's server is started only for a skill that declares its tools, and never beside the plugin's
+    plan["kit_mcp"] = bool(kit_mcp and plan["mcp_tools"] and not kit_plugin)
     for case in cases:
         digest = skill_eval.case_hash(case, skill_dir) if plan["has_skill"] else None
         stored = load_record(ctx["out"], case, digest) if digest else None
         case_runs = native.runs_of(case, runs)
-        differs = (settings_differ(stored, {**asked, "runs": case_runs, "kit_mcp": plan["kit_mcp"]})
+        differs = (settings_differ(stored, {**asked, "runs": case_runs, "kit_mcp": plan["kit_mcp"],
+                                            "kit_plugin": plan["kit_plugin"]})
                    if stored and asked is not None else [])
         cached = use_cache and reusable(stored) and not differs
         plan["entries"].append({"case": case, "hash": digest, "record": stored, "cached": cached, "fresh": False,
@@ -498,14 +537,19 @@ def plan_lines(plan: dict, ceiling: float) -> list[str]:
     if not plan["has_skill"]:
         lines.append(f"  skill folder not found at {plan['skill_dir']}: a real run reports it as not measured")
     declared = len(plan["mcp_tools"])
-    if plan["kit_mcp"]:
+    if plan["kit_plugin"]:
+        lines.append(f"  {plan['skill']}: --kit-plugin evaluates it from the kit plugin (every skill plus the kit's MCP "
+                     f"server, started from the plugin's own files; it runs as you, outside the tool's sandbox) and "
+                     f"allows the {declared} tool(s) the skill declares")
+    elif plan["kit_mcp"]:
         lines.append(f"  {plan['skill']}: --kit-mcp starts this checkout's MCP server for its runs (it runs as you, outside "
                      f"the tool's sandbox) and allows the {declared} tool(s) the skill declares")
     elif declared:
         lines.append(f"  {plan['skill']} declares {declared} MCP tool(s) of the kit's server, which this run does not start: "
                      f"the skill runs without its tools, so its verdict cannot be `works` (add --kit-mcp to start the server)")
     if plan["tools_root"]:
-        lines.append(f"  {plan['skill']}: its files name the kit's tools root, rendered to {plan['tools_dir']} for the run")
+        where = "the plugin's own tools folder" if plan["kit_plugin"] else str(plan["tools_dir"])
+        lines.append(f"  {plan['skill']}: its files name the kit's tools root, rendered to {where} for the run")
     for entry in plan["entries"]:
         case, stored = entry["case"], entry["record"] or {}
         state = (f"cached (stored {stored.get('stored_at')}, {len(stored['arms']['with'])} run(s) per arm; "
@@ -543,18 +587,32 @@ def execute(ctx: dict, plan: dict, args) -> None:
     native_out = ctx["out"] / "native" / skill / f"{time.strftime('%Y%m%dT%H%M%S')}-{os.getpid()}"
     shutil.rmtree(work, ignore_errors=True)
     try:
-        try:
-            laid = build.layout_plugin(_build_kit(ctx), skill, work / "plugin", local_mcp=plan["kit_mcp"], render_tools=True)
-        except build.BuildError as exc:
-            raise NativeError(f"the skill cannot be packed: {_one_line(exc)}") from exc
-        served = laid["mcp_tools"]  # empty unless --kit-mcp was asked for a skill that declares tools
-        mcp_prefix = build.plugin_tool_name(laid["name"], build.MCP_PREFIX) if plan["kit_mcp"] else None
+        if plan["kit_plugin"]:
+            try:
+                laid = build.layout_kit_plugin(_build_kit(ctx), work / "plugin")
+            except build.BuildError as exc:
+                raise NativeError(f"the kit plugin cannot be packed: {_one_line(exc)}") from exc
+            if skill not in laid["skills"]:
+                raise NativeError(f"the kit plugin does not hold the skill {skill} (it packs the skills that have a BUILD.json)")
+            served, mcp_prefix, plugin = laid["skills"][skill]["mcp_tools"], laid["tool_prefix"], laid["name"]
+            package = {"form": "kit_plugin", "plugin": plugin, "version": laid["version"],
+                       "invoke": laid["skills"][skill]["invoke"]}
+        else:
+            try:
+                laid = build.layout_plugin(_build_kit(ctx), skill, work / "plugin", local_mcp=plan["kit_mcp"], render_tools=True)
+            except build.BuildError as exc:
+                raise NativeError(f"the skill cannot be packed: {_one_line(exc)}") from exc
+            served = laid["mcp_tools"]  # empty unless --kit-mcp was asked for a skill that declares tools
+            mcp_prefix = build.plugin_tool_name(laid["name"], build.MCP_PREFIX) if plan["kit_mcp"] else None
+            plugin = None
+            package = {"form": "skill_package", "plugin": laid["name"], "version": laid["version"], "invoke": laid["invoke"]}
+        starts_server = plan["kit_mcp"] or plan["kit_plugin"]  # the plugin under test carries a server with no mock
         scaffold = native.write_suite(work / "plugin", cases, extra_tools=served)
         native_out.mkdir(parents=True)
         argv = native.build_argv(native.claude_bin(), work / "plugin", native_out, max_cost_usd=args.max_cost_usd,
                                  tier=args.tier, runs=args.runs, model=args.model, judge_model=args.judge_model,
                                  allow_tools=native.gated_tools(cases, served), scaffold=scaffold,
-                                 real_servers=plan["kit_mcp"])
+                                 real_servers=starts_server)
         (native_out / "command.json").write_text(json.dumps(argv) + "\n", encoding="utf-8")
         timeout = 300 + sum(len(ARMS) * native.runs_of(case, args.runs) * (case["timeout_seconds"] or 300) for case in cases)
         code, stdout, stderr = native.run_native(argv, native_out, timeout)
@@ -584,13 +642,14 @@ def execute(ctx: dict, plan: dict, args) -> None:
             case = entry["case"]
             if entry["cached"] or case["name"] not in by_name:
                 continue
-            record = score_case(case, by_name.pop(case["name"]), work / "scratch", mcp_prefix)
+            record = score_case(case, by_name.pop(case["name"]), work / "scratch", mcp_prefix, plugin)
             record.update(runner_version=RUNNER_VERSION, case=case["id"], skill=skill, tier=case["tier"],
                           hash=entry["hash"], stored_at=time.strftime("%Y-%m-%dT%H:%M:%S%z"),
                           expected_skills=case["expected_skills"], skill_tokens=tokens, token_method=method,
-                          mcp={"declared": plan["mcp_tools"], "served": plan["kit_mcp"]},
+                          mcp={"declared": plan["mcp_tools"], "served": bool(served)}, package=package,
                           settings={"model": args.model, "judge_model": args.judge_model, "runs": entry["runs"],
-                                    "kit_mcp": plan["kit_mcp"], "max_cost_usd": args.max_cost_usd,
+                                    "kit_mcp": plan["kit_mcp"], "kit_plugin": plan["kit_plugin"],
+                                    "max_cost_usd": args.max_cost_usd,
                                     "claude_version": result.get("claudeVersion")})
             save_record(ctx["out"], case, entry["hash"], record)
             entry.update(record=record, fresh=True)
@@ -619,6 +678,7 @@ def skill_report(plan: dict, failure: str | None = None) -> dict:
                                for arm in ARMS}})
     return {"skill": plan["skill"], **verdict(summary, len(plan["entries"]), failure), "selected": len(plan["entries"]),
             "cached": sum(1 for case in cases if case["state"] == "cached"), "summary": summary,
+            "measured_as": sorted({measured_as(record) for record in records}),
             "size_tokens": tokens, "token_method": method, "cases": cases}
 
 
@@ -644,6 +704,7 @@ def report_lines(report: dict) -> list[str]:
             f"  judge spend that did not count: USD {summary['judge_uncounted_usd']:.4f}, "
             f"on runs not triggered USD {summary['judge_not_triggered_usd']:.4f} (the native tool runs its judge on every run)",
         ]
+        lines += [f"  measured as: {form}" for form in report["measured_as"]]
         if summary["without_tools"]:
             lines.append(f"  without its tools: the skill declares MCP tools and the kit's server was not started in "
                          f"{summary['without_tools']} of {summary['cases']} case(s), so the verdict cannot be `works`")
@@ -685,8 +746,11 @@ def _print_report(plans: list[dict], failures: dict, json_path) -> None:
 
 def cmd_run(args) -> int:
     ctx = _context(args)
+    if args.kit_plugin and args.kit_mcp:
+        raise CaseError("pass --kit-plugin or --kit-mcp, not both: the kit plugin starts its own server")
     asked = {"model": args.model, "judge_model": args.judge_model}
-    plans = [plan_skill(ctx, skill, cases, use_cache=not args.no_cache, runs=args.runs, asked=asked, kit_mcp=args.kit_mcp)
+    plans = [plan_skill(ctx, skill, cases, use_cache=not args.no_cache, runs=args.runs, asked=asked, kit_mcp=args.kit_mcp,
+                        kit_plugin=args.kit_plugin)
              for skill, cases in select(ctx["root"], args.skill, args.tier).items()]
     paying = [plan for plan in plans if plan["to_run"]]
     total = args.max_cost_usd * len(paying)
