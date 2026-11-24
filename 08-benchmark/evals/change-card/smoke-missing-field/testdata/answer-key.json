@@ -1,0 +1,66 @@
+{
+  "saved_file": "card-filled.md",
+  "drafted_field": "How we'll know",
+  "never_filled": [
+    "What it risks"
+  ],
+  "valid_tags": [
+    "Measured",
+    "Tested",
+    "Inferred",
+    "Assumed",
+    "Unknown",
+    "Medido",
+    "Probado",
+    "Inferido",
+    "Asumido",
+    "Desconocido"
+  ],
+  "tags_no_draft_can_claim": [
+    "Measured",
+    "Tested",
+    "Medido",
+    "Probado"
+  ],
+  "card_terms": [
+    "webhook",
+    "payment",
+    "paid",
+    "retry",
+    "retries",
+    "retried",
+    "duplicate",
+    "twice",
+    "applied"
+  ],
+  "author_fields": {
+    "Why": {
+      "text": "The provider drops about one webhook in two hundred, and a dropped one leaves the order unpaid in our records.",
+      "tag": "Measured"
+    },
+    "For what": {
+      "text": "Data integrity: every paid order is recorded as paid.",
+      "tag": "Inferred"
+    },
+    "When": {
+      "text": "Before the November sales campaign starts.",
+      "tag": "Assumed"
+    },
+    "How": {
+      "text": "Store the webhook id and skip an id that was already applied; retry three times with backoff.",
+      "tag": "Inferred"
+    },
+    "How far": {
+      "text": "Only the payment webhook handler; no change to refunds. Undo by reverting the commit.",
+      "tag": "Inferred"
+    },
+    "Invariant": {
+      "text": "INV-04",
+      "tag": null
+    },
+    "Ticket": {
+      "text": "PAY-212",
+      "tag": null
+    }
+  }
+}

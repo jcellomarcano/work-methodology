@@ -1367,7 +1367,7 @@ class RealKitPluginTests(unittest.TestCase):
         self.assertEqual({tool["name"] for tool in answers[1]["result"]["tools"]}, set(names))
         verdict = answers[2]["result"]
         self.assertFalse(verdict["isError"], verdict)
-        self.assertEqual(verdict["structuredContent"]["verdict"], "FAIL")  # the seed card lacks one field
+        self.assertEqual(verdict["structuredContent"]["verdict"], "FAIL")  # the seed card lacks two fields
         self.assertIn(f"tools_root={tools}", proc.stderr)  # its tools root is the plugin's folder, not this checkout
         self.assertNotIn(str(TOOLS_ROOT), proc.stderr)
 

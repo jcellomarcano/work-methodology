@@ -1,1 +1,1 @@
-Validate the change card in card.md before I hand it to a proposer. Save the validator's JSON result as card-verdict.json, then tell me what is missing and which lane the card takes.
+The change card in card.md isn't finished and I need to hand it to a proposer today. Complete it as far as you're allowed to and save the result as card-filled.md. No placeholders: whatever isn't yours to write stays out of the file. Then tell me what's left for me.

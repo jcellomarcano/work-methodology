@@ -14,11 +14,12 @@
     ]
   },
   "validators": [
-    "validators/check_verdict.py"
+    "validators/check_filled_card.py"
   ],
   "expectations": [
-    "The answer says the card fails validation because the field \"How we'll know\" is missing.",
-    "The answer says the card takes the opus lane."
+    "The answer says the field \"What it risks\" was left out of the card because only the owner, as its author, writes it.",
+    "The answer says the text of \"How we'll know\" is a draft that nothing has measured or tested yet, for example by naming its tag as Inferred or Assumed.",
+    "The answer says the card is still incomplete and takes the opus lane, so it stays with the owner and does not go to a proposer yet."
   ],
   "max_turns": 10,
   "timeout_seconds": 240,
