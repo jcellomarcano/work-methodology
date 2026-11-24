@@ -1,0 +1,896 @@
+{
+  "runner_version": 5,
+  "skills": [
+    {
+      "cached": 0,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Read (error)",
+                  "Glob",
+                  "Read",
+                  "Skill",
+                  "Grep (error)",
+                  "Glob (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Read",
+                  "Skill",
+                  "Glob (error)",
+                  "Glob (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Glob (error)",
+                  "Glob",
+                  "Read",
+                  "Skill",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "rejected: expect-03",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Glob (error)",
+                  "Glob (error)",
+                  "Glob",
+                  "Read",
+                  "Skill",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "rejected: expect-03",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob (error)",
+                  "Glob (error)",
+                  "Read",
+                  "Read (error)",
+                  "Skill",
+                  "Write"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_answers.py: exit 1: 2 rules broken: unknown-key, answer-missing",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob (error)",
+                  "Glob (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "Read",
+                  "Grep (error)",
+                  "Read (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_answers.py: exit 1: 4 rules broken: unknown-key, wrong-type, unconfirmed-key, answer-missing",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Glob (error)",
+                  "Read",
+                  "Bash (error)",
+                  "Glob (error)",
+                  "Glob",
+                  "Glob (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_answers.py: exit 1: 2 rules broken: unknown-key, answer-missing",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Glob",
+                  "Glob (error)",
+                  "Read (error)",
+                  "Read",
+                  "Glob",
+                  "Glob (error)",
+                  "Glob (error)",
+                  "Read (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_answers.py: exit 1: 2 rules broken: unknown-key, answer-missing",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Glob",
+                  "Glob (error)",
+                  "Glob (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_answers.py: exit 1: 2 rules broken: unknown-key, answer-missing",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Glob (error)",
+                  "Glob (error)",
+                  "Glob (error)",
+                  "Read",
+                  "Read (error)",
+                  "Grep (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "init-kit/smoke-unanswered-key",
+          "hash": "2d87d968d5675e974dc92e6fc530158f1764bd2b7dd7fc9eab1403f7cc1bc560",
+          "state": "run now",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package init-kit 1.0.0, invoked as init-kit:init-kit"
+      ],
+      "reasons": [
+        "the judge rejects it"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 1123,
+      "skill": "init-kit",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 2,
+            "not_triggered": 0,
+            "passed": 3,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 5
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": 0.6,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0,
+        "judge_uncounted_usd": 0.0065599000000000005,
+        "judge_usd": 0.0131806,
+        "mcp_calls": 0,
+        "mcp_calls_without": 0,
+        "mcp_served": 0,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.06047757000000001,
+        "triggered": 5,
+        "validated": 5,
+        "with_score": 0.6,
+        "without_score": 0.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "review",
+      "without_arm": [
+        "the tool's own ablation, which removes the whole plugin"
+      ]
+    },
+    {
+      "cached": 0,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "not invoked: necessary-comment",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Read",
+                  "ToolSearch",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "not invoked: necessary-comment",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Grep",
+                  "Glob",
+                  "ToolSearch",
+                  "Grep (error)"
+                ]
+              },
+              {
+                "detail": "not invoked: necessary-comment",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Grep",
+                  "ToolSearch",
+                  "Glob",
+                  "Glob"
+                ]
+              },
+              {
+                "detail": "not invoked: necessary-comment",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Grep",
+                  "ToolSearch",
+                  "Glob",
+                  "Grep",
+                  "Bash (error)"
+                ]
+              },
+              {
+                "detail": "not invoked: necessary-comment",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Grep",
+                  "Read",
+                  "ToolSearch",
+                  "Grep (error)"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_routing.py: exit 1: output-missing: round/004-routing.json is missing from the files the run left",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Grep",
+                  "ToolSearch",
+                  "Glob",
+                  "Grep"
+                ]
+              },
+              {
+                "detail": "validators/check_routing.py: exit 1: route-wrong: src/main/kotlin/export/RetryPolicy.kt:19 (MAKE-SELF-EXPLANATORY) goes to \"mechanic\"; a MAKE-SELF-EXPLANATORY touches statements, so it goes to generic-judge and never to generic-mechanic",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "Grep",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_routing.py: exit 1: output-unreadable: round/004-routing.json is not a JSON list of entries with file, line and to",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "Grep",
+                  "Glob",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_routing.py: exit 1: output-missing: round/004-routing.json is missing from the files the run left",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Grep",
+                  "ToolSearch",
+                  "Grep"
+                ]
+              },
+              {
+                "detail": "validators/check_routing.py: exit 1: output-missing: round/004-routing.json is missing from the files the run left",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "Glob",
+                  "Grep",
+                  "Grep"
+                ]
+              }
+            ]
+          },
+          "case": "necessary-comment/smoke-verdict-routing",
+          "hash": "c752fff1a1773f6efe34ed7cd992a5172979c6d3708220cf35eaa1bfcaf44ae5",
+          "state": "run now",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package necessary-comment 1.0.0, invoked as necessary-comment:necessary-comment"
+      ],
+      "reasons": [
+        "it does not trigger when it should (look at the description)"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 688,
+      "skill": "necessary-comment",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 5,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 5
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": null,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.007058400000000002,
+        "judge_uncounted_usd": 0.013092400000000004,
+        "judge_usd": 0.013092400000000004,
+        "mcp_calls": 0,
+        "mcp_calls_without": 0,
+        "mcp_served": 1,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.06331366000000002,
+        "triggered": 0,
+        "validated": 0,
+        "with_score": null,
+        "without_score": 0.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "review",
+      "without_arm": [
+        "the same plugin with only skills/necessary-comment/ removed, in a second invocation of the tool: its MCP server and tools stay; 0 call(s) to its tools in the runs without the skill"
+      ]
+    },
+    {
+      "cached": 0,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "validators/check_posted.py: exit 1: posted.md is missing from the files the run left",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob (error)",
+                  "Glob (error)",
+                  "Bash",
+                  "Bash",
+                  "Read",
+                  "Skill",
+                  "Bash",
+                  "Bash"
+                ]
+              },
+              {
+                "detail": "not invoked: post-review-comment",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Bash",
+                  "Read",
+                  "Bash",
+                  "Bash",
+                  "Bash",
+                  "Bash",
+                  "ToolSearch",
+                  "TaskStop",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_posted.py: exit 1: posted.md is missing from the files the run left",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob (error)",
+                  "Glob",
+                  "Read",
+                  "Grep (error)",
+                  "Bash",
+                  "Skill",
+                  "Bash",
+                  "Bash"
+                ]
+              },
+              {
+                "detail": "not invoked: post-review-comment",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Bash",
+                  "Read",
+                  "Bash",
+                  "Bash",
+                  "Read",
+                  "Bash (error)",
+                  "Bash",
+                  "ToolSearch",
+                  "TaskStop",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_posted.py: exit 1: posted.md is missing from the files the run left",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob (error)",
+                  "Glob",
+                  "Read",
+                  "Bash",
+                  "Bash",
+                  "Skill",
+                  "Bash",
+                  "Bash"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: ",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash",
+                  "Read",
+                  "Bash",
+                  "Bash (error)",
+                  "Bash (error)",
+                  "Write",
+                  "Bash",
+                  "Bash"
+                ]
+              },
+              {
+                "detail": "validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: ",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash",
+                  "Read",
+                  "Bash",
+                  "Bash"
+                ]
+              },
+              {
+                "detail": "validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: ",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash",
+                  "Bash",
+                  "Bash",
+                  "Bash",
+                  "Bash"
+                ]
+              },
+              {
+                "detail": "validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: ",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash",
+                  "Read",
+                  "Bash",
+                  "Bash",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: ",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash",
+                  "Read",
+                  "Bash",
+                  "Bash (error)",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "post-review-comment/smoke-render",
+          "hash": "72c7ed13f55c7a6efc727f977e086e1249f361b80967ffdc71a39f85054ca761",
+          "state": "run now",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package post-review-comment 1.0.0, invoked as post-review-comment:post-review-comment"
+      ],
+      "reasons": [
+        "it does not trigger when it should (look at the description)",
+        "its output fails a validator"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 603,
+      "skill": "post-review-comment",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 2,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 3
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 5
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": 0.0,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0009083000000000001,
+        "judge_uncounted_usd": 0.0039433,
+        "judge_usd": 0.0039433,
+        "mcp_calls": 0,
+        "mcp_calls_without": 0,
+        "mcp_served": 0,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.058880289999999995,
+        "triggered": 3,
+        "validated": 0,
+        "with_score": 0.0,
+        "without_score": 0.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "review",
+      "without_arm": [
+        "the tool's own ablation, which removes the whole plugin"
+      ]
+    },
+    {
+      "cached": 0,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "mcp__plugin_pr-message_metodo__change_card_validate",
+                  "mcp__plugin_pr-message_metodo__receipt_status (error)",
+                  "Bash (error)",
+                  "Glob",
+                  "Write",
+                  "mcp__plugin_pr-message_metodo__done_check",
+                  "Edit"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "Glob",
+                  "ToolSearch",
+                  "Read",
+                  "Read",
+                  "mcp__plugin_pr-message_metodo__change_card_validate",
+                  "mcp__plugin_pr-message_metodo__receipt_status (error)",
+                  "Bash (error)",
+                  "Write",
+                  "mcp__plugin_pr-message_metodo__done_check",
+                  "Edit"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "mcp__plugin_pr-message_metodo__change_card_validate",
+                  "mcp__plugin_pr-message_metodo__receipt_status (error)",
+                  "Bash (error)",
+                  "Glob",
+                  "Write",
+                  "mcp__plugin_pr-message_metodo__done_check",
+                  "Edit"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_pr-message_metodo__change_card_validate",
+                  "mcp__plugin_pr-message_metodo__receipt_status (error)",
+                  "Write",
+                  "mcp__plugin_pr-message_metodo__done_check (error)",
+                  "mcp__plugin_pr-message_metodo__done_check",
+                  "Edit"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "Glob",
+                  "ToolSearch",
+                  "mcp__plugin_pr-message_metodo__change_card_validate",
+                  "Read",
+                  "Read",
+                  "mcp__plugin_pr-message_metodo__receipt_status (error)",
+                  "Bash (error)",
+                  "Grep",
+                  "Write",
+                  "mcp__plugin_pr-message_metodo__done_check",
+                  "Edit"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_pr_body.py: exit 1: section-missing: the message has no section \"What and why\", \"Before and after\", \"What was NOT tested\"",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_pr_body.py: exit 1: section-missing: the message has no section \"What and why\", \"Before and after\", \"What was NOT tested\"",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_pr_body.py: exit 1: section-missing: the message has no section \"What and why\", \"Before and after\", \"What was NOT tested\"",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_pr_body.py: exit 1: section-missing: the message has no section \"What and why\", \"Before and after\", \"What was NOT tested\"",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_pr_body.py: exit 1: section-missing: the message has no section \"What and why\", \"Before and after\", \"What was NOT tested\"",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "pr-message/smoke-skipped-check",
+          "hash": "b8175aa09631d704b1854925e386d24050f064e6386563510d5f5341df4a2899",
+          "state": "run now",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package pr-message 1.1.0, invoked as pr-message:pr-message"
+      ],
+      "reasons": [
+        "it triggers and the result is better than without it"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 808,
+      "skill": "pr-message",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 5,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 5
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": 1.0,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0,
+        "judge_uncounted_usd": 0.005808599999999999,
+        "judge_usd": 0.011305299999999999,
+        "mcp_calls": 10,
+        "mcp_calls_without": 0,
+        "mcp_served": 1,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.07216281999999999,
+        "triggered": 5,
+        "validated": 5,
+        "with_score": 1.0,
+        "without_score": 0.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "works",
+      "without_arm": [
+        "the same plugin with only skills/pr-message/ removed, in a second invocation of the tool: its MCP server and tools stay; 0 call(s) to its tools in the runs without the skill"
+      ]
+    }
+  ],
+  "thresholds": {
+    "delta_min": 0.1,
+    "judge_pass_min": 0.8,
+    "runs_per_arm_min": 3,
+    "trigger_rate_min": 0.8,
+    "validator_pass_min": 0.8
+  }
+}

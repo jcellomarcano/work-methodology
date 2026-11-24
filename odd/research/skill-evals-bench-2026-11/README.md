@@ -60,3 +60,52 @@ five invocations cost USD 0.258.
 
 At five runs the limit of 0.8 is met by four passes of five, so one rejected answer no longer flips
 `change-card`. `post-review-comment` got worse, not better, with more runs: no scored run invoked the skill.
+
+## All 17 skills at five runs per arm
+
+Branch `feat/skill-evals-all-skills` (S17): the 15 skills that had no case got one, and every skill with a case
+was run with `--kit-mcp --real --runs 5`, `haiku` for model and judge, ceiling USD 0.25 per skill. Files
+`run6-all-skills-group1..4.*` (four runner processes side by side) and `run7-<skill>-corrected-validator.*`: three
+cases ran again after the independent verifier found their validators failing faithful outputs, and the row
+below is their second run. USD 1.421 in all for these runs; the writers' own proof runs of the new cases, one
+run per arm, cost USD 0.369 more. With the runs above, the day's real runs cost USD 2.05.
+
+| Skill | Verdict | With | Without | Triggered | Runs with the skill | Runs without it | Note |
+|---|---|---|---|---|---|---|---|
+| `adversarial-round` | `review` | n/a | 0.00 | 0 of 5 | 0 passed, 0 failed the validator, 0 rejected by the judge, 5 not triggered | 0 passed | |
+| `benchmark-release` | `review` | 1.00 | 1.00 | 5 of 5 | 5 passed, 0 failed the validator, 0 rejected by the judge, 0 not triggered | 5 passed | |
+| `cartography` | `review` | 0.40 | 0.00 | 5 of 5 | 2 passed, 3 failed the validator, 0 rejected by the judge, 0 not triggered | 0 passed | |
+| `change-card` | `works` | 0.80 | 0.00 | 5 of 5 | 4 passed, 0 failed the validator, 1 rejected by the judge, 0 not triggered | 0 passed | stored result |
+| `clean-pass` | `works` | 0.80 | 0.00 | 5 of 5 | 4 passed, 1 failed the validator, 0 rejected by the judge, 0 not triggered | 0 passed | |
+| `harness-benchmark` | `review` | 0.00 | 0.00 | 5 of 5 | 0 passed, 5 failed the validator, 0 rejected by the judge, 0 not triggered | 0 passed | |
+| `human-reply` | `review` | 0.40 | 0.00 | 5 of 5 | 2 passed, 1 failed the validator, 2 rejected by the judge, 0 not triggered | 0 passed | |
+| `human-review` | `works` | 0.80 | 0.00 | 5 of 5 | 4 passed, 0 failed the validator, 1 rejected by the judge, 0 not triggered | 0 passed | |
+| `init-kit` | `review` | 0.60 | 0.00 | 5 of 5 | 3 passed, 0 failed the validator, 2 rejected by the judge, 0 not triggered | 0 passed | |
+| `necessary-comment` | `review` | n/a | 0.00 | 0 of 5 | 0 passed, 0 failed the validator, 0 rejected by the judge, 5 not triggered | 0 passed | |
+| `post-review-comment` | `review` | 0.00 | 0.00 | 3 of 5 | 0 passed, 3 failed the validator, 0 rejected by the judge, 2 not triggered | 0 passed | |
+| `pr-message` | `works` | 1.00 | 0.00 | 5 of 5 | 5 passed, 0 failed the validator, 0 rejected by the judge, 0 not triggered | 0 passed | |
+| `real-environment-minutes` | `works` | 0.80 | 0.20 | 5 of 5 | 4 passed, 0 failed the validator, 1 rejected by the judge, 0 not triggered | 1 passed | |
+| `receipt-review` | `review` | 1.00 | 0.00 | 1 of 5 | 1 passed, 0 failed the validator, 0 rejected by the judge, 4 not triggered | 0 passed | |
+| `repo-metrics` | `works` | 0.80 | 0.40 | 5 of 5 | 4 passed, 0 failed the validator, 1 rejected by the judge, 0 not triggered | 2 passed | |
+| `review-comment` | `works` | 1.00 | 0.00 | 5 of 5 | 5 passed, 0 failed the validator, 0 rejected by the judge, 0 not triggered | 0 passed | |
+| `verify-per-commit` | `review` | 0.80 | 1.00 | 5 of 5 | 4 passed, 0 failed the validator, 1 rejected by the judge, 0 not triggered | 5 passed | |
+
+Seven read `works` and ten read `review`. The ten are not one finding [Tested, five runs per arm, one model,
+one case per skill]:
+
+- **Three do not trigger** (`adversarial-round`, `necessary-comment`, `receipt-review` once in five). Their
+  cases start after the step their descriptions name, because a run cannot launch role agents and its folder is
+  no git repository; the prompt then reads as a question about files.
+- **Five trigger and do not pass.** `harness-benchmark`: every summary rounded or recomputed numbers, which the
+  skill forbids. `init-kit`: two answers showed the command without the runtime option. `cartography`: two maps
+  left a measured module's LOC out and one run saved no file. `human-reply`: the judge rejected two answers and
+  one reply lost a tag. `post-review-comment`: the three runs that invoked it left no `posted.md`.
+- **Two do no better than without the skill.** `benchmark-release` passed in both arms every time;
+  `verify-per-commit` passed five of five without the skill and four of five with it, one answer rejected by
+  the judge.
+
+What the runs without the skill show: with the kit's tools at hand and a clear input, `haiku` often reaches the
+right decision unaided. Where a skill reads `works`, the difference is mostly the output its text prescribes
+(the sections of a PR message, the four parts of a review comment, the fields of a brief), and in `change-card`
+and `clean-pass` a rule about what not to write.
+

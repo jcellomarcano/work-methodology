@@ -1,0 +1,317 @@
+{
+  "runner_version": 5,
+  "skills": [
+    {
+      "cached": 0,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "Glob",
+                  "mcp__plugin_cartography_metodo__cartography (error)",
+                  "Glob (error)",
+                  "Bash (error)",
+                  "Read",
+                  "Grep",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_module_map.py: exit 1: broken rules: loc-missing",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "Glob",
+                  "mcp__plugin_cartography_metodo__cartography (error)",
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read (error)",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_module_map.py: exit 1: broken rules: loc-missing",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_cartography_metodo__cartography (error)",
+                  "Glob (error)",
+                  "Bash (error)",
+                  "Grep (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "Read",
+                  "Read",
+                  "mcp__plugin_cartography_metodo__cartography (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "Glob",
+                  "Read",
+                  "mcp__plugin_cartography_metodo__cartography (error)",
+                  "Glob",
+                  "Bash (error)",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_module_map.py: exit 1: output-missing: module-map.md is missing from the files the run left",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_cartography_metodo__cartography (error)",
+                  "Glob",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read (error)",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Glob",
+                  "Read (error)",
+                  "Read",
+                  "Write"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_module_map.py: exit 1: broken rules: unmeasured-sized, number-not-printed",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Read (error)",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Grep",
+                  "Write",
+                  "Edit"
+                ]
+              },
+              {
+                "detail": "validators/check_module_map.py: exit 1: broken rules: unmeasured-sized, number-not-printed",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_module_map.py: exit 1: broken rules: unmeasured-sized, number-not-printed",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Read",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Glob",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Read",
+                  "Glob",
+                  "Glob",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_module_map.py: exit 1: broken rules: unmeasured-sized, number-not-printed",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_module_map.py: exit 1: output-missing: module-map.md is missing from the files the run left",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Read",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Grep",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "cartography/smoke-unmeasured-module",
+          "hash": "158441fb659c8f8fd23b7f44ffa9d796b2d57693d76ae0deb45a56f77c7485a1",
+          "state": "run now",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package cartography 1.0.0, invoked as cartography:cartography"
+      ],
+      "reasons": [
+        "its output fails a validator"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 425,
+      "skill": "cartography",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 2,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 3
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 5
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": 0.4,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0,
+        "judge_uncounted_usd": 0.005603,
+        "judge_usd": 0.0069929000000000015,
+        "mcp_calls": 0,
+        "mcp_calls_without": 0,
+        "mcp_served": 1,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.09893961999999999,
+        "triggered": 5,
+        "validated": 2,
+        "with_score": 0.4,
+        "without_score": 0.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "review",
+      "without_arm": [
+        "the same plugin with only skills/cartography/ removed, in a second invocation of the tool: its MCP server and tools stay; 0 call(s) to its tools in the runs without the skill"
+      ]
+    }
+  ],
+  "thresholds": {
+    "delta_min": 0.1,
+    "judge_pass_min": 0.8,
+    "runs_per_arm_min": 3,
+    "trigger_rate_min": 0.8,
+    "validator_pass_min": 0.8
+  }
+}

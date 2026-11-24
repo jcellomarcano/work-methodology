@@ -1,0 +1,969 @@
+{
+  "runner_version": 5,
+  "skills": [
+    {
+      "cached": 0,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "not invoked: adversarial-round",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_adversarial-round_metodo__change_card_validate",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "not invoked: adversarial-round",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "not invoked: adversarial-round",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_adversarial-round_metodo__output_validate",
+                  "mcp__plugin_adversarial-round_metodo__output_validate",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "not invoked: adversarial-round",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "not invoked: adversarial-round",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_round_status.py: exit 1: status-not-incomplete: \"NOT READY: blind-spot pass truncated; concurrent refunds on ...\" names no status of a round; out/blindspots.json arrived truncated, so the round is INCOMPLETE",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Grep (error)",
+                  "Glob (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_round_status.py: exit 1: status-not-incomplete: \"OPEN\" names no status of a round; out/blindspots.json arrived truncated, so the round is INCOMPLETE",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Grep (error)",
+                  "Glob (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_round_status.py: exit 1: status-not-incomplete: \"NOT READY: blind-spot pass truncated; not covered: concurren...\" names no status of a round; out/blindspots.json arrived truncated, so the round is INCOMPLETE",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_round_status.py: exit 1: status-not-incomplete: \"OPEN\" names no status of a round; out/blindspots.json arrived truncated, so the round is INCOMPLETE",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_round_status.py: exit 1: status-not-incomplete: \"OPEN\" names no status of a round; out/blindspots.json arrived truncated, so the round is INCOMPLETE",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "adversarial-round/smoke-truncated-round",
+          "hash": "2e5f96d2a07af6a18595403e2190b13b4cf719f76cacd43fd7f98793b9f79bf1",
+          "state": "run now",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package adversarial-round 1.0.0, invoked as adversarial-round:adversarial-round"
+      ],
+      "reasons": [
+        "it does not trigger when it should (look at the description)"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 904,
+      "skill": "adversarial-round",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 5,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 5
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": null,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.008434200000000001,
+        "judge_uncounted_usd": 0.0175304,
+        "judge_usd": 0.0175304,
+        "mcp_calls": 3,
+        "mcp_calls_without": 0,
+        "mcp_served": 1,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.05522628,
+        "triggered": 0,
+        "validated": 0,
+        "with_score": null,
+        "without_score": 0.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "review",
+      "without_arm": [
+        "the same plugin with only skills/adversarial-round/ removed, in a second invocation of the tool: its MCP server and tools stay; 0 call(s) to its tools in the runs without the skill"
+      ]
+    },
+    {
+      "cached": 0,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Write"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Glob (error)",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "Write",
+                  "Edit"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Grep",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Grep (error)",
+                  "ToolSearch",
+                  "Read (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "Grep (error)",
+                  "Glob",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob (error)",
+                  "Grep",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "Grep (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "benchmark-release/smoke-base-is-the-tag",
+          "hash": "2a45a4e6ba0b6fec094d9ff76ccb69964bb1a6c6f4f941bbbd10b1a5874a666a",
+          "state": "run now",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package benchmark-release 1.0.0, invoked as benchmark-release:benchmark-release"
+      ],
+      "reasons": [
+        "it triggers and changes nothing (dead weight: cut or shrink)"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 368,
+      "skill": "benchmark-release",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 5,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 5,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": 0.0,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0,
+        "judge_uncounted_usd": 0.0,
+        "judge_usd": 0.007955900000000002,
+        "mcp_calls": 0,
+        "mcp_calls_without": 0,
+        "mcp_served": 1,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.08984829999999999,
+        "triggered": 5,
+        "validated": 5,
+        "with_score": 1.0,
+        "without_score": 1.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "review",
+      "without_arm": [
+        "the same plugin with only skills/benchmark-release/ removed, in a second invocation of the tool: its MCP server and tools stay; 0 call(s) to its tools in the runs without the skill"
+      ]
+    },
+    {
+      "cached": 0,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "validators/check_module_map.py: exit 1: output-missing: module-map.md is missing from the files the run left",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_cartography_metodo__cartography (error)",
+                  "Glob (error)",
+                  "Glob (error)",
+                  "Bash (error)",
+                  "Grep (error)",
+                  "Read (error)",
+                  "Read",
+                  "mcp__plugin_cartography_metodo__cartography (error)"
+                ]
+              },
+              {
+                "detail": "rejected: expect-01",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_cartography_metodo__cartography (error)",
+                  "Glob (error)",
+                  "Bash (error)",
+                  "Grep",
+                  "Read (error)",
+                  "Read",
+                  "Grep",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_module_map.py: exit 1: broken rules: unmeasured-sized, number-not-printed",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_cartography_metodo__cartography (error)",
+                  "Glob",
+                  "Glob",
+                  "Read (error)",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Grep",
+                  "Read",
+                  "Grep (error)",
+                  "Glob",
+                  "Read (error)",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_module_map.py: exit 1: output-missing: module-map.md is missing from the files the run left",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_cartography_metodo__cartography (error)",
+                  "Glob (error)",
+                  "Bash (error)",
+                  "Read",
+                  "Read (error)"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "Glob",
+                  "mcp__plugin_cartography_metodo__cartography (error)",
+                  "Read",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Glob (error)",
+                  "Read",
+                  "Write"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_module_map.py: exit 1: broken rules: unmeasured-sized, number-not-printed",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_module_map.py: exit 1: broken rules: unmeasured-sized, number-not-printed",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Grep",
+                  "Glob",
+                  "Glob",
+                  "Write",
+                  "Edit"
+                ]
+              },
+              {
+                "detail": "validators/check_module_map.py: exit 1: broken rules: unmeasured-sized, number-not-printed",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "Read",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_module_map.py: exit 1: output-missing: module-map.md is missing from the files the run left",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_module_map.py: exit 1: output-missing: module-map.md is missing from the files the run left",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Grep",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "cartography/smoke-unmeasured-module",
+          "hash": "a5ba7f73a2d6da9c5834853b626029c020c49cdf64f2ef9b84ff19daec6fae57",
+          "state": "run now",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package cartography 1.0.0, invoked as cartography:cartography"
+      ],
+      "reasons": [
+        "its output fails a validator",
+        "the judge rejects it"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 425,
+      "skill": "cartography",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 1,
+            "not_triggered": 0,
+            "passed": 1,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 3
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 5
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": 0.2,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0,
+        "judge_uncounted_usd": 0.005687600000000001,
+        "judge_usd": 0.006789100000000001,
+        "mcp_calls": 0,
+        "mcp_calls_without": 0,
+        "mcp_served": 1,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.09805396,
+        "triggered": 5,
+        "validated": 2,
+        "with_score": 0.2,
+        "without_score": 0.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "review",
+      "without_arm": [
+        "the same plugin with only skills/cartography/ removed, in a second invocation of the tool: its MCP server and tools stay; 0 call(s) to its tools in the runs without the skill"
+      ]
+    },
+    {
+      "cached": 1,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Skill",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "mcp__plugin_change-card_metodo__change_card_extract",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Skill",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Skill",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "mcp__plugin_change-card_metodo__change_card_extract",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Skill",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "mcp__plugin_change-card_metodo__change_card_extract",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "rejected: expect-02",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "Glob",
+                  "Skill",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "mcp__plugin_change-card_metodo__change_card_extract",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_filled_card.py: exit 1: drafted-field-missing: \"How we'll know\" is absent or empty; it is the field a draft may fill",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "ToolSearch",
+                  "Read",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "Grep",
+                  "Grep (error)",
+                  "Grep",
+                  "mcp__plugin_change-card_metodo__change_card_extract",
+                  "mcp__plugin_change-card_metodo__role_contract_validate (error)",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "validators/check_filled_card.py: exit 1: never-filled: \"What it risks\" is in the file; only the author writes it",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Bash (error)",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "mcp__plugin_change-card_metodo__domain_invariants (error)",
+                  "mcp__plugin_change-card_metodo__change_card_extract",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "rejected: expect-03",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "Glob",
+                  "ToolSearch",
+                  "Read",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "Grep (error)",
+                  "mcp__plugin_change-card_metodo__change_card_extract",
+                  "Glob",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "validators/check_filled_card.py: exit 1: never-filled: \"What it risks\" is in the file; only the author writes it",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "mcp__plugin_change-card_metodo__domain_invariants (error)",
+                  "Grep (error)",
+                  "mcp__plugin_change-card_metodo__change_card_extract",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "validators/check_filled_card.py: exit 1: never-filled: \"What it risks\" is in the file; only the author writes it",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Glob",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "mcp__plugin_change-card_metodo__domain_invariants (error)",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              }
+            ]
+          },
+          "case": "change-card/smoke-missing-field",
+          "hash": "f173ec4ff02546a03a63e8b460a6a08adc63d06cf2af9214c176a003f05ca259",
+          "state": "cached",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package change-card 1.0.0, invoked as change-card:change-card"
+      ],
+      "reasons": [
+        "it triggers and the result is better than without it"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 385,
+      "skill": "change-card",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 1,
+            "not_triggered": 0,
+            "passed": 4,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 1,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 4
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": 0.8,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0,
+        "judge_uncounted_usd": 0.004160200000000001,
+        "judge_usd": 0.009714200000000003,
+        "mcp_calls": 14,
+        "mcp_calls_without": 14,
+        "mcp_served": 1,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.05951324000000001,
+        "triggered": 5,
+        "validated": 5,
+        "with_score": 0.8,
+        "without_score": 0.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "works",
+      "without_arm": [
+        "the same plugin with only skills/change-card/ removed, in a second invocation of the tool: its MCP server and tools stay; 14 call(s) to its tools in the runs without the skill"
+      ]
+    }
+  ],
+  "thresholds": {
+    "delta_min": 0.1,
+    "judge_pass_min": 0.8,
+    "runs_per_arm_min": 3,
+    "trigger_rate_min": 0.8,
+    "validator_pass_min": 0.8
+  }
+}

@@ -1,0 +1,113 @@
+skill-eval: cost ceiling USD 1.00 (USD 0.25 for each of 4 skill(s) to run); the tool checks it before each run, so the run in flight may pass it
+clean-pass: 1 case(s), 1 to run, 0 cached; arms with, without; 10 native run(s) in 2 native invocation(s); ceiling USD 0.25
+  clean-pass: --kit-mcp starts this checkout's MCP server for its runs (it runs as you, outside the tool's sandbox) and allows the 2 tool(s) the skill declares
+  clean-pass: the arm without the skill runs on the same plugin with only skills/clean-pass/ removed, so the server and its tools stay in both arms: the tool is started twice with --ablation none, under USD 0.125 and at most USD 0.125 of the ceiling
+  clean-pass/smoke-unflagged-item [smoke]: to run, 5 run(s) per arm (the stored result used other settings: runs per arm 1, now 5)
+harness-benchmark: 1 case(s), 1 to run, 0 cached; arms with, without; 10 native run(s) in 2 native invocation(s); ceiling USD 0.25
+  harness-benchmark: --kit-mcp starts this checkout's MCP server for its runs (it runs as you, outside the tool's sandbox) and allows the 2 tool(s) the skill declares
+  harness-benchmark: the arm without the skill runs on the same plugin with only skills/harness-benchmark/ removed, so the server and its tools stay in both arms: the tool is started twice with --ablation none, under USD 0.125 and at most USD 0.125 of the ceiling
+  harness-benchmark/smoke-one-run-report [smoke]: to run, 5 run(s) per arm (the stored result used other settings: runs per arm 1, now 5)
+human-reply: 1 case(s), 1 to run, 0 cached; arms with, without; 10 native run(s) in 2 native invocation(s); ceiling USD 0.25
+  human-reply: --kit-mcp starts this checkout's MCP server for its runs (it runs as you, outside the tool's sandbox) and allows the 2 tool(s) the skill declares
+  human-reply: the arm without the skill runs on the same plugin with only skills/human-reply/ removed, so the server and its tools stay in both arms: the tool is started twice with --ablation none, under USD 0.125 and at most USD 0.125 of the ceiling
+  human-reply/smoke-unverifiable-citation [smoke]: to run, 5 run(s) per arm (the stored result used other settings: runs per arm 1, now 5)
+human-review: 1 case(s), 1 to run, 0 cached; arms with, without; 10 native run(s); ceiling USD 0.25
+  human-review/smoke-reviewer-brief [smoke]: to run, 5 run(s) per arm (the stored result used other settings: runs per arm 1, now 5)
+skill-eval report (runner v5; thresholds: trigger_rate_min 0.8, validator_pass_min 0.8, judge_pass_min 0.8, delta_min 0.1, runs_per_arm_min 3)
+clean-pass: works - it triggers and the result is better than without it
+  cases: 1 measured of 1 selected (0 cached) | arms: with, without | runs per arm: 5
+  score: with 0.80, without 0.00, delta +0.80 | triggered 5 of 5 | cheated 0 | not counted 0
+  size: 337 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.1282, judge USD 0.0086 of it
+  judge spend that did not count: USD 0.0052, on runs not triggered USD 0.0000 (the native tool runs its judge on every run)
+  measured as: its own package clean-pass 1.0.0, invoked as clean-pass:clean-pass
+  arm without the skill: the same plugin with only skills/clean-pass/ removed, in a second invocation of the tool: its MCP server and tools stay; 20 call(s) to its tools in the runs without the skill
+  kit MCP server: started for 1 case(s); 23 call(s) to its tools in the runs with the skill
+  clean-pass/smoke-unflagged-item [smoke]: with: passed, passed, passed, failed a validator, passed | without: failed a validator, failed a validator, failed a validator, failed a validator, failed a validator
+    with run 4: validators/check_cards.py: exit 1: unflagged-item: "Coupons.kt" is in cards.md; the sweep did not flag it
+    with run 4 called: Bash (error), Glob, Read, Read, Read, Skill, Read, Read, Read, Read, ToolSearch, mcp__plugin_clean-pass_metodo__change_card_validate, mcp__plugin_clean-pass_metodo__change_card_validate, mcp__plugin_clean-pass_metodo__change_card_validate, Write
+    without run 1: validators/check_cards.py: exit 1: broken rules: critical-item-carded, unflagged-item
+    without run 1 called: Glob, Glob, Bash (error), Read, Read, Read, Read, Read, Read, Glob, ToolSearch, mcp__plugin_clean-pass_metodo__change_card_validate, mcp__plugin_clean-pass_metodo__change_card_validate, mcp__plugin_clean-pass_metodo__change_card_validate, Glob, Glob, Glob (error), Grep, Write, Edit, Edit, Edit, mcp__plugin_clean-pass_metodo__change_card_validate, mcp__plugin_clean-pass_metodo__change_card_validate
+    without run 2: validators/check_cards.py: exit 1: broken rules: critical-item-carded, unflagged-item
+    without run 2 called: Bash (error), Glob, Glob, Read, Read, Read, Read, Read, Read, ToolSearch, mcp__plugin_clean-pass_metodo__change_card_validate, Grep, Grep, Write, mcp__plugin_clean-pass_metodo__change_card_validate, mcp__plugin_clean-pass_metodo__change_card_validate, Grep (error)
+    without run 3: validators/check_cards.py: exit 1: output-missing: cards.md is missing from the files the run left
+    without run 3 called: Glob, Read, Read, Read, Read, Read, Read, ToolSearch, mcp__plugin_clean-pass_metodo__change_card_validate (error), mcp__plugin_clean-pass_metodo__change_card_validate, Grep (error), mcp__plugin_clean-pass_metodo__change_card_validate, mcp__plugin_clean-pass_metodo__change_card_validate, mcp__plugin_clean-pass_metodo__change_card_validate, Glob (error), Write, mcp__plugin_clean-pass_metodo__change_card_validate
+    without run 4: validators/check_cards.py: exit 1: broken rules: critical-item-carded, unflagged-item
+    without run 4 called: Bash (error), Glob, Glob, Read, Read, Read, Read, Read, Read, Grep, ToolSearch, mcp__plugin_clean-pass_metodo__change_card_validate (error), Glob (error), mcp__plugin_clean-pass_metodo__change_card_validate, mcp__plugin_clean-pass_metodo__change_card_validate, mcp__plugin_clean-pass_metodo__change_card_validate, mcp__plugin_clean-pass_metodo__change_card_extract (error), mcp__plugin_clean-pass_metodo__change_card_validate, Write
+    without run 5: validators/check_cards.py: exit 1: output-missing: cards.md is missing from the files the run left
+    without run 5 called: Glob, Bash (error), Read, Read, Read, ToolSearch, Read, Read, Read, Read, Write, Edit, mcp__plugin_clean-pass_metodo__change_card_validate, Write, mcp__plugin_clean-pass_metodo__change_card_validate, Glob (error), mcp__plugin_clean-pass_metodo__change_card_validate
+harness-benchmark: review - its output fails a validator
+  cases: 1 measured of 1 selected (0 cached) | arms: with, without | runs per arm: 5
+  score: with 0.00, without 0.00, delta +0.00 | triggered 5 of 5 | cheated 0 | not counted 0
+  size: 30630 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0613, judge USD 0.0160 of it
+  judge spend that did not count: USD 0.0160, on runs not triggered USD 0.0000 (the native tool runs its judge on every run)
+  measured as: its own package harness-benchmark 1.0.0, invoked as harness-benchmark:harness-benchmark
+  arm without the skill: the same plugin with only skills/harness-benchmark/ removed, in a second invocation of the tool: its MCP server and tools stay; 0 call(s) to its tools in the runs without the skill
+  kit MCP server: started for 1 case(s); 0 call(s) to its tools in the runs with the skill
+  harness-benchmark/smoke-one-run-report [smoke]: with: failed a validator, failed a validator, failed a validator, failed a validator, failed a validator | without: failed a validator, failed a validator, failed a validator, failed a validator, failed a validator
+    with run 1: validators/check_summary.py: exit 1: number-not-in-report: 2.3, 0.50, 1.01, 0.44, 0.57 and 4 more are not numbers run/report.md prints; a summary relays its numbers, it does not recompute or round them
+    with run 1 called: Skill, Glob, Bash (error), Read, Write
+    with run 2: validators/check_summary.py: exit 1: number-not-in-report: 0.57, 0.569, 0.52, 0.61, 1.01 and 4 more are not numbers run/report.md prints; a summary relays its numbers, it does not recompute or round them
+    with run 2 called: Skill, Glob, Glob, Read, Write
+    with run 3: validators/check_summary.py: exit 1: 2 rules broken: invalid-arm-dropped, number-not-in-report
+    with run 3 called: Skill, Glob, Read, Write
+    with run 4: validators/check_summary.py: exit 1: number-not-in-report: 0.57, 0.52, 0.61 are not numbers run/report.md prints; a summary relays its numbers, it does not recompute or round them
+    with run 4 called: Glob, Skill, Read, Glob, Write
+    with run 5: validators/check_summary.py: exit 1: number-not-in-report: 2.3, 0.50, 0.44, 1.01, 0.57 and 4 more are not numbers run/report.md prints; a summary relays its numbers, it does not recompute or round them
+    with run 5 called: Glob, Skill, Read, Write
+    without run 1: validators/check_summary.py: exit 1: 2 rules broken: invalid-arm-dropped, number-not-in-report
+    without run 1 called: Glob, Read, Glob, Write
+    without run 2: validators/check_summary.py: exit 1: number-not-in-report: 0.50, 1.01, 0.44, 2.3, 0.57 and 4 more are not numbers run/report.md prints; a summary relays its numbers, it does not recompute or round them
+    without run 2 called: Glob, Glob, Read, Glob, Write
+    without run 3: validators/check_summary.py: exit 1: 2 rules broken: invalid-arm-dropped, number-not-in-report
+    without run 3 called: Glob, Read, Write
+    without run 4: validators/check_summary.py: exit 1: 2 rules broken: invalid-arm-dropped, number-not-in-report
+    without run 4 called: Glob, Read, Write
+    without run 5: validators/check_summary.py: exit 1: 2 rules broken: invalid-arm-dropped, number-not-in-report
+    without run 5 called: Glob, Glob, Read, Write
+human-reply: review - the judge rejects it
+  cases: 1 measured of 1 selected (0 cached) | arms: with, without | runs per arm: 5
+  score: with 0.40, without 0.00, delta +0.40 | triggered 5 of 5 | cheated 0 | not counted 0
+  size: 896 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0774, judge USD 0.0086 of it
+  judge spend that did not count: USD 0.0026, on runs not triggered USD 0.0000 (the native tool runs its judge on every run)
+  measured as: its own package human-reply 1.0.0, invoked as human-reply:human-reply
+  arm without the skill: the same plugin with only skills/human-reply/ removed, in a second invocation of the tool: its MCP server and tools stay; 0 call(s) to its tools in the runs without the skill
+  kit MCP server: started for 1 case(s); 15 call(s) to its tools in the runs with the skill
+  human-reply/smoke-unverifiable-citation [smoke]: with: passed, rejected by the judge, failed a validator, rejected by the judge, passed | without: failed a validator, rejected by the judge, rejected by the judge, rejected by the judge, failed a validator
+    with run 2: rejected: expect-02
+    with run 2 called: Glob, Skill, Read, Glob, ToolSearch, mcp__plugin_human-reply_metodo__reply_lint, Read, Grep (error), Glob, Write, mcp__plugin_human-reply_metodo__reply_lint, Edit, mcp__plugin_human-reply_metodo__reply_lint, Edit, mcp__plugin_human-reply_metodo__reply_lint
+    with run 3: validators/check_final_reply.py: exit 1: untagged-claim: line 8 of the technical layer carries no epistemic tag; COM-09 fails it and nothing ships with FAIL
+    with run 3 called: Skill, Glob, Read, ToolSearch, mcp__plugin_human-reply_metodo__reply_lint, Glob, Grep, Read, Grep, Glob, Write, mcp__plugin_human-reply_metodo__reply_lint, Edit, mcp__plugin_human-reply_metodo__reply_lint, Edit, mcp__plugin_human-reply_metodo__reply_lint, Edit, mcp__plugin_human-reply_metodo__reply_lint
+    with run 4: rejected: expect-02
+    with run 4 called: Glob, Skill, Read, Glob, Glob, Read, Read (error), Grep, Write, ToolSearch, mcp__plugin_human-reply_metodo__reply_lint, Glob (error), mcp__plugin_human-reply_metodo__reply_lint
+    without run 1: validators/check_final_reply.py: exit 1: 3 rules broken: untagged-claim, untagged-claim, untagged-claim
+    without run 1 called: Glob, Glob, Read, Read, Grep, Glob, Grep, Write
+    without run 2: rejected: expect-02
+    without run 2 called: Glob, Grep (error), Read, Glob, Read, Grep, Glob, Write
+    without run 3: rejected: expect-02
+    without run 3 called: Glob, Read, Glob, Read, Read (error), Grep, Write
+    without run 4: rejected: expect-02
+    without run 4 called: Glob, Read, Glob, Read, Read (error), Grep, Glob, Write
+    without run 5: validators/check_final_reply.py: exit 1: 2 rules broken: untagged-claim, untagged-claim
+    without run 5 called: Glob, Read, Glob, Read, Glob, Grep, Glob, Write
+human-review: works - it triggers and the result is better than without it
+  cases: 1 measured of 1 selected (0 cached) | arms: with, without | runs per arm: 5
+  score: with 0.80, without 0.00, delta +0.80 | triggered 5 of 5 | cheated 0 | not counted 0
+  size: 587 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0700, judge USD 0.0155 of it
+  judge spend that did not count: USD 0.0088, on runs not triggered USD 0.0000 (the native tool runs its judge on every run)
+  measured as: its own package human-review 1.0.0, invoked as human-review:human-review
+  arm without the skill: the tool's own ablation, which removes the whole plugin
+  human-review/smoke-reviewer-brief [smoke]: with: passed, passed, passed, rejected by the judge, passed | without: failed a validator, failed a validator, failed a validator, failed a validator, failed a validator
+    with run 4: rejected: expect-01, expect-03
+    with run 4 called: Glob, Glob, Read, Read, Skill, Glob (error), Glob, Read (error), Read (error), Write
+    without run 1: validators/check_reviewer_brief.py: exit 1: 4 rules broken: field-missing, field-missing, field-missing, role-missing
+    without run 1 called: Glob, Glob, Read, Read, Grep, Glob, Write
+    without run 2: validators/check_reviewer_brief.py: exit 1: 5 rules broken: field-missing, field-missing, field-missing, field-missing, role-missing
+    without run 2 called: Glob, Glob, Read, Read, Glob, Write
+    without run 3: validators/check_reviewer_brief.py: exit 1: 10 rules broken: field-missing, field-missing, field-missing, role-missing, rules-missing, rules-missing, rules-missing, rules-missing, rules-missing, reader-missing
+    without run 3 called: Glob, Glob, Read, Read, Grep, Glob, Write
+    without run 4: validators/check_reviewer_brief.py: exit 1: 5 rules broken: field-missing, field-missing, field-missing, field-missing, role-missing
+    without run 4 called: Glob, Glob, Glob, Read, Read, Grep, Write
+    without run 5: validators/check_reviewer_brief.py: exit 1: 4 rules broken: field-missing, field-missing, field-missing, role-missing
+    without run 5 called: Glob, Glob, Read, Read, Glob, Write
+done by the kit around the native tool: tiers as tags, setup.files through a scaffold script, script validators on the files each run left, the forbidden-path check on each trace, the cascade, the verdict and the cache; the tool's own score of each run is kept in the stored result
+exit=0

@@ -1,0 +1,1223 @@
+{
+  "runner_version": 5,
+  "skills": [
+    {
+      "cached": 0,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "rejected: expect-01",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "Skill",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_bench_minutes.py: exit 1: 2 problems, rules broken: median-missing (A, B)",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_bench_minutes.py: exit 1: 2 problems, rules broken: median-missing (A, B)",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Grep (error)",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_bench_minutes.py: exit 1: 2 problems, rules broken: median-missing (A, B)",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "Glob (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_bench_minutes.py: exit 1: 2 problems, rules broken: median-missing (A, B)",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob (error)",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "real-environment-minutes/smoke-median-and-mock",
+          "hash": "6fad1424fbd50640a45a4e7e849b4ffda624e95f781ddc9a698d9d3dad8cffc8",
+          "state": "run now",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package real-environment-minutes 1.0.0, invoked as real-environment-minutes:real-environment-minutes"
+      ],
+      "reasons": [
+        "it triggers and the result is better than without it"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 490,
+      "skill": "real-environment-minutes",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 1,
+            "not_triggered": 0,
+            "passed": 4,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 1,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 4
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": 0.6000000000000001,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0,
+        "judge_uncounted_usd": 0.0017764,
+        "judge_usd": 0.004630099999999999,
+        "mcp_calls": 0,
+        "mcp_calls_without": 0,
+        "mcp_served": 1,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.06788306000000001,
+        "triggered": 5,
+        "validated": 5,
+        "with_score": 0.8,
+        "without_score": 0.2,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "works",
+      "without_arm": [
+        "the same plugin with only skills/real-environment-minutes/ removed, in a second invocation of the tool: its MCP server and tools stay; 0 call(s) to its tools in the runs without the skill"
+      ]
+    },
+    {
+      "cached": 0,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "not invoked: receipt-review",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Read (error)",
+                  "Read (error)",
+                  "Read",
+                  "Read",
+                  "Write",
+                  "Edit"
+                ]
+              },
+              {
+                "detail": "not invoked: receipt-review",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Read (error)",
+                  "Read (error)",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "not invoked: receipt-review",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Read",
+                  "Read",
+                  "Write",
+                  "ToolSearch",
+                  "mcp__plugin_receipt-review_metodo__receipt_status (error)"
+                ]
+              },
+              {
+                "detail": "not invoked: receipt-review",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Glob",
+                  "Read (error)",
+                  "Read (error)",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "not invoked: receipt-review",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Glob",
+                  "Read (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "Read",
+                  "Read",
+                  "Write",
+                  "ToolSearch",
+                  "mcp__plugin_receipt-review_metodo__receipt_status (error)"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_context.py: exit 1: 2 rules broken: tier-changed, receipt-line-missing",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Read (error)",
+                  "Read (error)",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_context.py: exit 1: 2 rules broken: risk-line-missing, receipt-line-missing",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Write",
+                  "ToolSearch",
+                  "mcp__plugin_receipt-review_metodo__receipt_status (error)"
+                ]
+              },
+              {
+                "detail": "validators/check_context.py: exit 1: 2 rules broken: risk-line-missing, receipt-line-missing",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Write",
+                  "ToolSearch",
+                  "mcp__plugin_receipt-review_metodo__receipt_status (error)"
+                ]
+              },
+              {
+                "detail": "validators/check_context.py: exit 1: 2 rules broken: risk-line-missing, receipt-line-missing",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_context.py: exit 1: 3 rules broken: tier-changed, lenses-line-missing, receipt-line-missing",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "receipt-review/smoke-tier-frozen",
+          "hash": "32532f894f93f8ac425120f0de314836b62ad2ffe16254cd250246e35439aca8",
+          "state": "run now",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package receipt-review 1.0.0, invoked as receipt-review:receipt-review"
+      ],
+      "reasons": [
+        "it does not trigger when it should (look at the description)"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 1217,
+      "skill": "receipt-review",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 5,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 5
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": null,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0049001,
+        "judge_uncounted_usd": 0.009152700000000001,
+        "judge_usd": 0.009152700000000001,
+        "mcp_calls": 0,
+        "mcp_calls_without": 0,
+        "mcp_served": 1,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.056172010000000015,
+        "triggered": 0,
+        "validated": 0,
+        "with_score": null,
+        "without_score": 0.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "review",
+      "without_arm": [
+        "the same plugin with only skills/receipt-review/ removed, in a second invocation of the tool: its MCP server and tools stay; 0 call(s) to its tools in the runs without the skill"
+      ]
+    },
+    {
+      "cached": 0,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_repo-metrics_metodo__metrics_delta (error)",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "rejected: expect-03",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "Skill",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_repo-metrics_metodo__metrics_delta (error)",
+                  "mcp__plugin_repo-metrics_metodo__metrics_delta (error)",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_repo-metrics_metodo__metrics_delta (error)",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_repo-metrics_metodo__metrics_delta (error)",
+                  "mcp__plugin_repo-metrics_metodo__metrics_delta (error)",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "rejected: expect-03",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Grep",
+                  "Glob",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_delta_note.py: exit 1: delta-as-number: line 13 gives totals.loc as 92 and 181, its before and after; with tool drift the delta is not reported as a number",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "ToolSearch",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "ToolSearch",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "ToolSearch",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Grep",
+                  "Glob",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_delta_note.py: exit 1: broken rules: delta-as-number",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "Grep",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "repo-metrics/smoke-tool-drift",
+          "hash": "6c1279014b3e705006da23f0200c5d22fb6e934337f188d396c60654b7be90c7",
+          "state": "run now",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package repo-metrics 1.0.0, invoked as repo-metrics:repo-metrics"
+      ],
+      "reasons": [
+        "it triggers and the result is better than without it"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 464,
+      "skill": "repo-metrics",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 1,
+            "not_triggered": 0,
+            "passed": 4,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 1,
+            "not_triggered": 0,
+            "passed": 2,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 2
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": 0.4,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0,
+        "judge_uncounted_usd": 0.0024727000000000013,
+        "judge_usd": 0.0088515,
+        "mcp_calls": 0,
+        "mcp_calls_without": 0,
+        "mcp_served": 1,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.06157847000000001,
+        "triggered": 5,
+        "validated": 5,
+        "with_score": 0.8,
+        "without_score": 0.4,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "works",
+      "without_arm": [
+        "the same plugin with only skills/repo-metrics/ removed, in a second invocation of the tool: its MCP server and tools stay; 0 call(s) to its tools in the runs without the skill"
+      ]
+    },
+    {
+      "cached": 0,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Skill",
+                  "Bash (error)",
+                  "ToolSearch",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Grep",
+                  "Write",
+                  "mcp__plugin_review-comment_metodo__review_comment_lint",
+                  "Edit",
+                  "mcp__plugin_review-comment_metodo__review_comment_lint",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_review-comment_metodo__pr_scope (error)",
+                  "Write",
+                  "mcp__plugin_review-comment_metodo__review_comment_lint",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Skill",
+                  "ToolSearch",
+                  "Write",
+                  "mcp__plugin_review-comment_metodo__review_comment_lint"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Skill",
+                  "ToolSearch",
+                  "Write",
+                  "mcp__plugin_review-comment_metodo__review_comment_lint",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Skill",
+                  "ToolSearch",
+                  "mcp__plugin_review-comment_metodo__domain_invariants (error)",
+                  "Write",
+                  "mcp__plugin_review-comment_metodo__review_comment_lint",
+                  "Write"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_comments.py: exit 1: 2 rules broken: four-parts, proposal-language",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write",
+                  "Edit"
+                ]
+              },
+              {
+                "detail": "validators/check_comments.py: exit 1: 2 rules broken: four-parts, proposal-language",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_comments.py: exit 1: 2 rules broken: four-parts, proposal-language",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_comments.py: exit 1: 2 rules broken: four-parts, proposal-language",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_comments.py: exit 1: 2 rules broken: four-parts, proposal-language",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Bash (error)",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "review-comment/smoke-base-drift",
+          "hash": "9ade28652170ae64a2c47cab6d70c3f917d7b8abf502fd60f9d985a6aa85c7b7",
+          "state": "run now",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package review-comment 1.0.0, invoked as review-comment:review-comment"
+      ],
+      "reasons": [
+        "it triggers and the result is better than without it"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 876,
+      "skill": "review-comment",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 5,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 5
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": 1.0,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0,
+        "judge_uncounted_usd": 0.0025949999999999997,
+        "judge_usd": 0.0061800000000000015,
+        "mcp_calls": 6,
+        "mcp_calls_without": 0,
+        "mcp_served": 1,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.0777389,
+        "triggered": 5,
+        "validated": 5,
+        "with_score": 1.0,
+        "without_score": 0.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "works",
+      "without_arm": [
+        "the same plugin with only skills/review-comment/ removed, in a second invocation of the tool: its MCP server and tools stay; 0 call(s) to its tools in the runs without the skill"
+      ]
+    },
+    {
+      "cached": 0,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "not invoked: verify-per-commit",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Grep",
+                  "Read (error)",
+                  "Read (error)",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Grep (error)",
+                  "Glob (error)",
+                  "Read",
+                  "Read (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "ToolSearch",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob (error)",
+                  "Grep (error)",
+                  "ToolSearch",
+                  "Skill",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Skill",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob (error)",
+                  "Glob (error)",
+                  "Skill",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Skill",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Write"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Grep (error)",
+                  "Glob (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "ToolSearch",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Grep",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "Grep (error)",
+                  "Glob",
+                  "Glob (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Grep (error)",
+                  "Glob (error)",
+                  "ToolSearch",
+                  "Read (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Bash (error)",
+                  "Grep (error)",
+                  "ToolSearch",
+                  "Glob (error)",
+                  "Glob",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "ToolSearch",
+                  "Grep (error)",
+                  "Glob (error)",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "verify-per-commit/smoke-keep-the-fail",
+          "hash": "7d9d29125ac27a9f6c660b7e2bf8407c2117293c3400119ba8b05324bd2a7baa",
+          "state": "run now",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package verify-per-commit 1.0.0, invoked as verify-per-commit:verify-per-commit"
+      ],
+      "reasons": [
+        "it triggers and changes nothing (dead weight: cut or shrink)"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 389,
+      "skill": "verify-per-commit",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 1,
+            "passed": 4,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 5,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": 0.0,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0017500999999999999,
+        "judge_uncounted_usd": 0.0017500999999999999,
+        "judge_usd": 0.013823200000000002,
+        "mcp_calls": 0,
+        "mcp_calls_without": 0,
+        "mcp_served": 1,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.08670058,
+        "triggered": 4,
+        "validated": 4,
+        "with_score": 1.0,
+        "without_score": 1.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "review",
+      "without_arm": [
+        "the same plugin with only skills/verify-per-commit/ removed, in a second invocation of the tool: its MCP server and tools stay; 0 call(s) to its tools in the runs without the skill"
+      ]
+    }
+  ],
+  "thresholds": {
+    "delta_min": 0.1,
+    "judge_pass_min": 0.8,
+    "runs_per_arm_min": 3,
+    "trigger_rate_min": 0.8,
+    "validator_pass_min": 0.8
+  }
+}

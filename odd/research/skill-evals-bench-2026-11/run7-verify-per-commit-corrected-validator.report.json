@@ -1,0 +1,309 @@
+{
+  "runner_version": 5,
+  "skills": [
+    {
+      "cached": 0,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Glob (error)",
+                  "Grep (error)",
+                  "Skill",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "rejected: expect-02",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Grep (error)",
+                  "Glob (error)",
+                  "Skill",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob (error)",
+                  "Skill",
+                  "Read (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Skill",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Glob (error)",
+                  "Read",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Grep (error)",
+                  "Glob (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "ToolSearch",
+                  "Skill",
+                  "Write"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Grep",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob (error)",
+                  "ToolSearch",
+                  "Grep (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "ToolSearch",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Grep (error)",
+                  "Glob",
+                  "Glob",
+                  "Glob (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Glob (error)",
+                  "ToolSearch",
+                  "Grep",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Bash (error)",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Grep (error)",
+                  "ToolSearch",
+                  "Glob (error)",
+                  "Glob",
+                  "Read (error)",
+                  "Read (error)",
+                  "Read (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Bash (error)",
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Glob",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Read",
+                  "Glob (error)",
+                  "ToolSearch",
+                  "Glob (error)",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "verify-per-commit/smoke-keep-the-fail",
+          "hash": "de8d46cbd10e26cf11e634a4a45edf4f74afbbe9504486cbbccbcd0878b72a62",
+          "state": "run now",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package verify-per-commit 1.0.0, invoked as verify-per-commit:verify-per-commit"
+      ],
+      "reasons": [
+        "it triggers and the result is worse than without it"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 389,
+      "skill": "verify-per-commit",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 1,
+            "not_triggered": 0,
+            "passed": 4,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 5,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": -0.19999999999999996,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0,
+        "judge_uncounted_usd": 0.0,
+        "judge_usd": 0.013082799999999999,
+        "mcp_calls": 0,
+        "mcp_calls_without": 0,
+        "mcp_served": 1,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.08211152,
+        "triggered": 5,
+        "validated": 5,
+        "with_score": 0.8,
+        "without_score": 1.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "review",
+      "without_arm": [
+        "the same plugin with only skills/verify-per-commit/ removed, in a second invocation of the tool: its MCP server and tools stay; 0 call(s) to its tools in the runs without the skill"
+      ]
+    }
+  ],
+  "thresholds": {
+    "delta_min": 0.1,
+    "judge_pass_min": 0.8,
+    "runs_per_arm_min": 3,
+    "trigger_rate_min": 0.8,
+    "validator_pass_min": 0.8
+  }
+}

@@ -1,0 +1,105 @@
+skill-eval: cost ceiling USD 0.75 (USD 0.25 for each of 3 skill(s) to run); the tool checks it before each run, so the run in flight may pass it
+adversarial-round: 1 case(s), 1 to run, 0 cached; arms with, without; 10 native run(s) in 2 native invocation(s); ceiling USD 0.25
+  adversarial-round: --kit-mcp starts this checkout's MCP server for its runs (it runs as you, outside the tool's sandbox) and allows the 7 tool(s) the skill declares
+  adversarial-round: the arm without the skill runs on the same plugin with only skills/adversarial-round/ removed, so the server and its tools stay in both arms: the tool is started twice with --ablation none, under USD 0.125 and at most USD 0.125 of the ceiling
+  adversarial-round/smoke-truncated-round [smoke]: to run, 5 run(s) per arm (the stored result used other settings: runs per arm 1, now 5)
+benchmark-release: 1 case(s), 1 to run, 0 cached; arms with, without; 10 native run(s) in 2 native invocation(s); ceiling USD 0.25
+  benchmark-release: --kit-mcp starts this checkout's MCP server for its runs (it runs as you, outside the tool's sandbox) and allows the 2 tool(s) the skill declares
+  benchmark-release: the arm without the skill runs on the same plugin with only skills/benchmark-release/ removed, so the server and its tools stay in both arms: the tool is started twice with --ablation none, under USD 0.125 and at most USD 0.125 of the ceiling
+  benchmark-release/smoke-base-is-the-tag [smoke]: to run, 5 run(s) per arm
+cartography: 1 case(s), 1 to run, 0 cached; arms with, without; 10 native run(s) in 2 native invocation(s); ceiling USD 0.25
+  cartography: --kit-mcp starts this checkout's MCP server for its runs (it runs as you, outside the tool's sandbox) and allows the 1 tool(s) the skill declares
+  cartography: the arm without the skill runs on the same plugin with only skills/cartography/ removed, so the server and its tools stay in both arms: the tool is started twice with --ablation none, under USD 0.125 and at most USD 0.125 of the ceiling
+  cartography/smoke-unmeasured-module [smoke]: to run, 5 run(s) per arm
+change-card: 1 case(s), 0 to run, 1 cached; arms with, without; 0 native run(s); ceiling USD 0.00
+  change-card: --kit-mcp starts this checkout's MCP server for its runs (it runs as you, outside the tool's sandbox) and allows the 2 tool(s) the skill declares
+  change-card/smoke-missing-field [smoke]: cached (stored 2026-11-24T13:51:10+0100, 5 run(s) per arm; --no-cache runs it again)
+skill-eval report (runner v5; thresholds: trigger_rate_min 0.8, validator_pass_min 0.8, judge_pass_min 0.8, delta_min 0.1, runs_per_arm_min 3)
+adversarial-round: review - it does not trigger when it should (look at the description)
+  cases: 1 measured of 1 selected (0 cached) | arms: with, without | runs per arm: 5
+  score: with n/a, without 0.00, delta n/a | triggered 0 of 5 | cheated 0 | not counted 0
+  size: 904 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0552, judge USD 0.0175 of it
+  judge spend that did not count: USD 0.0175, on runs not triggered USD 0.0084 (the native tool runs its judge on every run)
+  measured as: its own package adversarial-round 1.0.0, invoked as adversarial-round:adversarial-round
+  arm without the skill: the same plugin with only skills/adversarial-round/ removed, in a second invocation of the tool: its MCP server and tools stay; 0 call(s) to its tools in the runs without the skill
+  kit MCP server: started for 1 case(s); 3 call(s) to its tools in the runs with the skill
+  adversarial-round/smoke-truncated-round [smoke]: with: not triggered, quality not judged, not triggered, quality not judged, not triggered, quality not judged, not triggered, quality not judged, not triggered, quality not judged | without: failed a validator, failed a validator, failed a validator, failed a validator, failed a validator
+    with run 1: not invoked: adversarial-round
+    with run 1 called: Glob, Read, Read, Read, ToolSearch, mcp__plugin_adversarial-round_metodo__change_card_validate, Write
+    with run 2: not invoked: adversarial-round
+    with run 2 called: Glob, Read, Read, Read, Write
+    with run 3: not invoked: adversarial-round
+    with run 3 called: Glob, Read, Read, Read, ToolSearch, mcp__plugin_adversarial-round_metodo__output_validate, mcp__plugin_adversarial-round_metodo__output_validate, Write
+    with run 4: not invoked: adversarial-round
+    with run 4 called: Glob, Read, Read, Read, Write
+    with run 5: not invoked: adversarial-round
+    with run 5 called: Glob, Read, Read, Read, Write
+    without run 1: validators/check_round_status.py: exit 1: status-not-incomplete: "NOT READY: blind-spot pass truncated; concurrent refunds on ..." names no status of a round; out/blindspots.json arrived truncated, so the round is INCOMPLETE
+    without run 1 called: Glob, Read, Read, Read, Grep (error), Glob (error), Write
+    without run 2: validators/check_round_status.py: exit 1: status-not-incomplete: "OPEN" names no status of a round; out/blindspots.json arrived truncated, so the round is INCOMPLETE
+    without run 2 called: Glob, Read, Read, Read, Grep (error), Glob (error), Write
+    without run 3: validators/check_round_status.py: exit 1: status-not-incomplete: "NOT READY: blind-spot pass truncated; not covered: concurren..." names no status of a round; out/blindspots.json arrived truncated, so the round is INCOMPLETE
+    without run 3 called: Glob, Read, Read, Read, Read (error), Write
+    without run 4: validators/check_round_status.py: exit 1: status-not-incomplete: "OPEN" names no status of a round; out/blindspots.json arrived truncated, so the round is INCOMPLETE
+    without run 4 called: Glob, Read, Read, Read, Glob, Write
+    without run 5: validators/check_round_status.py: exit 1: status-not-incomplete: "OPEN" names no status of a round; out/blindspots.json arrived truncated, so the round is INCOMPLETE
+    without run 5 called: Glob, Read, Read, Read, Glob, Write
+benchmark-release: review - it triggers and changes nothing (dead weight: cut or shrink)
+  cases: 1 measured of 1 selected (0 cached) | arms: with, without | runs per arm: 5
+  score: with 1.00, without 1.00, delta +0.00 | triggered 5 of 5 | cheated 0 | not counted 0
+  size: 368 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0898, judge USD 0.0080 of it
+  judge spend that did not count: USD 0.0000, on runs not triggered USD 0.0000 (the native tool runs its judge on every run)
+  measured as: its own package benchmark-release 1.0.0, invoked as benchmark-release:benchmark-release
+  arm without the skill: the same plugin with only skills/benchmark-release/ removed, in a second invocation of the tool: its MCP server and tools stay; 0 call(s) to its tools in the runs without the skill
+  kit MCP server: started for 1 case(s); 0 call(s) to its tools in the runs with the skill
+  benchmark-release/smoke-base-is-the-tag [smoke]: with: passed, passed, passed, passed, passed | without: passed, passed, passed, passed, passed
+cartography: review - its output fails a validator; the judge rejects it
+  cases: 1 measured of 1 selected (0 cached) | arms: with, without | runs per arm: 5
+  score: with 0.20, without 0.00, delta +0.20 | triggered 5 of 5 | cheated 0 | not counted 0
+  size: 425 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0981, judge USD 0.0068 of it
+  judge spend that did not count: USD 0.0057, on runs not triggered USD 0.0000 (the native tool runs its judge on every run)
+  measured as: its own package cartography 1.0.0, invoked as cartography:cartography
+  arm without the skill: the same plugin with only skills/cartography/ removed, in a second invocation of the tool: its MCP server and tools stay; 0 call(s) to its tools in the runs without the skill
+  kit MCP server: started for 1 case(s); 0 call(s) to its tools in the runs with the skill
+  cartography/smoke-unmeasured-module [smoke]: with: failed a validator, rejected by the judge, failed a validator, failed a validator, passed | without: failed a validator, failed a validator, failed a validator, failed a validator, failed a validator
+    with run 1: validators/check_module_map.py: exit 1: output-missing: module-map.md is missing from the files the run left
+    with run 1 called: Skill, ToolSearch, mcp__plugin_cartography_metodo__cartography (error), Glob (error), Glob (error), Bash (error), Grep (error), Read (error), Read, mcp__plugin_cartography_metodo__cartography (error)
+    with run 2: rejected: expect-01
+    with run 2 called: Skill, ToolSearch, mcp__plugin_cartography_metodo__cartography (error), Glob (error), Bash (error), Grep, Read (error), Read, Grep, Read, Read, Read, Read, Read, Read, Write
+    with run 3: validators/check_module_map.py: exit 1: broken rules: unmeasured-sized, number-not-printed
+    with run 3 called: Skill, ToolSearch, mcp__plugin_cartography_metodo__cartography (error), Glob, Glob, Read (error), Read, Read, Read, Grep, Read, Grep (error), Glob, Read (error), Read, Read, Read, Write
+    with run 4: validators/check_module_map.py: exit 1: output-missing: module-map.md is missing from the files the run left
+    with run 4 called: Skill, ToolSearch, mcp__plugin_cartography_metodo__cartography (error), Glob (error), Bash (error), Read, Read (error)
+    without run 1: validators/check_module_map.py: exit 1: broken rules: unmeasured-sized, number-not-printed
+    without run 1 called: Bash (error), Glob, Glob, Read, Read, Read, Read, Glob, Glob, Read, Read, Read, Read, Read, Read, Read, Read, Read, Write
+    without run 2: validators/check_module_map.py: exit 1: broken rules: unmeasured-sized, number-not-printed
+    without run 2 called: Glob, Bash (error), Glob, Glob, Read, Glob, Read, Read, Read, Read, Read, Read, Read, Read, Read, Read, Read, Read, Read, Read, Read, Grep, Glob, Glob, Write, Edit
+    without run 3: validators/check_module_map.py: exit 1: broken rules: unmeasured-sized, number-not-printed
+    without run 3 called: Bash (error), Glob, Read, Glob, Read, Read, Read, Read, Read, Read, Glob, Read, Read, Read, Read, Read, Read, Read, Read, Read, Write
+    without run 4: validators/check_module_map.py: exit 1: output-missing: module-map.md is missing from the files the run left
+    without run 4 called: Glob, Bash (error), Glob, Glob, Read, Read, Read, Read, Glob, Read, Read, Read, Read, Read, Read, Read, Read, Read, Read, Read, Glob, Write
+    without run 5: validators/check_module_map.py: exit 1: output-missing: module-map.md is missing from the files the run left
+    without run 5 called: Glob, Bash (error), Glob, Read, Read, Read, Read, Read, Read, Read, Read, Read, Read, Read, Read, Read, Read, Read, Grep, Write
+change-card: works - it triggers and the result is better than without it
+  cases: 1 measured of 1 selected (1 cached) | arms: with, without | runs per arm: 5
+  score: with 0.80, without 0.00, delta +0.80 | triggered 5 of 5 | cheated 0 | not counted 0
+  size: 385 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0595, judge USD 0.0097 of it
+  judge spend that did not count: USD 0.0042, on runs not triggered USD 0.0000 (the native tool runs its judge on every run)
+  measured as: its own package change-card 1.0.0, invoked as change-card:change-card
+  arm without the skill: the same plugin with only skills/change-card/ removed, in a second invocation of the tool: its MCP server and tools stay; 14 call(s) to its tools in the runs without the skill
+  kit MCP server: started for 1 case(s); 14 call(s) to its tools in the runs with the skill
+  change-card/smoke-missing-field [smoke]: with: passed, passed, passed, passed, rejected by the judge | without: failed a validator, failed a validator, rejected by the judge, failed a validator, failed a validator (cached)
+    with run 5: rejected: expect-02
+    with run 5 called: Glob, Skill, Read, ToolSearch, mcp__plugin_change-card_metodo__change_card_validate, mcp__plugin_change-card_metodo__change_card_extract, Write, mcp__plugin_change-card_metodo__change_card_validate
+    without run 1: validators/check_filled_card.py: exit 1: drafted-field-missing: "How we'll know" is absent or empty; it is the field a draft may fill
+    without run 1 called: Glob, ToolSearch, Read, mcp__plugin_change-card_metodo__change_card_validate, Grep, Grep (error), Grep, mcp__plugin_change-card_metodo__change_card_extract, mcp__plugin_change-card_metodo__role_contract_validate (error), Write, mcp__plugin_change-card_metodo__change_card_validate
+    without run 2: validators/check_filled_card.py: exit 1: never-filled: "What it risks" is in the file; only the author writes it
+    without run 2 called: Glob, Glob, Read, Bash (error), ToolSearch, mcp__plugin_change-card_metodo__change_card_validate, mcp__plugin_change-card_metodo__domain_invariants (error), mcp__plugin_change-card_metodo__change_card_extract, Write, mcp__plugin_change-card_metodo__change_card_validate
+    without run 3: rejected: expect-03
+    without run 3 called: Glob, ToolSearch, Read, mcp__plugin_change-card_metodo__change_card_validate, Grep (error), mcp__plugin_change-card_metodo__change_card_extract, Glob, Write, mcp__plugin_change-card_metodo__change_card_validate
+    without run 4: validators/check_filled_card.py: exit 1: never-filled: "What it risks" is in the file; only the author writes it
+    without run 4 called: Glob, Glob, Read, ToolSearch, mcp__plugin_change-card_metodo__change_card_validate, mcp__plugin_change-card_metodo__domain_invariants (error), Grep (error), mcp__plugin_change-card_metodo__change_card_extract, Write, mcp__plugin_change-card_metodo__change_card_validate
+    without run 5: validators/check_filled_card.py: exit 1: never-filled: "What it risks" is in the file; only the author writes it
+    without run 5 called: Glob, Read, Glob, ToolSearch, mcp__plugin_change-card_metodo__change_card_validate, mcp__plugin_change-card_metodo__domain_invariants (error), Write, mcp__plugin_change-card_metodo__change_card_validate
+done by the kit around the native tool: tiers as tags, setup.files through a scaffold script, script validators on the files each run left, the forbidden-path check on each trace, the cascade, the verdict and the cache; the tool's own score of each run is kept in the stored result
+exit=0

@@ -1,0 +1,115 @@
+skill-eval: cost ceiling USD 1.00 (USD 0.25 for each of 4 skill(s) to run); the tool checks it before each run, so the run in flight may pass it
+init-kit: 1 case(s), 1 to run, 0 cached; arms with, without; 10 native run(s); ceiling USD 0.25
+  init-kit/smoke-unanswered-key [smoke]: to run, 5 run(s) per arm (the stored result used other settings: runs per arm 1, now 5)
+necessary-comment: 1 case(s), 1 to run, 0 cached; arms with, without; 10 native run(s) in 2 native invocation(s); ceiling USD 0.25
+  necessary-comment: --kit-mcp starts this checkout's MCP server for its runs (it runs as you, outside the tool's sandbox) and allows the 2 tool(s) the skill declares
+  necessary-comment: the arm without the skill runs on the same plugin with only skills/necessary-comment/ removed, so the server and its tools stay in both arms: the tool is started twice with --ablation none, under USD 0.125 and at most USD 0.125 of the ceiling
+  necessary-comment/smoke-verdict-routing [smoke]: to run, 5 run(s) per arm (the stored result used other settings: runs per arm 1, now 5)
+post-review-comment: 1 case(s), 1 to run, 0 cached; arms with, without; 10 native run(s); ceiling USD 0.25
+  post-review-comment: its files name the kit's tools root, rendered to <home>/work-methodology/03-tools for the run
+  post-review-comment/smoke-render [smoke]: to run, 5 run(s) per arm
+pr-message: 1 case(s), 1 to run, 0 cached; arms with, without; 10 native run(s) in 2 native invocation(s); ceiling USD 0.25
+  pr-message: --kit-mcp starts this checkout's MCP server for its runs (it runs as you, outside the tool's sandbox) and allows the 5 tool(s) the skill declares
+  pr-message: the arm without the skill runs on the same plugin with only skills/pr-message/ removed, so the server and its tools stay in both arms: the tool is started twice with --ablation none, under USD 0.125 and at most USD 0.125 of the ceiling
+  pr-message/smoke-skipped-check [smoke]: to run, 5 run(s) per arm (the stored result used other settings: runs per arm 1, now 5)
+skill-eval report (runner v5; thresholds: trigger_rate_min 0.8, validator_pass_min 0.8, judge_pass_min 0.8, delta_min 0.1, runs_per_arm_min 3)
+init-kit: review - the judge rejects it
+  cases: 1 measured of 1 selected (0 cached) | arms: with, without | runs per arm: 5
+  score: with 0.60, without 0.00, delta +0.60 | triggered 5 of 5 | cheated 0 | not counted 0
+  size: 1123 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0605, judge USD 0.0132 of it
+  judge spend that did not count: USD 0.0066, on runs not triggered USD 0.0000 (the native tool runs its judge on every run)
+  measured as: its own package init-kit 1.0.0, invoked as init-kit:init-kit
+  arm without the skill: the tool's own ablation, which removes the whole plugin
+  init-kit/smoke-unanswered-key [smoke]: with: passed, passed, passed, rejected by the judge, rejected by the judge | without: failed a validator, failed a validator, failed a validator, failed a validator, failed a validator
+    with run 4: rejected: expect-03
+    with run 4 called: Glob, Bash (error), Glob, Glob (error), Glob (error), Glob, Read, Skill, Write
+    with run 5: rejected: expect-03
+    with run 5 called: Glob, Bash (error), Glob (error), Glob (error), Read, Read (error), Skill, Write
+    without run 1: validators/check_answers.py: exit 1: 2 rules broken: unknown-key, answer-missing
+    without run 1 called: Glob, Bash (error), Glob (error), Glob (error), Read (error), Read (error), Read, Grep (error), Read (error), Write
+    without run 2: validators/check_answers.py: exit 1: 4 rules broken: unknown-key, wrong-type, unconfirmed-key, answer-missing
+    without run 2 called: Glob, Glob (error), Read, Bash (error), Glob (error), Glob, Glob (error), Read (error), Read (error), Write
+    without run 3: validators/check_answers.py: exit 1: 2 rules broken: unknown-key, answer-missing
+    without run 3 called: Glob, Bash (error), Glob, Glob, Glob, Glob (error), Read (error), Read, Glob, Glob (error), Glob (error), Read (error), Write
+    without run 4: validators/check_answers.py: exit 1: 2 rules broken: unknown-key, answer-missing
+    without run 4 called: Glob, Bash (error), Glob, Glob, Read, Glob, Glob (error), Glob (error), Write
+    without run 5: validators/check_answers.py: exit 1: 2 rules broken: unknown-key, answer-missing
+    without run 5 called: Glob, Bash (error), Glob, Glob (error), Glob (error), Glob (error), Read, Read (error), Grep (error), Read (error), Read (error), Read (error), Write
+necessary-comment: review - it does not trigger when it should (look at the description)
+  cases: 1 measured of 1 selected (0 cached) | arms: with, without | runs per arm: 5
+  score: with n/a, without 0.00, delta n/a | triggered 0 of 5 | cheated 0 | not counted 0
+  size: 688 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0633, judge USD 0.0131 of it
+  judge spend that did not count: USD 0.0131, on runs not triggered USD 0.0071 (the native tool runs its judge on every run)
+  measured as: its own package necessary-comment 1.0.0, invoked as necessary-comment:necessary-comment
+  arm without the skill: the same plugin with only skills/necessary-comment/ removed, in a second invocation of the tool: its MCP server and tools stay; 0 call(s) to its tools in the runs without the skill
+  kit MCP server: started for 1 case(s); 0 call(s) to its tools in the runs with the skill
+  necessary-comment/smoke-verdict-routing [smoke]: with: not triggered, quality not judged, not triggered, quality not judged, not triggered, quality not judged, not triggered, quality not judged, not triggered, quality not judged | without: failed a validator, failed a validator, failed a validator, failed a validator, failed a validator
+    with run 1: not invoked: necessary-comment
+    with run 1 called: Glob, Glob, Read, Read, Glob, Read, ToolSearch, Write
+    with run 2: not invoked: necessary-comment
+    with run 2 called: Glob, Glob, Read, Read, Grep, Glob, ToolSearch, Grep (error)
+    with run 3: not invoked: necessary-comment
+    with run 3 called: Glob, Read, Read, Glob, Grep, ToolSearch, Glob, Glob
+    with run 4: not invoked: necessary-comment
+    with run 4 called: Glob, Read, Read, Grep, ToolSearch, Glob, Grep, Bash (error)
+    with run 5: not invoked: necessary-comment
+    with run 5 called: Glob, Read, Read, Glob, Grep, Read, ToolSearch, Grep (error)
+    without run 1: validators/check_routing.py: exit 1: output-missing: round/004-routing.json is missing from the files the run left
+    without run 1 called: Glob, Glob, Read, Read, Grep, ToolSearch, Glob, Grep
+    without run 2: validators/check_routing.py: exit 1: route-wrong: src/main/kotlin/export/RetryPolicy.kt:19 (MAKE-SELF-EXPLANATORY) goes to "mechanic"; a MAKE-SELF-EXPLANATORY touches statements, so it goes to generic-judge and never to generic-mechanic
+    without run 2 called: Glob, Read, Read, ToolSearch, Grep, Glob, Glob, Read, Write
+    without run 3: validators/check_routing.py: exit 1: output-unreadable: round/004-routing.json is not a JSON list of entries with file, line and to
+    without run 3 called: Glob, Glob, Read, Read, ToolSearch, Grep, Glob, Read, Write
+    without run 4: validators/check_routing.py: exit 1: output-missing: round/004-routing.json is missing from the files the run left
+    without run 4 called: Glob, Read, Read, Grep, ToolSearch, Grep
+    without run 5: validators/check_routing.py: exit 1: output-missing: round/004-routing.json is missing from the files the run left
+    without run 5 called: Glob, Glob, Read, Read, ToolSearch, Glob, Grep, Grep
+post-review-comment: review - it does not trigger when it should (look at the description); its output fails a validator
+  cases: 1 measured of 1 selected (0 cached) | arms: with, without | runs per arm: 5
+  score: with 0.00, without 0.00, delta +0.00 | triggered 3 of 5 | cheated 0 | not counted 0
+  size: 603 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0589, judge USD 0.0039 of it
+  judge spend that did not count: USD 0.0039, on runs not triggered USD 0.0009 (the native tool runs its judge on every run)
+  measured as: its own package post-review-comment 1.0.0, invoked as post-review-comment:post-review-comment
+  arm without the skill: the tool's own ablation, which removes the whole plugin
+  post-review-comment/smoke-render [smoke]: with: failed a validator, not triggered, quality not judged, failed a validator, not triggered, quality not judged, failed a validator | without: failed a validator, failed a validator, failed a validator, failed a validator, failed a validator
+    with run 1: validators/check_posted.py: exit 1: posted.md is missing from the files the run left
+    with run 1 called: Glob (error), Glob (error), Bash, Bash, Read, Skill, Bash, Bash
+    with run 2: not invoked: post-review-comment
+    with run 2 called: Bash, Read, Bash, Bash, Bash, Bash, ToolSearch, TaskStop, Write
+    with run 3: validators/check_posted.py: exit 1: posted.md is missing from the files the run left
+    with run 3 called: Glob (error), Glob, Read, Grep (error), Bash, Skill, Bash, Bash
+    with run 4: not invoked: post-review-comment
+    with run 4 called: Bash, Read, Bash, Bash, Read, Bash (error), Bash, ToolSearch, TaskStop, Write
+    with run 5: validators/check_posted.py: exit 1: posted.md is missing from the files the run left
+    with run 5 called: Glob (error), Glob, Read, Bash, Bash, Skill, Bash, Bash
+    without run 1: validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: 
+    without run 1 called: Bash, Read, Bash, Bash (error), Bash (error), Write, Bash, Bash
+    without run 2: validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: 
+    without run 2 called: Bash, Read, Bash, Bash
+    without run 3: validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: 
+    without run 3 called: Bash, Bash, Bash, Bash, Bash
+    without run 4: validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: 
+    without run 4 called: Glob, Bash, Read, Bash, Bash, Write
+    without run 5: validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: 
+    without run 5 called: Bash, Read, Bash, Bash (error), Write
+pr-message: works - it triggers and the result is better than without it
+  cases: 1 measured of 1 selected (0 cached) | arms: with, without | runs per arm: 5
+  score: with 1.00, without 0.00, delta +1.00 | triggered 5 of 5 | cheated 0 | not counted 0
+  size: 808 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0722, judge USD 0.0113 of it
+  judge spend that did not count: USD 0.0058, on runs not triggered USD 0.0000 (the native tool runs its judge on every run)
+  measured as: its own package pr-message 1.1.0, invoked as pr-message:pr-message
+  arm without the skill: the same plugin with only skills/pr-message/ removed, in a second invocation of the tool: its MCP server and tools stay; 0 call(s) to its tools in the runs without the skill
+  kit MCP server: started for 1 case(s); 10 call(s) to its tools in the runs with the skill
+  pr-message/smoke-skipped-check [smoke]: with: passed, passed, passed, passed, passed | without: failed a validator, failed a validator, failed a validator, failed a validator, failed a validator
+    without run 1: validators/check_pr_body.py: exit 1: section-missing: the message has no section "What and why", "Before and after", "What was NOT tested"
+    without run 1 called: Glob, Bash (error), Glob, Glob, Read, Read, Write
+    without run 2: validators/check_pr_body.py: exit 1: section-missing: the message has no section "What and why", "Before and after", "What was NOT tested"
+    without run 2 called: Glob, Bash (error), Read, Read, Write
+    without run 3: validators/check_pr_body.py: exit 1: section-missing: the message has no section "What and why", "Before and after", "What was NOT tested"
+    without run 3 called: Glob, Bash (error), Glob, Read, Read, Write
+    without run 4: validators/check_pr_body.py: exit 1: section-missing: the message has no section "What and why", "Before and after", "What was NOT tested"
+    without run 4 called: Glob, Bash (error), Read, Read, Write
+    without run 5: validators/check_pr_body.py: exit 1: section-missing: the message has no section "What and why", "Before and after", "What was NOT tested"
+    without run 5 called: Glob, Bash (error), Read, Read, Write
+done by the kit around the native tool: tiers as tags, setup.files through a scaffold script, script validators on the files each run left, the forbidden-path check on each trace, the cascade, the verdict and the cache; the tool's own score of each run is kept in the stored result
+exit=0

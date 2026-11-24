@@ -1,0 +1,19 @@
+skill-eval: cost ceiling USD 0.25 (USD 0.25 for each of 1 skill(s) to run); the tool checks it before each run, so the run in flight may pass it
+verify-per-commit: 1 case(s), 1 to run, 0 cached; arms with, without; 10 native run(s) in 2 native invocation(s); ceiling USD 0.25
+  verify-per-commit: --kit-mcp starts this checkout's MCP server for its runs (it runs as you, outside the tool's sandbox) and allows the 2 tool(s) the skill declares
+  verify-per-commit: the arm without the skill runs on the same plugin with only skills/verify-per-commit/ removed, so the server and its tools stay in both arms: the tool is started twice with --ablation none, under USD 0.125 and at most USD 0.125 of the ceiling
+  verify-per-commit/smoke-keep-the-fail [smoke]: to run, 5 run(s) per arm
+skill-eval report (runner v5; thresholds: trigger_rate_min 0.8, validator_pass_min 0.8, judge_pass_min 0.8, delta_min 0.1, runs_per_arm_min 3)
+verify-per-commit: review - it triggers and the result is worse than without it
+  cases: 1 measured of 1 selected (0 cached) | arms: with, without | runs per arm: 5
+  score: with 0.80, without 1.00, delta -0.20 | triggered 5 of 5 | cheated 0 | not counted 0
+  size: 389 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0821, judge USD 0.0131 of it
+  judge spend that did not count: USD 0.0000, on runs not triggered USD 0.0000 (the native tool runs its judge on every run)
+  measured as: its own package verify-per-commit 1.0.0, invoked as verify-per-commit:verify-per-commit
+  arm without the skill: the same plugin with only skills/verify-per-commit/ removed, in a second invocation of the tool: its MCP server and tools stay; 0 call(s) to its tools in the runs without the skill
+  kit MCP server: started for 1 case(s); 0 call(s) to its tools in the runs with the skill
+  verify-per-commit/smoke-keep-the-fail [smoke]: with: passed, rejected by the judge, passed, passed, passed | without: passed, passed, passed, passed, passed
+    with run 2: rejected: expect-02
+    with run 2 called: Glob, Bash (error), Glob, Read, Read, Read, Read, Read, Read, Read, Grep (error), Glob (error), Skill, Write
+done by the kit around the native tool: tiers as tags, setup.files through a scaffold script, script validators on the files each run left, the forbidden-path check on each trace, the cascade, the verdict and the cache; the tool's own score of each run is kept in the stored result
+exit=0
