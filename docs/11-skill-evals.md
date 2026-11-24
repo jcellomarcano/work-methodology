@@ -1,20 +1,20 @@
 # Skill evals: does this skill work?
 
-One command answers it per skill: `works`, `review` or `not measured`, with the reason in plain words. It runs fixed cases with and without the skill on Claude Code's own eval tool, `claude plugin eval`, and scores them itself. Nothing is spent unless you pass `--real`.
+One command answers it per skill: `works`, `review` or `not measured`, and why. It runs fixed cases with and without the skill on Claude Code's own eval tool, `claude plugin eval`, and scores them itself. Nothing is spent without `--real`.
 
-All 17 skills have a BUILD and two have a case today [Tested: `03-tools/bin/skill-build.sh test --all`]. Their first runs read `review` at one run per arm, a signal, not a verdict (section 6). Comparing the whole kit with plain Claude Code is another instrument: [09-measurement.md](09-measurement.md). Tags are the ones of `08-benchmark/METRICS.md`: **Measured**, **Tested**, **Inferred**, **Assumed**, **Unknown**.
+All 17 skills have a BUILD and two have a case [Tested: `03-tools/bin/skill-build.sh test --all`]. Their first runs read `review` at one run per arm, a signal, not a verdict (section 6). The whole kit against plain Claude Code is another instrument: [09-measurement.md](09-measurement.md). Tags, from `08-benchmark/METRICS.md`: **Measured**, **Tested**, **Inferred**, **Assumed**, **Unknown**.
 
 ## 1. The two files you write
 
 | | BUILD | Case |
 |---|---|---|
-| File | `02-skills/<skill>/BUILD.json`, one per skill | `08-benchmark/evals/<skill>/<case>/case.json`, as many as you want |
+| File | `02-skills/<skill>/BUILD.json`, one per skill | `08-benchmark/evals/<skill>/<case>/case.json`, any number |
 | It says | what the skill ships and what it needs from the kit | one task, and how its result is checked |
 | Checked by | `03-tools/bin/skill-build.sh test` | `08-benchmark/lib/skill_eval.py validate` |
 
 ## 2. A BUILD
 
-It declares the same five targets in every skill. To write one, copy `02-skills/change-card/BUILD.json` and edit `deps`.
+Every skill declares the same five targets. To write one, copy `02-skills/change-card/BUILD.json` and edit `deps`.
 
 | Target | PASS when | SKIP when |
 |---|---|---|
@@ -46,7 +46,7 @@ The zip is the plugin the eval runs, so what is measured is what ships. `BUILD.j
 
 To write one, copy `08-benchmark/evals/post-review-comment/smoke-render/`. Run the validator by hand on a wrong file first: a case that cannot fail measures nothing.
 
-Both seed cases, `post-review-comment/smoke-render` and `change-card/smoke-missing-field`, fail when the run's file is missing or differs from the answer key.
+Both seed cases, `post-review-comment/smoke-render` and `change-card/smoke-missing-field`, fail when the run's file is missing or fails its answer key.
 
 ## 4. The commands
 
@@ -57,9 +57,9 @@ python3 08-benchmark/lib/skill_eval.py run --skill change-card --kit-mcp --real 
 python3 08-benchmark/lib/skill_eval.py report              # the verdicts from stored results
 ```
 
-- `--real` is the only flag that spends. The run prints its ceiling first; the default is USD 0.50 per skill [Measured: `08-benchmark/lib/skill_eval_run.py`].
-- `--kit-mcp` starts this checkout's MCP server for a skill that declares its tools; 14 of the 17 do [Measured: the `deps` of each `BUILD.json`]. It runs as you, outside the tool's sandbox. Without it such a skill runs without its tools and its verdict is never `works`. Section 8 has `--kit-plugin`.
-- A case runs again only when its files, the skill's, the kit plugin's or the settings (model, judge, runs, server, form) change; `--no-cache` forces it.
+- `--real` is the only flag that spends. It prints its ceiling first; the default is USD 0.50 per skill [Measured: `08-benchmark/lib/skill_eval_run.py`].
+- `--kit-mcp` starts this checkout's MCP server for a skill that declares its tools; 14 of the 17 do [Measured: the `deps` of each `BUILD.json`]. It runs as you, outside the tool's sandbox. Without it such a skill has no tools and its verdict is never `works`. With it or `--kit-plugin` (section 8) the tool runs twice on one ceiling: the arm without the skill is the same plugin less the skill's folder, so it keeps the server.
+- A case reruns only when its files, the skill's, the kit plugin's or the settings (model, judge, runs, server, form) change; `--no-cache` forces it.
 
 ## 5. Reading the verdict
 
@@ -67,11 +67,11 @@ Each run passes three scorers in order: the skill was invoked, the validators pa
 
 | The report says | It means | What to do |
 |---|---|---|
-| `works`: the result is better than without it | it triggered, and passed more often than the runs without it | keep it; ask for three runs with `--runs 3` |
+| `works`: the result is better than without it | it triggered, and passed more often than the runs without it | keep it; confirm with `--runs 3` |
 | `review`: it does not trigger when it should | the agent never called the skill | rewrite the `description` in its `SKILL.md` |
 | `review`: changes nothing | the same score with and without it | shrink or cut the skill, or make the case harder |
 | `review`: the result is worse than without it | the skill hurts on this case | read the run's line under the case, fix the steps |
-| `review`: its output fails a validator | the files it left are wrong | fix the skill, or a validator that is too strict |
+| `review`: its output fails a validator | the files it left are wrong | fix the skill, or a too strict validator |
 | `review`: the judge rejects it | the answer misses an expectation | fix the skill's output, or reword the expectation |
 | `not measured` | nothing stored, the run failed, every run cheated, or it ran without its MCP tools | the reason names what to run next |
 
@@ -89,7 +89,7 @@ Each run passes three scorers in order: the skill was invoked, the validators pa
 
 Source: the `spend:` line of each run, 2026-11-24, logged in `odd/tasks/skill-evals.md` [Tested, n=1 each]. The tool checks the ceiling before each run, so the run in flight may pass it.
 
-The eval tool publishes its HTML report to claude.ai by default. The kit passes `--no-publish` on every command line, and a test fails if it is ever missing [Tested: `08-benchmark/tests/test_skill_eval_run.py`]. Never call `claude plugin eval` by hand without it. Each run is a Claude Code session on your own credential; results stay under the tools folder's `out/skill-evals/`.
+The eval tool publishes its HTML report to claude.ai by default. The kit passes `--no-publish` on every command line; a test fails if it is missing [Tested: `08-benchmark/tests/test_skill_eval_run.py`]. Never call `claude plugin eval` by hand without it. Each run is a Claude Code session on your own credential; results stay under the tools folder's `out/skill-evals/`.
 
 ## 7. What is not measured yet
 
@@ -97,7 +97,7 @@ The eval tool publishes its HTML report to claude.ai by default. The kit passes 
 |---|---|---|
 | A verdict, not a signal | no case has run three times per arm; that spend is the owner's decision | Measured |
 | 15 of the 17 skills | they have no case | Measured |
-| The skill apart from its tools | with `--kit-mcp` or `--kit-plugin` the arm without the skill also loses the server, so the difference is the skill plus its tools | Inferred |
+| The skill apart from its tools, in a real run | both arms keep the server only in stub tests; section 6's server rows predate it: their arm without the skill lost the server | Unknown |
 | Why `change-card` does not trigger | both runs of the seed prompt called the server's tool directly; a probe naming the skill triggered | Tested, n=1 each |
 | Why the shell calls of `post-review-comment` failed | a stored result keeps tool names, not commands | Unknown |
 | Strict typing of a skill's Python | no checker installed; the three command lines in `03-tools/lib/skill_build.py` are unverified | Measured |
@@ -107,7 +107,7 @@ The eval tool publishes its HTML report to claude.ai by default. The kit passes 
 
 ## 8. The kit plugin
 
-The package per skill stays the unit that is verified and evaluated, but it carries no server, which 14 of the 17 skills call. One more target packs the kit as one plugin, `metodo`: every skill, the server under `tools/`, and each tool name as that plugin exposes it. Use it to hand the skills to someone, or to measure a skill as it ships (`run --kit-plugin`; the report names the form). Limits: the server writes under `tools/out` inside the plugin, which Claude Code replaces on an update, and no single setting moves that folder [Measured: `03-tools/mcp/registry.py`]; its config is the kit's default; hooks and role agents are not in it; it is published nowhere.
+The package per skill stays the unit verified and evaluated, but carries no server, which 14 of the 17 skills call. One more target packs the kit as one plugin, `metodo`: every skill, the server under `tools/`, and each tool name as that plugin exposes it. Use it to hand the skills over, or to measure a skill as it ships (`run --kit-plugin`; the report names the form). Limits: the server writes under the plugin's `tools/out`, which Claude Code replaces on an update, and no single setting moves it [Measured: `03-tools/mcp/registry.py`]; its config is the kit's default; hooks and role agents are not in it; it is published nowhere.
 
 ```bash
 03-tools/bin/skill-build.sh build --kit-plugin --out <dir>   # <dir>/metodo/: the zip (same bytes each time) and marketplace/

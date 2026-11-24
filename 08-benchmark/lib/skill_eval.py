@@ -570,7 +570,8 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--no-cache", action="store_true", help="run a case again even when its hash has a stored result")
     run.add_argument("--kit-mcp", action="store_true",
                      help="for a skill that declares MCP tools: start this checkout's MCP server in its runs "
-                          "(it runs as you, outside the tool's sandbox); off by default")
+                          "(it runs as you, outside the tool's sandbox), in both arms: the arm without the skill is "
+                          "the same plugin less the skill's folder, in a second invocation; off by default")
     run.add_argument("--kit-plugin", action="store_true",
                      help="evaluate the skill from the kit plugin (every skill plus the kit's MCP server, started from "
                           "the plugin's own files) instead of its own package; never with --kit-mcp")
@@ -578,7 +579,8 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--model", metavar="M", help="model of the agent under test (default: the session's)")
     run.add_argument("--judge-model", metavar="M", help="model of the judge (default: the tool's)")
     run.add_argument("--max-cost-usd", type=_above_zero(float), default=0.50, metavar="USD",
-                     help="cost ceiling of each skill's invocation (default: 0.50)")
+                     help="cost ceiling of each skill, shared by its two invocations when it runs with the kit's "
+                          "MCP server (default: 0.50)")
     run.set_defaults(run=_runner("cmd_run"))
     report.set_defaults(run=_runner("cmd_report"))
     try:

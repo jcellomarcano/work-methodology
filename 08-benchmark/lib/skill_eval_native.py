@@ -33,6 +33,12 @@ Every command line this module builds carries REQUIRED_FLAGS. `--no-publish` is 
 matters most: without it the tool publishes its HTML report to claude.ai. `--threshold 0` makes
 exit 1 mean a failure of the tool and not a low score, which is the kit's to judge.
 
+The ablation is the tool's own, `with-without`, unless the runner asks for `none`: the plugin
+alone, with no baseline arm. The result then holds one arm, named `with`, and no `scoreWithout`
+(read in the tool's code, 2.1.330), and the `tool_used: Skill` grader is part of the tool's score
+instead of an indicator. The runner asks for it twice when the plugin carries an MCP server, since
+the tool's own ablation removes the whole plugin, server included (lib/skill_eval_run.py).
+
 A kept directory is `<temp>/e-XXXXXX/` with `out/trace.jsonl` (the session, one JSON object per
 line) and the workspace under `sealed/home/cwd`, behind a folder at mode 000. One is opened only
 when a result of this run names it through `tracePath` and it has that shape under a temporary
@@ -57,6 +63,7 @@ import skill_eval
 
 NATIVE_SCHEMA_VERSION = "1.1"
 ARMS = ("with", "without")
+ABLATIONS = ("with-without", "none")  # of the tool: its own two arms (the default), or the plugin alone
 DEFAULT_RUNS = 3  # the tool's own default, written out so a case never depends on it
 DEFAULT_ALLOWED_TOOLS = ("Read", "Glob", "Grep", "Skill")  # the list of `claude plugin eval init --bare`
 GATED_TOOLS = ("Bash", "Write", "Edit", "NotebookEdit", "WebFetch", "WebSearch")
@@ -301,14 +308,18 @@ def unmatched_exempt_paths(case: dict) -> list[str]:
 
 def build_argv(claude: str, plugin_dir, out_dir, *, max_cost_usd: float, tier: str | None = None,
                runs: int | None = None, model: str | None = None, judge_model: str | None = None,
-               allow_tools=(), scaffold: bool = False, real_servers: bool = False) -> list[str]:
+               allow_tools=(), scaffold: bool = False, real_servers: bool = False,
+               ablation: str = ABLATIONS[0]) -> list[str]:
     """The one command line of the runner. Every flag of REQUIRED_FLAGS is always in it.
 
     `real_servers` lets the tool start the plugin's own MCP server (it has no mock): the server
-    runs as the user, outside the sandbox that confines the run's shell tools.
+    runs as the user, outside the sandbox that confines the run's shell tools. `ablation` is one
+    of ABLATIONS: the tool's own two arms, or `none` for the plugin alone.
     """
+    if ablation not in ABLATIONS:
+        raise NativeError(f"the ablation {ablation!r} is not one of {', '.join(ABLATIONS)}")
     argv = [claude, "plugin", "eval", str(plugin_dir), "--no-publish", "--trust-plugin", "--keep-temp",
-            "--ablation", "with-without", "--threshold", "0", "--max-cost-usd", f"{max_cost_usd:g}",
+            "--ablation", ablation, "--threshold", "0", "--max-cost-usd", f"{max_cost_usd:g}",
             "--output-dir", str(out_dir), "--json", str(pathlib.Path(out_dir) / "result.json"),
             "--scaffold" if scaffold else "--no-scaffold"]
     for flag, value in (("--tag", tier), ("--runs", runs), ("--model", model), ("--judge-model", judge_model)):

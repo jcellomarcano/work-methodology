@@ -166,7 +166,7 @@ class Plan(RunnerTest):
         self.assertEqual(sorted(data), ["runner_version", "skills", "thresholds"])
         (skill,) = data["skills"]
         self.assertEqual(sorted(skill), ["cached", "cases", "measured_as", "reasons", "selected", "signal", "size_tokens",
-                                         "skill", "summary", "token_method", "verdict"])
+                                         "skill", "summary", "token_method", "verdict", "without_arm"])
         self.assertEqual(sorted(skill["cases"][0]), ["arms", "case", "hash", "state", "tier"])
         for key in ("arms", "cases", "runs_per_arm", "with_score", "without_score", "delta", "cheated", "spend_usd"):
             self.assertIn(key, skill["summary"])
@@ -204,7 +204,7 @@ class NativeSuite(RunnerTest):
         self.assertEqual(native.REQUIRED_FLAGS, ("--no-publish", "--trust-plugin", "--json", "--keep-temp",
                                                  "--output-dir", "--max-cost-usd"))
         for options in ({}, {"tier": "smoke"}, {"runs": 3, "model": "haiku", "judge_model": "haiku"},
-                        {"allow_tools": ["Edit"], "scaffold": True}):
+                        {"allow_tools": ["Edit"], "scaffold": True}, {"ablation": "none", "real_servers": True}):
             argv = native.build_argv("claude", "/p", "/o", max_cost_usd=0.5, **options)
             for flag in native.REQUIRED_FLAGS:
                 self.assertIn(flag, argv, options)
@@ -536,9 +536,9 @@ class KitMcp(RunnerTest):
         self.declare(self.TOOL)
         self.assert_clean(self.run_real(), 0)
         self.assert_clean(self.run_real("--kit-mcp"), 0)
-        self.assertEqual(len(self.calls()), 2)
+        self.assertEqual(len(self.calls()), 3)  # one invocation without the server, then one per arm with it (S14)
         self.assert_clean(self.run_real("--kit-mcp"), 0)
-        self.assertEqual(len(self.calls()), 2)
+        self.assertEqual(len(self.calls()), 3)
 
     def test_the_flag_starts_nothing_for_a_skill_that_declares_no_mcp_tool(self):  # previous behavior of a plain skill
         res = self.run_real("--kit-mcp")
@@ -659,7 +659,7 @@ class KitPlugin(RunnerTest):
     def test_a_result_of_one_form_is_not_reused_for_the_other(self):
         self.assert_clean(self.run_real(), 0)
         self.assert_clean(self.run_real("--kit-plugin"), 0)
-        self.assertEqual(len(self.calls()), 2)
+        self.assertEqual(len(self.calls()), 3)  # one invocation for the package, then one per arm for the kit plugin (S14)
         again = self.cli("run", "--skill", "demo-skill", *self.where(), "--tier", "smoke", "--kit-plugin")
         self.assertIn("1 cached", again.stdout)
         back = self.cli("run", "--skill", "demo-skill", *self.where(), "--tier", "smoke")
@@ -680,7 +680,7 @@ class KitPlugin(RunnerTest):
         self.assert_clean(self.run_real("--kit-plugin"), 0)
         again = self.run_real("--kit-plugin")
         self.assert_clean(again, 0)
-        self.assertEqual(len(self.calls()), 1)  # previous behavior: nothing changed, so it is served from the store
+        self.assertEqual(len(self.calls()), 2)  # previous behavior: nothing changed, so it is served from the store
         self.assertIn("demo-skill/smoke-basic [smoke]: cached", again.stdout)
         (self.kit / "03-tools" / "mcp" / "server.py").write_text("print('another server that no test starts')\n")
         plan = self.cli("run", "--skill", "demo-skill", *self.where(), "--tier", "smoke", "--kit-plugin")
@@ -688,13 +688,13 @@ class KitPlugin(RunnerTest):
         self.assertIn("demo-skill/smoke-basic [smoke]: to run", plan.stdout)
         self.assertIn("the stored result used other settings: another build of the kit plugin", plan.stdout)
         self.assert_clean(self.run_real("--kit-plugin"), 0)
-        self.assertEqual(len(self.calls()), 2)
+        self.assertEqual(len(self.calls()), 4)  # under the kit plugin every measurement is one invocation per arm (S14)
         with open(self.kit / "02-skills" / "other-skill" / "SKILL.md", "a") as handle:
             handle.write("\nOne more line in a skill that is not the one measured.\n")
         self.assert_clean(self.run_real("--kit-plugin"), 0)
-        self.assertEqual(len(self.calls()), 3)
+        self.assertEqual(len(self.calls()), 6)
         self.assert_clean(self.run_real("--kit-plugin"), 0)
-        self.assertEqual(len(self.calls()), 3)  # and the new result is reused while the plugin stays as it is
+        self.assertEqual(len(self.calls()), 6)  # and the new result is reused while the plugin stays as it is
         shown = self.report()  # previous behavior: the report shows what is stored and packs nothing
         self.assert_clean(shown, 0)
         self.assertIn(self.FORM, shown.stdout)
@@ -725,6 +725,162 @@ class KitPlugin(RunnerTest):
         self.assert_clean(res, 1)
         self.assertIn("the kit plugin cannot be packed", res.stderr)
         self.assertEqual(self.calls(), [])
+
+
+class ArmWithoutTheSkill(RunnerTest):
+    """S14: when a run carries the kit's MCP server, the arm without the skill is the same plugin less the skill's folder."""
+
+    TOOL = "mcp__metodo__demo_tool"
+    OWN = "mcp__plugin_demo-skill_metodo__demo_tool"  # as the skill's own package exposes it (--kit-mcp)
+    KIT = "mcp__plugin_demo-kit_metodo__demo_tool"    # as the kit plugin exposes it (--kit-plugin)
+
+    def setUp(self):
+        super().setUp()
+        self.play(cases={"smoke-basic": {"with": {**GOOD_RUN, "mcp": [self.OWN]}, "without": {}}})
+        server = self.kit / "03-tools" / "mcp"
+        server.mkdir(parents=True)
+        (server / "__init__.py").write_text("")
+        (server / "catalog.py").write_text('BY_NAME = {"demo_tool": None}\n')
+        (server / "server.py").write_text("print('a server that no test starts')\n")
+        (self.kit / "02-skills" / "BUILD.json").write_text(json.dumps({"schema_version": 1, "kit_plugin": {
+            "name": "demo-kit", "version": "0.3.0", "description": "The demo kit as one plugin.",
+            "marketplace": "demo-market", "owner": "Demo Owner"}}))
+        skill = self.kit / "02-skills" / "demo-skill"
+        (skill / "BUILD.json").write_text(json.dumps({"schema_version": 1,
+                                                      "agent_skill": {"srcs": ["SKILL.md"], "deps": [self.TOOL]}}))
+        head, rest = (skill / "SKILL.md").read_text().split("\n---\n", 1)
+        (skill / "SKILL.md").write_text(f"{head}\nallowed-tools: [Read, Edit, {self.TOOL}]\n---\n{rest}"
+                                        f"4. Check the result with `{self.TOOL}`.\n")
+
+    @staticmethod
+    def after(argv, flag):
+        return argv[argv.index(flag) + 1]
+
+    def assert_same_plugin_less_the_skill(self, used, bare, exposed):
+        """Read from what the stub recorded of each invocation: its command line and the folder it was given."""
+        gone = [name for name in used["files"] if name.startswith("skills/demo-skill/")]
+        self.assertIn("skills/demo-skill/SKILL.md", gone)
+        self.assertEqual(bare["files"], [name for name in used["files"] if name not in gone])
+        self.assertEqual(bare["sha256"], {name: digest for name, digest in used["sha256"].items() if name not in gone})
+        self.assertEqual((bare["plugin"], bare["cases"]), (used["plugin"], used["cases"]))
+        self.assertIsNotNone(used["mcp"])
+        self.assertEqual(bare["mcp"], used["mcp"])
+        self.assertNotEqual(bare["argv"][2], used["argv"][2])  # a folder of its own
+        self.assertIn(exposed, bare["cases"]["smoke-basic"]["execution"]["allowed_tools"])
+        for call in (used, bare):
+            self.assertEqual(self.after(call["argv"], "--ablation"), "none")
+            self.assertIn("--allow-real-servers", call["argv"])
+            self.assertIn(exposed, call["argv"][call["argv"].index("--allow-tools") + 1:])
+        self.assertEqual(self.statuses(), {"with": ["passed"], "without": ["validator_failed"]})
+
+    def test_with_the_checkout_server_the_arm_without_the_skill_is_the_same_plugin_less_the_skills_folder(self):
+        res = self.run_real("--kit-mcp")
+        self.assert_clean(res, 0)
+        used, bare = self.calls()
+        self.assert_same_plugin_less_the_skill(used, bare, self.OWN)
+        self.assertEqual((used["plugin"], bare["skill_text"]), ("demo-skill", ""))
+        self.assertIn("demo-skill: works", res.stdout)
+
+    def test_with_the_kit_plugin_only_the_measured_skill_leaves_and_the_other_skills_stay(self):
+        self.play(cases={"smoke-basic": {"with": {**GOOD_RUN, "mcp": [self.KIT]}, "without": {}}})
+        self.assert_clean(self.run_real("--kit-plugin"), 0)
+        used, bare = self.calls()
+        self.assert_same_plugin_less_the_skill(used, bare, self.KIT)
+        self.assertEqual(used["plugin"], "demo-kit")
+        for kept in ("skills/other-skill/SKILL.md", "tools/mcp/server.py", ".mcp.json"):
+            self.assertIn(kept, bare["files"])
+
+    def test_every_command_line_of_both_arms_carries_the_protecting_flags_and_the_ceilings_fit_the_owners(self):
+        for flag, ceiling in (("--kit-mcp", "0.25"), ("--kit-mcp", "0.3333333"), ("--kit-plugin", "7")):
+            self.log.unlink(missing_ok=True)
+            self.assert_clean(self.run_real(flag, "--no-cache", "--max-cost-usd", ceiling), 0)
+            calls = self.calls()
+            self.assertEqual(len(calls), 2, (flag, ceiling))
+            for call in calls:
+                for required in native.REQUIRED_FLAGS:
+                    self.assertIn(required, call["argv"], (flag, ceiling))
+                self.assertNotIn("--publish-report", call["argv"])
+                self.assertGreater(float(self.after(call["argv"], "--max-cost-usd")), 0)
+                for path in ("--output-dir", "--json"):
+                    self.assertTrue(self.after(call["argv"], path).startswith(str(self.out) + os.sep), call["argv"])
+            self.assertNotEqual(self.after(calls[0]["argv"], "--output-dir"), self.after(calls[1]["argv"], "--output-dir"))
+            self.assertLessEqual(sum(float(self.after(call["argv"], "--max-cost-usd")) for call in calls), float(ceiling),
+                                 (flag, ceiling))
+
+    def test_without_a_server_the_command_line_is_the_one_built_before(self):  # previous behavior, byte for byte
+        self.assert_clean(self.run_real("--max-cost-usd", "0.25"), 0)
+        (call,) = self.calls()
+        out = pathlib.Path(self.after(call["argv"], "--output-dir"))
+        self.assertEqual(out.parent, self.out / "native" / "demo-skill")
+        self.assertEqual(call["argv"], [
+            "plugin", "eval", str(self.out / "work" / "demo-skill" / "plugin"), "--no-publish", "--trust-plugin",
+            "--keep-temp", "--ablation", "with-without", "--threshold", "0", "--max-cost-usd", "0.25",
+            "--output-dir", str(out), "--json", str(out / "result.json"), "--scaffold", "--tag", "smoke",
+            "--allow-tools", "Edit"])
+        self.assertEqual(json.loads((out / "command.json").read_text())[1:], call["argv"])
+        self.assertNotIn(".mcp.json", call["files"])
+
+    def test_the_plan_says_how_many_native_invocations_will_run_and_starts_nothing(self):
+        target = self.tmp / "plan.json"
+        plan = self.cli("run", "--skill", "demo-skill", *self.where(), "--tier", "smoke", "--kit-mcp", "--json", str(target))
+        self.assert_clean(plan, 0)
+        for said in ("2 native run(s) in 2 native invocation(s); ceiling USD 0.50",
+                     "the arm without the skill runs on the same plugin with only skills/demo-skill/ removed",
+                     "--ablation none", "under USD 0.25 and at most USD 0.25 of the ceiling",
+                     "plan only: nothing was run and nothing was spent"):
+            self.assertIn(said, plan.stdout)
+        (skill,) = json.loads(target.read_text())["skills"]
+        self.assertEqual((skill["native_invocations"], skill["without_arm"], skill["ceilings_usd"], skill["ceiling_usd"]),
+                         (2, "skill_removed", [0.25, 0.25], 0.5))
+        plain = self.cli("run", "--skill", "demo-skill", *self.where(), "--tier", "smoke", "--json", str(target))
+        self.assert_clean(plain, 0)
+        self.assertIn("2 native run(s) in 1 native invocation(s); ceiling USD 0.50", plain.stdout)
+        self.assertNotIn("--ablation none", plain.stdout)
+        (skill,) = json.loads(target.read_text())["skills"]
+        self.assertEqual((skill["native_invocations"], skill["without_arm"], skill["ceilings_usd"]),
+                         (1, "native_ablation", [0.5]))
+        self.assertEqual(self.calls(), [])
+        self.assertFalse((self.out / "store").exists())
+
+    def test_the_report_and_the_stored_result_say_how_the_arm_without_the_skill_was_built(self):
+        self.play(cases={"smoke-basic": {"with": {**GOOD_RUN, "mcp": [self.OWN]}, "without": {"mcp": [self.OWN]}}})
+        res = self.run_real("--kit-mcp")
+        self.assert_clean(res, 0)
+        shown = self.report("--json", str(self.tmp / "report.json"))
+        said = ("  arm without the skill: the same plugin with only skills/demo-skill/ removed, in a second invocation of "
+                "the tool: its MCP server and tools stay; 1 call(s) to its tools in the runs without the skill\n")
+        for output in (res, shown):
+            self.assertIn(said, output.stdout)
+        record = self.stored()
+        self.assertEqual(record["without_arm"], {"how": "skill_removed", "invocations": 2, "ceilings_usd": [0.25, 0.25]})
+        self.assertEqual(record["arms"]["without"][0]["mcp_calls"], 1)  # the tool was there to be called
+        data = json.loads((self.tmp / "report.json").read_text())
+        self.assertEqual(data["skills"][0]["without_arm"], [said.strip()[len("arm without the skill: "):]])
+        res = self.run_real("--no-cache")  # no server: the tool's own ablation, as before
+        self.assert_clean(res, 0)
+        self.assertIn("  arm without the skill: the tool's own ablation, which removes the whole plugin\n", res.stdout)
+        self.assertEqual(self.stored()["without_arm"], {"how": "native_ablation", "invocations": 1, "ceilings_usd": [0.5]})
+
+    def test_when_the_first_arm_leaves_nothing_of_the_ceiling_the_second_is_not_started_and_nothing_is_a_verdict(self):
+        self.play(cases={"smoke-basic": {"with": {**GOOD_RUN, "mcp": [self.OWN], "cost": 0.30}, "without": {}}})
+        res = self.run_real("--kit-mcp", "--max-cost-usd", "0.25")
+        self.assert_clean(res, 1)
+        self.assertEqual(len(self.calls()), 1, "the arm without the skill must not be started")
+        self.assertIn("nothing is left for the arm without it", res.stderr)
+        self.assertIn("demo-skill: not measured", res.stdout)
+        self.assertNotIn("demo-skill: works", res.stdout)
+        self.assertFalse((self.out / "store").exists())
+        self.assertEqual(sorted(self.kept.glob("e-*")), [])  # the first arm's kept folders are not left behind
+
+    def test_a_result_stored_by_the_older_runner_under_a_server_is_measured_again(self):
+        self.assert_clean(self.run_real("--kit-mcp"), 0)
+        self.assertEqual(len(self.calls()), 2)
+        (path,) = sorted((self.out / "store" / SMOKE).glob("*.json"))
+        os.replace(path, path.with_name(f"{self.stored()['hash']}.v4.json"))  # the name the runner before S14 gave it
+        res = self.run_real("--kit-mcp")
+        self.assert_clean(res, 0)
+        self.assertEqual(len(self.calls()), 4, "a result of the older runner was reused")
+        self.assertNotIn("demo-skill/smoke-basic [smoke]: cached", res.stdout)
 
 
 class Cascade(RunnerTest):

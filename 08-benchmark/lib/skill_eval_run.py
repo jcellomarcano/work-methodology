@@ -9,13 +9,31 @@ Usage (through lib/skill_eval.py, which owns the command line):
     lib/skill_eval.py report [--skill NAME ...] [--tier smoke|core|deep] [--root DIR] [--kit DIR]
                              [--out DIR] [--json FILE]
 
-`run` without `--real` prints the plan (per skill: its cases, the two arms, the runs and the cost
-ceiling) and spends nothing; `--json FILE` then holds that plan (`mode` "plan"), not a report. With `--real` it prints the ceiling first, then for every skill that
+`run` without `--real` prints the plan (per skill: its cases, the two arms, the runs, the native
+invocations and the cost ceiling) and spends nothing; `--json FILE` then holds that plan (`mode` "plan"), not a report. With `--real` it prints the ceiling first, then for every skill that
 has a case with no stored result: lays the skill's package out as a throwaway plugin holding only
 that skill (03-tools/lib/skill_build.py, so what is measured is what ships), writes its cases in
 the native layout (lib/skill_eval_native.py), runs `claude plugin eval` once, with and without the
-plugin, scores every run, stores one result per case and prints the report. `report` prints the
+plugin (twice under the kit's MCP server: see below), scores every run, stores one result per case
+and prints the report. `report` prints the
 same report from the stored results and never starts the tool.
+
+The arm without the skill. With no server in the plugin it is the tool's own ablation: one
+invocation with `--ablation with-without`, which removes the whole plugin. That ablation would
+also remove an MCP server the plugin carries, and the arm with the skill would be credited for
+what the server's tools did. So when a run carries the kit's server (`--kit-mcp` for a skill that
+declares its tools, or `--kit-plugin`) the tool is started twice with `--ablation none`: once on
+the plugin as it is laid out, and once on a copy of that folder with only `skills/<skill>/`
+removed (same name, same `.mcp.json`, same cases, same tools under the same names; under
+`--kit-plugin` the other skills stay). The first gives the runs with the skill, the second the
+runs without it, and the difference between the arms is the skill alone. The ceiling of the skill
+is shared: half for the first invocation, and for the second what is left of the other half once
+the first one's spend is known (`share_ceiling`), so the two never add up to more than the ceiling
+asked and the overrun stays one run in flight. When the first leaves nothing, the second is not
+started and the skill is `not measured`. A failure of either invocation is that skill's failure:
+nothing is stored. The stored result says which way its arm was built (`without_arm`), the report
+prints it (`arm without the skill:`), and the tool's own scores kept with it then count the
+`tool_used: Skill` grader, which under `--ablation none` is scored and fails in the second.
 
 What the kit does around the native tool, because the tool cannot: tiers (as tags), `setup.files`
 (a scaffold script), script validators, forbidden paths, the cascade, the verdict and the cache.
@@ -75,7 +93,8 @@ stored result with every run readable, made with the settings asked now (model, 
 per arm, the kit's MCP server, the kit plugin and, under it, the plugin's own files), is reported as
 cached and not run again, unless `--no-cache`.
 `report` shows what is stored whatever it was run with. `<out>/native/<skill>/<stamp>/` keeps the
-tool's result, report and output. A run's trace is removed once it is scored, so its stored result
+tool's result, report and output (under `with/` and `without/` when it was started twice). A run's
+trace is removed once it is scored, so its stored result
 keeps the names of the tools it called, in order (`tools_called`, a failed call marked), and the
 report prints them under a run that did not pass. For the served MCP tools it also keeps an excerpt
 of what each call answered (`mcp_answers`): the proof that the server of the plugin answered.
@@ -103,10 +122,10 @@ import skill_eval_native as native
 from skill_eval import CaseError
 from skill_eval_native import ARMS, NativeError
 
-RUNNER_VERSION = 4  # part of every stored result's name: raise it when the scoring or what a result depends on changes
+RUNNER_VERSION = 5  # part of every stored result's name: raise it when the scoring or what a result depends on changes
 HERE = pathlib.Path(__file__).resolve().parent
 KIT_ROOT = HERE.parent.parent
-DEFAULT_MAX_COST_USD = 0.50  # per skill and invocation
+DEFAULT_MAX_COST_USD = 0.50  # per skill, whatever the number of invocations it takes
 VALIDATOR_TIMEOUT_SECONDS = 60
 MAX_TOOLS_LISTED = 60  # tool calls of one run kept in its stored result
 MAX_ANSWERS_KEPT = 10  # calls to the served MCP tools kept with an excerpt of what each answered
@@ -137,6 +156,12 @@ SETTING_NAMES = {"model": "model", "judge_model": "judge model", "runs": "runs p
 SETTING_DEFAULTS = {"kit_plugin": False}  # what a result stored before the setting existed was run with
 FORMS = {"kit_plugin": "the kit plugin", "skill_package": "its own package"}
 PLUGIN_CHANGED = "another build of the kit plugin (its server or another of its skills changed)"
+# How the arm without the skill is built, as a stored result names it and as the report says it.
+WITHOUT_ARM = {
+    "native_ablation": "the tool's own ablation, which removes the whole plugin",
+    "skill_removed": "the same plugin with only skills/{skill}/ removed, in a second invocation of the tool: "
+                     "its MCP server and tools stay",
+}
 AROUND = ("done by the kit around the native tool: tiers as tags, setup.files through a scaffold script, "
           "script validators on the files each run left, the forbidden-path check on each trace, the cascade, "
           "the verdict and the cache; the tool's own score of each run is kept in the stored result")
@@ -397,7 +422,9 @@ def summarize(records: list[dict]) -> dict:
     served = [bool((record.get("mcp") or {}).get("served")) for record in records
               if (record.get("mcp") or {}).get("declared")]
     tools = {"without_tools": served.count(False), "mcp_served": served.count(True),
-             "mcp_calls": sum(int(run.get("mcp_calls") or 0) for record in records for run in record["arms"].get("with") or [])}
+             "mcp_calls": sum(int(run.get("mcp_calls") or 0) for record in records for run in record["arms"].get("with") or []),
+             "mcp_calls_without": sum(int(run.get("mcp_calls") or 0) for record in records
+                                      for run in record["arms"].get("without") or [])}
     used, base = arms["with"], arms["without"]
     checked = used["runs"] - used["cheated"] - sum(used[status] for status in UNUSABLE)
     triggered = checked - used["not_triggered"]
@@ -495,6 +522,31 @@ def measured_as(record: dict) -> str:
     return f"{form} {package['plugin']} {package.get('version')}, invoked as {package.get('invoke')}"
 
 
+def without_arm(record: dict) -> str:
+    """How the arm without the skill of a stored result was built: a key of WITHOUT_ARM."""
+    built = record.get("without_arm") if isinstance(record.get("without_arm"), dict) else {}
+    return built.get("how") if built.get("how") in WITHOUT_ARM else "native_ablation"  # the only way there was before
+
+
+def _cut(value: float) -> float:
+    """`value` cut down to five significant digits: the six a command line prints never round it up."""
+    if value <= 0:
+        return 0.0
+    scale = 10 ** (4 - math.floor(math.log10(value)))
+    return math.floor(value * scale) / scale
+
+
+def share_ceiling(ceiling: float, invocations: int) -> list[float]:
+    """The ceiling of one skill for each of its invocations: together they never pass `ceiling`.
+
+    One invocation has it whole, as it was asked. Two have half each, cut down and never rounded up.
+    """
+    if invocations < 2:
+        return [ceiling] * invocations
+    first = _cut(ceiling / 2)
+    return [first, _cut(ceiling - first)]
+
+
 def reusable(record: dict | None) -> bool:
     """A stored result stands in for a run only when every run of it could be read."""
     return bool(record) and all(record["arms"][arm] for arm in ARMS) and not any(
@@ -558,6 +610,9 @@ def plan_skill(ctx: dict, skill: str, cases: list[dict], use_cache: bool, runs: 
                                 "runs": case_runs, "differs": differs})
         if not cached:
             plan["to_run"].append(case)
+    # the tool's own ablation removes the whole plugin: a plugin that carries a server keeps it in both arms instead
+    plan["without_arm"] = "skill_removed" if plan["kit_mcp"] or plan["kit_plugin"] else "native_ablation"
+    plan["invocations"] = 0 if not plan["to_run"] else 2 if plan["without_arm"] == "skill_removed" else 1
     return plan
 
 
@@ -565,7 +620,8 @@ def plan_lines(plan: dict, ceiling: float) -> list[str]:
     native_runs = sum(len(ARMS) * entry["runs"] for entry in plan["entries"] if not entry["cached"])
     cached = sum(1 for entry in plan["entries"] if entry["cached"])
     lines = [f"{plan['skill']}: {len(plan['entries'])} case(s), {len(plan['to_run'])} to run, {cached} cached; "
-             f"arms {', '.join(ARMS)}; {native_runs} native run(s); ceiling USD {ceiling if plan['to_run'] else 0:.2f}"]
+             f"arms {', '.join(ARMS)}; {native_runs} native run(s) in {plan['invocations']} native invocation(s); "
+             f"ceiling USD {ceiling if plan['to_run'] else 0:.2f}"]
     if not plan["has_skill"]:
         lines.append(f"  skill folder not found at {plan['skill_dir']}: a real run reports it as not measured")
     declared = len(plan["mcp_tools"])
@@ -579,6 +635,11 @@ def plan_lines(plan: dict, ceiling: float) -> list[str]:
     elif declared:
         lines.append(f"  {plan['skill']} declares {declared} MCP tool(s) of the kit's server, which this run does not start: "
                      f"the skill runs without its tools, so its verdict cannot be `works` (add --kit-mcp to start the server)")
+    if plan["invocations"] == 2:
+        first, second = share_ceiling(ceiling, 2)
+        lines.append(f"  {plan['skill']}: the arm without the skill runs on the same plugin with only skills/{plan['skill']}/ "
+                     f"removed, so the server and its tools stay in both arms: the tool is started twice with "
+                     f"--ablation none, under USD {first:g} and at most USD {second:g} of the ceiling")
     if plan["tools_root"]:
         where = "the plugin's own tools folder" if plan["kit_plugin"] else str(plan["tools_dir"])
         lines.append(f"  {plan['skill']}: its files name the kit's tools root, rendered to {where} for the run")
@@ -604,7 +665,8 @@ def plan_data(plan: dict, ceiling: float) -> dict:
     return {"skill": plan["skill"], "has_skill": plan["has_skill"], "arms": list(ARMS), "cases": cases,
             "to_run": len(to_run), "cached": len(cases) - len(to_run),
             "native_runs": sum(len(ARMS) * case["runs"] for case in to_run),
-            "ceiling_usd": ceiling if to_run else 0.0,
+            "native_invocations": plan["invocations"], "without_arm": plan["without_arm"],
+            "ceiling_usd": ceiling if to_run else 0.0, "ceilings_usd": share_ceiling(ceiling, plan["invocations"]),
             "kit_mcp": plan["kit_mcp"], "kit_plugin": plan["kit_plugin"], "mcp_tools": plan["mcp_tools"]}
 
 
@@ -619,6 +681,100 @@ def _discard_kept(result: dict) -> None:
                     native.remove_kept(native.kept_dir(run.get("tracePath")))
                 except NativeError:
                     pass
+
+
+def _invoke(plugin_dir, native_out, cases: list[dict], args, *, ceiling: float, served, scaffold: bool,
+            real_servers: bool, ablation: str = native.ABLATIONS[0]) -> dict:
+    """Start the native tool once on `plugin_dir`, keep what it said under `native_out`, return its result.
+
+    A NativeError says in one line why the invocation left nothing to score; the kept directories
+    its result named are removed before it is raised.
+    """
+    native_out.mkdir(parents=True)
+    argv = native.build_argv(native.claude_bin(), plugin_dir, native_out, max_cost_usd=ceiling,
+                             tier=args.tier, runs=args.runs, model=args.model, judge_model=args.judge_model,
+                             allow_tools=native.gated_tools(cases, served), scaffold=scaffold,
+                             real_servers=real_servers, ablation=ablation)
+    (native_out / "command.json").write_text(json.dumps(argv) + "\n", encoding="utf-8")
+    arms = 1 if ablation == "none" else len(ARMS)
+    timeout = 300 + sum(arms * native.runs_of(case, args.runs) * (case["timeout_seconds"] or 300) for case in cases)
+    code, stdout, stderr = native.run_native(argv, native_out, timeout)
+    (native_out / "stdout.txt").write_text(stdout, encoding="utf-8")
+    (native_out / "stderr.txt").write_text(stderr, encoding="utf-8")
+    result, unread = None, None
+    try:
+        result = native.read_result(native_out / "result.json")
+    except NativeError as exc:
+        unread = exc
+    if code != 0 or result is None or result.get("partial"):
+        if result is not None:
+            _discard_kept(result)
+        spent = f", USD {_money(result.get('costUsd')):.4f} spent" if result is not None else ""
+        said = [line for line in stderr.splitlines() if line.strip()]
+        if code != 0:
+            meaning = native.EXIT_MEANING.get(code, "a code it does not document")
+            reason = f"the native tool exited {code} ({meaning}){spent}: {_one_line(said[-1])[:300] if said else 'no output'}"
+        elif result is None:
+            reason = str(unread)
+        else:
+            reason = f"the native tool gave a partial result ({result.get('partialReason') or 'no reason given'}){spent}"
+        raise NativeError(f"{reason}; nothing was stored")
+    return result
+
+
+def _merge_arms(used: dict, bare: dict) -> dict:
+    """One result with both arms out of two invocations made with `--ablation none`.
+
+    Each reports its one arm as `with`: the first one's runs stay the arm with the skill, the second
+    one's become the arm without it. A case that only one of them holds is left out, its kept
+    directories removed, and the caller reports it as missing.
+    """
+    def score(case: dict):
+        value = case["aggregates"].get("score") if isinstance(case.get("aggregates"), dict) else None
+        return value if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+
+    others = {case["name"]: case for case in bare["cases"]}
+    cases, alone = [], []
+    for case in used["cases"]:
+        other = others.pop(case["name"], None)
+        if other is None:
+            alone.append(case)
+            continue
+        with_score, without_score = score(case), score(other)
+        cases.append({**case, "arms": {"with": case["arms"].get("with") or [], "without": other["arms"].get("with") or []},
+                      "aggregates": {"score": with_score, "scoreWithout": without_score,
+                                     "delta": None if None in (with_score, without_score) else with_score - without_score}})
+    _discard_kept({"cases": alone + list(others.values())})
+    return {**used, "cases": cases}
+
+
+def _both_arms(work, native_out, skill: str, cases: list[dict], args, **how) -> tuple[dict, list[float]]:
+    """The two arms as two invocations with `--ablation none`; (one result with both arms, the two ceilings).
+
+    The second runs on a copy of the laid-out plugin with only `skills/<skill>/` removed, so the
+    server, its tools and their names are the same in both arms (the module docstring says why).
+    """
+    bare = work / "plugin-without"
+    shutil.copytree(work / "plugin", bare, symlinks=True)
+    if not (bare / "skills" / skill).is_dir():
+        raise NativeError(f"the plugin laid out for {skill} holds no skills/{skill}/, so no arm without it can be built")
+    shutil.rmtree(bare / "skills" / skill)
+    ceilings = share_ceiling(args.max_cost_usd, 2)
+    try:
+        used = _invoke(work / "plugin", native_out / "with", cases, args, ceiling=ceilings[0], ablation="none", **how)
+    except NativeError as exc:
+        raise NativeError(f"the arm with the skill: {exc}") from exc
+    spent = _money(used.get("costUsd"))
+    ceilings[1] = _cut(min(ceilings[1], args.max_cost_usd - spent))  # an overrun of the first comes out of the second
+    try:
+        if ceilings[1] <= 0:
+            raise NativeError(f"it was not started, since the arm with the skill spent USD {spent:.4f} of the ceiling of "
+                              f"USD {args.max_cost_usd:.2f} and nothing is left for the arm without it; nothing was stored")
+        without = _invoke(bare, native_out / "without", cases, args, ceiling=ceilings[1], ablation="none", **how)
+    except NativeError as exc:
+        _discard_kept(used)
+        raise NativeError(f"the arm without the skill: {exc}") from exc
+    return _merge_arms(used, without), ceilings
 
 
 def execute(ctx: dict, plan: dict, args) -> None:
@@ -655,35 +811,13 @@ def execute(ctx: dict, plan: dict, args) -> None:
             package = {"form": "skill_package", "plugin": laid["name"], "version": laid["version"], "invoke": laid["invoke"]}
             measured = {}
         starts_server = plan["kit_mcp"] or plan["kit_plugin"]  # the plugin under test carries a server with no mock
-        scaffold = native.write_suite(work / "plugin", cases, extra_tools=served)
-        native_out.mkdir(parents=True)
-        argv = native.build_argv(native.claude_bin(), work / "plugin", native_out, max_cost_usd=args.max_cost_usd,
-                                 tier=args.tier, runs=args.runs, model=args.model, judge_model=args.judge_model,
-                                 allow_tools=native.gated_tools(cases, served), scaffold=scaffold,
-                                 real_servers=starts_server)
-        (native_out / "command.json").write_text(json.dumps(argv) + "\n", encoding="utf-8")
-        timeout = 300 + sum(len(ARMS) * native.runs_of(case, args.runs) * (case["timeout_seconds"] or 300) for case in cases)
-        code, stdout, stderr = native.run_native(argv, native_out, timeout)
-        (native_out / "stdout.txt").write_text(stdout, encoding="utf-8")
-        (native_out / "stderr.txt").write_text(stderr, encoding="utf-8")
-        result, unread = None, None
-        try:
-            result = native.read_result(native_out / "result.json")
-        except NativeError as exc:
-            unread = exc
-        if code != 0 or result is None or result.get("partial"):
-            if result is not None:
-                _discard_kept(result)
-            spent = f", USD {_money(result.get('costUsd')):.4f} spent" if result is not None else ""
-            said = [line for line in stderr.splitlines() if line.strip()]
-            if code != 0:
-                meaning = native.EXIT_MEANING.get(code, "a code it does not document")
-                reason = f"the native tool exited {code} ({meaning}){spent}: {_one_line(said[-1])[:300] if said else 'no output'}"
-            elif result is None:
-                reason = str(unread)
-            else:
-                reason = f"the native tool gave a partial result ({result.get('partialReason') or 'no reason given'}){spent}"
-            raise NativeError(f"{reason}; nothing was stored")
+        how = {"served": served, "real_servers": starts_server,
+               "scaffold": native.write_suite(work / "plugin", cases, extra_tools=served)}
+        if plan["without_arm"] == "skill_removed":
+            result, ceilings = _both_arms(work, native_out, skill, cases, args, **how)
+        else:
+            ceilings = share_ceiling(args.max_cost_usd, 1)
+            result = _invoke(work / "plugin", native_out, cases, args, ceiling=ceilings[0], **how)
         by_name = {case["name"]: case for case in result["cases"]}
         tokens, method = skill_tokens(plan["skill_dir"])
         for entry in plan["entries"]:
@@ -695,6 +829,7 @@ def execute(ctx: dict, plan: dict, args) -> None:
                           hash=entry["hash"], stored_at=time.strftime("%Y-%m-%dT%H:%M:%S%z"),
                           expected_skills=case["expected_skills"], skill_tokens=tokens, token_method=method,
                           mcp={"declared": plan["mcp_tools"], "served": bool(served)}, package=package, **measured,
+                          without_arm={"how": plan["without_arm"], "invocations": len(ceilings), "ceilings_usd": ceilings},
                           settings={"model": args.model, "judge_model": args.judge_model, "runs": entry["runs"],
                                     "kit_mcp": plan["kit_mcp"], "kit_plugin": plan["kit_plugin"],
                                     "max_cost_usd": args.max_cost_usd,
@@ -724,9 +859,12 @@ def skill_report(plan: dict, failure: str | None = None) -> dict:
                       "arms": {arm: [{"status": run["status"], "detail": run.get("detail", ""),
                                       "tools_called": run.get("tools_called") or []} for run in arms.get(arm, [])]
                                for arm in ARMS}})
+    calls = f"; {summary['mcp_calls_without']} call(s) to its tools in the runs without the skill"
+    built = [WITHOUT_ARM[how].format(skill=plan["skill"]) + (calls if how == "skill_removed" else "")
+             for how in sorted({without_arm(record) for record in records})]
     return {"skill": plan["skill"], **verdict(summary, len(plan["entries"]), failure), "selected": len(plan["entries"]),
             "cached": sum(1 for case in cases if case["state"] == "cached"), "summary": summary,
-            "measured_as": sorted({measured_as(record) for record in records}),
+            "measured_as": sorted({measured_as(record) for record in records}), "without_arm": built,
             "size_tokens": tokens, "token_method": method, "cases": cases}
 
 
@@ -754,6 +892,7 @@ def report_lines(report: dict) -> list[str]:
             f"on runs not triggered USD {summary['judge_not_triggered_usd']:.4f} (the native tool runs its judge on every run)",
         ]
         lines += [f"  measured as: {form}" for form in report["measured_as"]]
+        lines += [f"  arm without the skill: {how}" for how in report["without_arm"]]
         if summary["without_tools"]:
             lines.append(f"  without its tools: the skill declares MCP tools and the kit's server was not started in "
                          f"{summary['without_tools']} of {summary['cases']} case(s), so the verdict cannot be `works`")

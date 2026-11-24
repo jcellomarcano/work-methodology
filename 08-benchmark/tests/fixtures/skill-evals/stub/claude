@@ -10,12 +10,14 @@ run, `e-XXXXXX/` at mode 500 with `out/trace.jsonl` readable and the workspace u
 Environment:
   STUB_KEPT      folder the kept directories are created in (required to play a run)
   STUB_LOG       file that gets one JSON line per call: argv, cwd, the plugin's files, its cases,
-                 the text of its SKILL.md and its .mcp.json (null when it has none)
+                 the text of its SKILL.md, its .mcp.json (null when it has none), its name
+                 (`plugin`) and the sha256 of each of its files (`sha256`)
   STUB_SCENARIO  JSON file, every key optional:
     exit      exit code (default 0)            stderr   text printed on stderr
     result    "none": no result file; "garbage": not JSON; "shape": JSON of the wrong shape
     partial   true marks the result partial    stray    true leaves a kept directory no result names
     drop      list of case names the result leaves out
+    measured  the skill under measure, read only under `--ablation none` (default `demo-skill`)
     cases     {case name: {"with": RUN, "without": RUN}}; RUN is one object, or a list with one
               object per run (the last one repeats)
   RUN keys: skill (with arm: the Skill tool is called; default true), skill_error (that call
@@ -28,7 +30,14 @@ Environment:
     native_forbidden (forces the verdict of the forbidden-path graders), skipped_paid,
     trace ("missing" or "garbage"), trace_path (the path the result names instead of the real one),
     workspace ("gone": the sealed folder holds no workspace)
+
+`--ablation none` plays one arm and reports it as `with`, with no `without` list and no
+`scoreWithout` or `delta`, as the real tool does (read in the code of Claude Code 2.1.330). What
+that arm does is the scenario's `with` RUN when the plugin holds `skills/<measured>/` and its
+`without` RUN when it does not: a run cannot invoke a skill its plugin does not hold. The
+`tool_used: Skill` grader is then part of the score, not an indicator.
 """
+import hashlib
 import json
 import os
 import pathlib
@@ -49,7 +58,8 @@ def spec_for(case_spec, arm, index):
     return spec
 
 
-def play(target, plugin, skill, case, arm, spec, kept, scaffold):
+def play(target, plugin, skill, case, arm, spec, kept, scaffold, loaded, ablation):
+    """`loaded`: the run's plugin holds the skill, so the Skill tool can invoke it."""
     cwd = kept / "home" / "cwd"
     cwd.mkdir(parents=True)
     (kept / "out").mkdir()
@@ -62,7 +72,7 @@ def play(target, plugin, skill, case, arm, spec, kept, scaffold):
             error = "scaffold failed"
     lines = [{"type": "system", "subtype": "init", "cwd": str(cwd),
               "tools": ["Read", "Edit", "Glob", "Grep", "Skill"],
-              "skills": [f"{plugin}:{skill}"] if arm == "with" else []}]
+              "skills": [f"{plugin}:{skill}"] if loaded else []}]
 
     def use(name, tool_input, failed=False, result="ok"):
         number = len(lines)
@@ -71,7 +81,7 @@ def play(target, plugin, skill, case, arm, spec, kept, scaffold):
         lines.append({"type": "user", "message": {"role": "user", "content": [
             {"type": "tool_result", "tool_use_id": f"toolu_{number}", "content": result, "is_error": failed}]}})
 
-    fired = arm == "with" and spec.get("skill", True)
+    fired = loaded and spec.get("skill", True)
     if fired:
         use("Skill", {"skill": spec.get("skill_as", f"{plugin}:{skill}"), "args": ""}, failed=bool(spec.get("skill_error")))
     for path in spec.get("touch", []):
@@ -106,8 +116,9 @@ def play(target, plugin, skill, case, arm, spec, kept, scaffold):
             if arm != "with":
                 continue  # the real tool reports it in the with arm only, and never scores it
             called = json.dumps({"skill": f"{plugin}:{skill}"}) if fired else ""
-            verdict.update(passed=bool(fired) and re.search(grader.get("input_match", ""), called) is not None,
-                           withOnly=True, scored=False)
+            verdict["passed"] = bool(fired) and re.search(grader.get("input_match", ""), called) is not None
+            if ablation != "none":
+                verdict.update(withOnly=True, scored=False)
         elif grader["type"] == "regex" and grader.get("target") == "trace":
             found = re.search(grader["pattern"], trace_text) is not None
             verdict["passed"] = (not found) if grader.get("match") == "not_contains" else found
@@ -155,6 +166,9 @@ def main():
         record["cases"] = cases
         record["skill_text"] = "".join(p.read_text() for p in sorted(target.glob("skills/*/SKILL.md")))
         record["mcp"] = json.loads((target / ".mcp.json").read_text()) if (target / ".mcp.json").is_file() else None
+        manifest = target / ".claude-plugin" / "plugin.json"
+        record["plugin"] = json.loads(manifest.read_text())["name"] if manifest.is_file() else None
+        record["sha256"] = {name: hashlib.sha256((target / name).read_bytes()).hexdigest() for name in record["files"]}
     if os.environ.get("STUB_LOG"):
         with open(os.environ["STUB_LOG"], "a", encoding="utf-8") as handle:
             handle.write(json.dumps(record) + "\n")
@@ -175,7 +189,9 @@ def main():
         return code
 
     plugin = json.loads((target / ".claude-plugin" / "plugin.json").read_text())["name"]
-    skill = sorted(p.name for p in (target / "skills").iterdir())[0]
+    ablation = flag(argv, "--ablation", "with-without")
+    skill = (scenario.get("measured", "demo-skill") if ablation == "none"
+             else sorted(p.name for p in (target / "skills").iterdir())[0])
     kept_root = pathlib.Path(os.environ["STUB_KEPT"])
     kept_root.mkdir(parents=True, exist_ok=True)
     taken = len(list(kept_root.glob("e-*")))
@@ -186,21 +202,23 @@ def main():
             continue
         runs = int(runs_override or case.get("runs", 3))
         arms = {}
-        for arm in ("with", "without"):
+        for arm in (("with",) if ablation == "none" else ("with", "without")):
             arms[arm] = []
+            loaded = (target / "skills" / skill).is_dir() if ablation == "none" else arm == "with"
             for index in range(runs):
                 taken += 1
                 kept = kept_root / f"e-{taken:06d}"
-                spec = spec_for(scenario.get("cases", {}).get(name, {}), arm, index)
-                arms[arm].append(play(target, plugin, skill, case, arm, spec, kept, "--scaffold" in argv))
+                spec = spec_for(scenario.get("cases", {}).get(name, {}), "with" if loaded else "without", index)
+                arms[arm].append(play(target, plugin, skill, case, arm, spec, kept, "--scaffold" in argv, loaded, ablation))
         mean = {arm: sum(run["score"] for run in arms[arm]) / len(arms[arm]) for arm in arms}
+        compared = ({"scoreWithout": mean["without"], "delta": mean["with"] - mean["without"]}
+                    if "without" in mean else {})
         played.append({"name": name, "dir": f"evals/{name}", "source": "case_yaml",
                        "promptMarkdown": case["execution"]["prompt"], "runsPerCase": runs,
                        "timeoutSeconds": case["execution"].get("timeout_seconds", 300),
                        "maxTurns": case["execution"].get("max_turns", 10), "graders": case.get("graders", []),
                        "arms": arms,
-                       "aggregates": {"score": mean["with"], "scoreWithout": mean["without"],
-                                      "delta": mean["with"] - mean["without"]}})
+                       "aggregates": {"score": mean["with"], **compared}})
     if scenario.get("stray"):
         stray = kept_root / "e-stray0"
         (stray / "out").mkdir(parents=True)
@@ -208,7 +226,7 @@ def main():
     result = {"schemaVersion": 1, "claudeVersion": "stub", "startedAt": "2026-01-01T00:00:00.000Z",
               "durationSeconds": 1, "partial": bool(scenario.get("partial")),
               "costUsd": sum(run["costUsd"] for case in played for runs in case["arms"].values() for run in runs),
-              "suite": {"root": str(target), "ablation": "with-without"}, "cases": played}
+              "suite": {"root": str(target), "ablation": ablation}, "cases": played}
     if scenario.get("partial"):
         result["partialReason"] = "cost_ceiling"
     text = json.dumps(result, indent=2)
