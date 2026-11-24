@@ -53,6 +53,9 @@ class KitCase(unittest.TestCase):
         (catalog / "__init__.py").write_text("", encoding="utf-8")
         (catalog / "catalog.py").write_text('BY_NAME = {"demo_tool": None, "other_tool": None}\n', encoding="utf-8")
         (self.root / "02-skills").mkdir()
+        # The kit-level declaration: its owner is the author of every package.
+        (self.root / "02-skills" / "BUILD.json").write_text(json.dumps({"schema_version": 1, "kit_plugin": KIT_DECL}),
+                                                            encoding="utf-8")
         self.kit = skill_build.Kit(self.root)
 
     def add_skill(self, name="demo", build=None, md=None, files=None) -> Path:
@@ -208,6 +211,36 @@ class AgentSkillTests(KitCase):
         self.assertEqual(unused["status"], "FAIL", unused)
         self.assertIn(f"deps names {other}", unused["reason"])
 
+    def test_a_package_without_the_owner_of_the_kit_level_declaration_fails_and_says_so(self):  # A5
+        self.add_skill()
+        kit_build = self.root / "02-skills" / "BUILD.json"
+        only_owner = {"schema_version": 1, "kit_plugin": {"owner": "Someone Else"}}
+        kit_build.write_text(json.dumps(only_owner), encoding="utf-8")  # the author needs nothing else of it
+        with zipfile.ZipFile(skill_build.build_package(self.kit, "demo", self.tmp / "out")) as package:
+            self.assertEqual(json.loads(package.read(".claude-plugin/plugin.json"))["author"], {"name": "Someone Else"})
+        for text, said in ((None, "02-skills/BUILD.json cannot be read"),
+                           ("{not json", "02-skills/BUILD.json is not valid JSON"),
+                           (json.dumps({"schema_version": 1, "kit_plugin": {"owner": " "}}),
+                            "02-skills/BUILD.json: kit_plugin.owner must be a non-empty string, got ' '")):
+            with self.subTest(said):
+                kit_build.unlink() if text is None else kit_build.write_text(text, encoding="utf-8")
+                result = self.target("agent_skill")
+                self.assertEqual(result["status"], "FAIL", result)
+                self.assertIn(f"no author for the package: {said}", result["reason"])
+                self.assertEqual(len(result["reason"].splitlines()), 1, result)
+                with self.assertRaises(skill_build.BuildError) as raised:
+                    skill_build.build_package(self.kit, "demo", self.tmp / "out")
+                self.assertIn("no author for the package", str(raised.exception))
+                kit_build.write_text(json.dumps(only_owner), encoding="utf-8")
+
+    def test_a_stored_pass_does_not_outlive_a_change_of_the_owner(self):  # A5: the author is an input of the target
+        self.add_skill()
+        self.assertFalse(self.target("agent_skill", use_cache=True)["cached"])
+        self.assertTrue(self.target("agent_skill", use_cache=True)["cached"])  # previous behavior of the cache
+        (self.root / "02-skills" / "BUILD.json").write_text(
+            json.dumps({"schema_version": 1, "kit_plugin": {**KIT_DECL, "owner": "Someone Else"}}), encoding="utf-8")
+        self.assertFalse(self.target("agent_skill", use_cache=True)["cached"])
+
     def test_a_src_or_a_kit_path_that_does_not_exist_fails(self):
         self.add_skill("nofile", build=all_targets(srcs=["SKILL.md", "report.py"]), md=skill_md("nofile"))
         self.add_skill("nodep", build=all_targets(deps=[DEMO_TOOL, "03-tools/lib/gone.py"]), md=skill_md("nodep"))
@@ -228,7 +261,8 @@ class AgentSkillTests(KitCase):
             skill_text = package.read("skills/demo/SKILL.md")
         self.assertEqual(names, sorted([".claude-plugin/plugin.json", "MANIFEST.json", "skills/demo/SKILL.md",
                                         "skills/demo/guide.md", "skills/demo/tool.py"]))
-        self.assertEqual(plugin, {"name": "demo", "version": "1.2.0", "description": "Does a demo thing."})
+        self.assertEqual(plugin, {"name": "demo", "version": "1.2.0", "description": "Does a demo thing.",
+                                  "author": {"name": KIT_DECL["owner"]}})  # A5: the author the kit plugin uses
         self.assertEqual(skill_text, (self.root / "02-skills" / "demo" / "SKILL.md").read_bytes())
         self.assertEqual(manifest["files"], ["SKILL.md", "guide.md", "tool.py"])
         self.assertEqual(manifest["requires"]["mcp_server"], "metodo")

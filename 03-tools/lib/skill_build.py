@@ -44,7 +44,9 @@ What each target checks, and when it is a SKIP (a SKIP is never a pass):
   eval_suite           SKIP "no eval case yet"; a case is checked by 08-benchmark/lib/skill_eval.py
 
 The package of `agent_skill` is `<out>/<skill>/<skill>-<version>.zip`:
-  .claude-plugin/plugin.json   name, version and description, taken from the front matter
+  .claude-plugin/plugin.json   name, version and description, taken from the front matter, and
+                               author: the `owner` of the kit-level 02-skills/BUILD.json, the same
+                               one the kit plugin carries; without it the skill is not packed
   MANIFEST.json                the files, what the package requires (`requires.mcp_server`,
                                `mcp_tools`, `kit_paths`, `tools_root_token`) and `standalone`
   skills/<skill>/<src>         each src, byte for byte
@@ -147,7 +149,7 @@ import tempfile
 import textwrap
 import zipfile
 
-RUNNER_VERSION = 3  # part of every hash: raise it when a target checks something new
+RUNNER_VERSION = 4  # part of every hash: raise it when a target checks something new or a package's bytes change
 SCHEMA_VERSION = 1
 HERE = pathlib.Path(__file__).resolve().parent
 BUILD_FILE = "BUILD.json"
@@ -511,6 +513,9 @@ def _inspect_package(kit: Kit, skill: str, decl: dict) -> tuple[dict | None, lis
     carriers = [src for src, data in files if TOKEN.encode() in data]
     if carriers and not any(path == TOOLS_DIR or path.startswith(TOOLS_DIR + "/") for path in paths):
         problems.append(f"{', '.join(carriers)} carries {TOKEN} but deps names no path under {TOOLS_DIR}")
+    owner, missing = kit_owner(kit)
+    if owner is None:
+        problems.append(f"no author for the package: {missing}")
     if problems:
         return None, problems
     name, version, description = (_text_field(fields, key) for key in ("name", "version", "description"))
@@ -521,8 +526,8 @@ def _inspect_package(kit: Kit, skill: str, decl: dict) -> tuple[dict | None, lis
                      "kit_paths": sorted(paths), "tools_root_token": carriers},
         "standalone": not (tools or paths or carriers),
     }
-    entries = [(".claude-plugin/plugin.json", _json_bytes({"name": name, "version": version, "description": description})),
-               ("MANIFEST.json", _json_bytes(manifest))]
+    plugin = {"name": name, "version": version, "description": description, "author": {"name": owner}}
+    entries = [(".claude-plugin/plugin.json", _json_bytes(plugin)), ("MANIFEST.json", _json_bytes(manifest))]
     entries += [(f"skills/{skill}/{src}", data) for src, data in files]
     return {"name": name, "version": version, "manifest": manifest, "entries": sorted(entries)}, []
 
@@ -627,19 +632,43 @@ def expose_tools(data: bytes, plugin: str) -> bytes:
     return data.replace(MCP_PREFIX.encode(), plugin_tool_name(plugin, MCP_PREFIX).encode())
 
 
-def load_kit_build(kit: Kit) -> tuple[dict | None, list[str]]:
-    """The `kit_plugin` declaration of 02-skills/BUILD.json and its problems; None with any."""
+def _read_kit_build(kit: Kit) -> tuple[dict | None, str | None]:
+    """(02-skills/BUILD.json as an object holding a `kit_plugin` object, None), or (None, why not)."""
     label = f"{kit.skills.name}/{BUILD_FILE}"
     try:
         raw = json.loads((kit.skills / BUILD_FILE).read_bytes().decode("utf-8"))
     except OSError as exc:
-        return None, [f"{label} cannot be read: {exc.strerror or _one_line(exc)}"]
+        return None, f"{label} cannot be read: {exc.strerror or _one_line(exc)}"
     except UnicodeDecodeError:
-        return None, [f"{label} is not UTF-8 text"]
-    except ValueError as exc:
-        return None, [f"{label} is not valid JSON: {_one_line(exc)}"]
+        return None, f"{label} is not UTF-8 text"
+    except (ValueError, RecursionError) as exc:
+        return None, f"{label} is not valid JSON: {_one_line(exc)}"
     if not isinstance(raw, dict) or not isinstance(raw.get(KIT_TARGET), dict):
-        return None, [f"{label} must be a JSON object with a {KIT_TARGET!r} object"]
+        return None, f"{label} must be a JSON object with a {KIT_TARGET!r} object"
+    return raw, None
+
+
+def kit_owner(kit: Kit) -> tuple[str | None, str | None]:
+    """(the `owner` of the kit-level declaration, None), or (None, why it cannot be read, in one line).
+
+    The owner is the author of every package, a skill's own and the kit plugin's. Only that key is
+    read here: a skill is still packed while another key of the kit plugin is wrong.
+    """
+    raw, problem = _read_kit_build(kit)
+    if raw is None:
+        return None, problem
+    owner = raw[KIT_TARGET].get("owner")
+    if not isinstance(owner, str) or not owner.strip():
+        return None, f"{kit.skills.name}/{BUILD_FILE}: {KIT_TARGET}.owner must be a non-empty string, got {owner!r}"
+    return owner, None
+
+
+def load_kit_build(kit: Kit) -> tuple[dict | None, list[str]]:
+    """The `kit_plugin` declaration of 02-skills/BUILD.json and its problems; None with any."""
+    label = f"{kit.skills.name}/{BUILD_FILE}"
+    raw, problem = _read_kit_build(kit)
+    if raw is None:
+        return None, [problem]
     decl = raw[KIT_TARGET]
     problems = [f"{label}: unknown key {key!r}" for key in sorted(raw) if key not in ("schema_version", KIT_TARGET)]
     if type(raw.get("schema_version")) is not int or raw["schema_version"] != SCHEMA_VERSION:
@@ -1079,7 +1108,8 @@ def _target_inputs(kit: Kit, skill: str, target: str, build: dict) -> list[tuple
         listed = "\n".join(sorted(names)) if names is not None else f"unreadable: {error}"
         exists = [(f"dep:{path}", str(os.path.exists(_join(kit.root, path))).encode())
                   for path in build["agent_skill"]["kit_paths"]]
-        return [("catalog", listed.encode("utf-8"))] + exists
+        owner, missing = kit_owner(kit)  # the author of the package: a change of it packs other bytes
+        return [("catalog", listed.encode("utf-8")), ("author", (owner or f"unreadable: {missing}").encode("utf-8"))] + exists
     if target == "py_type_test":
         if not _python_sources(build):
             return []

@@ -21,7 +21,8 @@ Environment:
   RUN keys: skill (with arm: the Skill tool is called; default true), skill_error (that call
     comes back as an error, as for a skill that is not loaded), skill_as (the name that call
     gives the skill; default `<plugin>:<first skill of the plugin>`), touch (paths read),
-    bash (commands run), mcp (names of MCP tools called), write ({path: content} edited in the
+    bash (commands run), mcp (names of MCP tools called), calls (a list of {name, input, result}:
+    any tool call, with the text its result holds), write ({path: content} edited in the
     workspace), judge (true, false or a
     list, one per llm grader; default true), cost, judge_cost, answer, error,
     native_forbidden (forces the verdict of the forbidden-path graders), skipped_paid,
@@ -63,12 +64,12 @@ def play(target, plugin, skill, case, arm, spec, kept, scaffold):
               "tools": ["Read", "Edit", "Glob", "Grep", "Skill"],
               "skills": [f"{plugin}:{skill}"] if arm == "with" else []}]
 
-    def use(name, tool_input, failed=False):
+    def use(name, tool_input, failed=False, result="ok"):
         number = len(lines)
         lines.append({"type": "assistant", "message": {"role": "assistant", "content": [
             {"type": "tool_use", "id": f"toolu_{number}", "name": name, "input": tool_input}]}})
         lines.append({"type": "user", "message": {"role": "user", "content": [
-            {"type": "tool_result", "tool_use_id": f"toolu_{number}", "content": "ok", "is_error": failed}]}})
+            {"type": "tool_result", "tool_use_id": f"toolu_{number}", "content": result, "is_error": failed}]}})
 
     fired = arm == "with" and spec.get("skill", True)
     if fired:
@@ -79,6 +80,8 @@ def play(target, plugin, skill, case, arm, spec, kept, scaffold):
         use("Bash", {"command": command})
     for name in spec.get("mcp", []):
         use(name, {"card_text": "stub"})
+    for call in spec.get("calls", []):
+        use(call["name"], call.get("input", {}), result=call.get("result", "ok"))
     for path, content in spec.get("write", {}).items():
         (cwd / path).parent.mkdir(parents=True, exist_ok=True)
         (cwd / path).write_text(content)

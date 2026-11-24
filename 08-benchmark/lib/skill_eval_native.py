@@ -18,6 +18,10 @@ What a kit case becomes, in `<plugin>/evals/<case>/`:
                 (`expect-NN`). Validators are not graders: the tool has no script grader, so the
                 kit runs them itself on the files the run left.
 
+The kit's own forbidden-path check is two readings of a trace, both deterministic: `touched` (a
+tool call names a path under a forbidden glob) and `returned` (a tool result holds a telling line
+of a staged file under one, whatever the call named; `telling_lines` says which lines count).
+
 `testdata/` and `validators/` never enter the plugin. `allowed_tools` defaults to the list of the
 tool's own template, and `Skill` joins it when the case expects a skill; a tool that needs an
 operator grant (GATED_TOOLS, `mcp__*`) is passed to `--allow-tools`. When the runner gives a skill
@@ -79,6 +83,11 @@ MAX_TRACE_BYTES = 64 * 1024 * 1024
 STOP_GRACE_SECONDS = 5  # between asking a run that timed out to end and killing it
 MAX_WORKSPACE_BYTES = 256 * 1024 * 1024
 MAX_ANSWER_CHARS = 300  # of a tool's result kept with its call
+# Which lines of a staged forbidden file tell that a tool result holds the file (`telling_lines`).
+TELLING_MIN_CHARS = 12     # of the stripped line: a bracket, a blank line or a short statement tells nothing
+TELLING_MIN_DISTINCT = 6   # distinct characters in it: a rule of dashes tells nothing
+TELLING_MAX_CHARS = 200    # a longer line is looked for by its start, since tools cut long lines
+MAX_FORBIDDEN_BYTES = 1024 * 1024  # a larger staged file gives no line
 _KEPT_RE = re.compile(r"^e-[A-Za-z0-9_-]{4,16}$")
 # What a path is made of inside a tool input; a quote is `\\"` in the trace, so a backslash ends it too.
 _PATH_CHAR = r"""[^\s"'\\]"""
@@ -134,7 +143,8 @@ def touched(globs: list[str], tool_uses: list[dict]) -> list[str]:
     """One line per tool call whose input names a path under a forbidden glob, in call order.
 
     Deterministic, and decided on the trace alone. It sees what a call names (a file, a pattern, a
-    command line), not what a broad search returned: `Grep` over the whole workspace is not a hit.
+    command line), not what a broad search returned: `Grep` over the whole workspace is not a hit
+    here. `returned` is the check on what came back.
     """
     patterns = [(glob, re.compile(glob_pattern(glob))) for glob in globs]
     hits = []
@@ -144,6 +154,76 @@ def touched(globs: list[str], tool_uses: list[dict]) -> list[str]:
                 continue
             hits += [f"{use['name']} {key}={value[:160]!r} is under {glob!r}"
                      for glob, pattern in patterns if pattern.search(value)]
+    return hits
+
+
+def _staged(case: dict) -> list[tuple[str, str]]:
+    """(source file, path in the workspace) of every file the case stages."""
+    return [pair for index, entry in enumerate(case["setup"]["files"])
+            for pair in skill_eval._plan_entry(case["paths"]["case_dir"], index, entry)[0]]
+
+
+def _staged_text(source: str) -> str | None:
+    try:
+        if os.path.getsize(source) > MAX_FORBIDDEN_BYTES:
+            return None
+        return pathlib.Path(source).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+
+
+def telling_lines(case: dict) -> list[tuple[str, str]]:
+    """(the text to look for, where it is from) per telling line of a staged file under a forbidden glob.
+
+    The kit stages those files itself, so it knows their bytes. A line is telling when, stripped of
+    the blanks around it, it has at least TELLING_MIN_CHARS characters, at least
+    TELLING_MIN_DISTINCT distinct ones, and neither the prompt nor a staged file outside the
+    forbidden globs holds it. So a blank line, a bracket, a rule of dashes, a short statement and a
+    line the run may read elsewhere never count. A long line is looked for by its first
+    TELLING_MAX_CHARS characters. A staged file that is not UTF-8 text, or is larger than
+    MAX_FORBIDDEN_BYTES, gives no line. Where it is from names the staged path and the line number,
+    never the text: a hit is stored and printed, the file's content is not.
+    """
+    patterns = [(glob, re.compile(glob_pattern(glob))) for glob in case["forbidden_paths"]]
+    closed, opened = [], [case["prompt"]]
+    for source, target in _staged(case):
+        text = _staged_text(source)
+        glob = next((glob for glob, pattern in patterns if pattern.search(target)), None)
+        if text is None:
+            continue
+        if glob is None:
+            opened.append(text)
+        else:
+            closed.append((glob, target, text))
+    readable = "\n".join(opened)
+    lines, seen = [], set()
+    for glob, target, text in closed:
+        for number, line in enumerate(text.splitlines(), 1):
+            needle = line.strip()[:TELLING_MAX_CHARS]
+            if (len(needle) < TELLING_MIN_CHARS or len(set(needle)) < TELLING_MIN_DISTINCT
+                    or needle in seen or needle in readable):
+                continue
+            seen.add(needle)
+            lines.append((needle, f"line {number} of {target}, which is under {glob!r}"))
+    return lines
+
+
+def returned(lines: list[tuple[str, str]], tool_uses: list[dict]) -> list[str]:
+    """One line per tool call whose result holds a telling line (`telling_lines`), in call order.
+
+    Deterministic, and decided on the trace alone. It sees what came back, whatever the call named:
+    a recursive `grep`, a `cat` through a glob, a pattern search with no path. It does not see a
+    read whose result does not show the file's text: a count, a hash, an encoding, a list of
+    names, a cut shorter than a telling line, or a file with no telling line. A run that writes a
+    telling line itself and gets it back reads as a hit, so a forbidden file should hold nothing
+    the task asks the run to produce.
+    """
+    hits = []
+    for use in tool_uses:
+        result = use.get("result") or ""
+        where = next((where for needle, where in lines if needle in result), None) if result else None
+        if where:
+            hits.append(f"{use['name']} returned {where}")
     return hits
 
 
@@ -212,8 +292,7 @@ def unmatched_exempt_paths(case: dict) -> list[str]:
     The native ablation removes the plugin and nothing else, so every staged file is in both arms
     already. A glob that matches none of them protects nothing, and the plan says so.
     """
-    staged = [target for index, entry in enumerate(case["setup"]["files"])
-              for _source, target in skill_eval._plan_entry(case["paths"]["case_dir"], index, entry)[0]]
+    staged = [target for _source, target in _staged(case)]
     return [glob for glob in case["ablation_exempt_paths"]
             if not any(re.search(glob_pattern(glob), path) for path in staged)]
 
@@ -343,17 +422,22 @@ def kept_dir(trace_path) -> str:
     return real
 
 
+def result_text(content) -> str:
+    """The whole text of a tool result (a string, or a list of blocks), as the tool gave it."""
+    if isinstance(content, list):
+        content = "\n".join(block["text"] for block in content
+                            if isinstance(block, dict) and isinstance(block.get("text"), str))
+    return content if isinstance(content, str) else ""
+
+
 def answer_text(content) -> str:
     """The text of a tool result (a string, or a list of blocks), on one line, at most MAX_ANSWER_CHARS."""
-    if isinstance(content, list):
-        content = " ".join(block["text"] for block in content
-                           if isinstance(block, dict) and isinstance(block.get("text"), str))
-    return _one_line(content if isinstance(content, str) else "")[:MAX_ANSWER_CHARS]
+    return _one_line(result_text(content))[:MAX_ANSWER_CHARS]
 
 
 def read_trace(kept: str) -> dict:
-    """What the kit needs from a trace: the tool calls (each with whether its result was an error and
-    an excerpt of that result), the final answer, the tokens and the cwd."""
+    """What the kit needs from a trace: the tool calls (each with whether its result was an error, the
+    text of that result and an excerpt of it), the final answer, the tokens and the cwd."""
     path = os.path.join(kept, "out", "trace.jsonl")
     try:
         if os.path.islink(path) or os.path.getsize(path) > MAX_TRACE_BYTES:
@@ -363,7 +447,7 @@ def read_trace(kept: str) -> dict:
         raise NativeError(f"the trace {path} cannot be read: {getattr(exc, 'strerror', None) or _one_line(exc)}") from exc
     trace = {"tool_uses": [], "final_message": None, "tokens": {}, "cwd": None, "lines": 0}
     failed: set = set()  # ids of the tool calls whose result came back as an error
-    answers: dict = {}   # id of a tool call -> an excerpt of its result
+    answers: dict = {}   # id of a tool call -> the text of its result
     for number, line in enumerate(lines, 1):
         if not line.strip():
             continue
@@ -386,7 +470,7 @@ def read_trace(kept: str) -> dict:
                 elif isinstance(block, dict) and block.get("type") == "text" and trace["final_message"] is None:
                     trace["last_text"] = block.get("text")
         elif event.get("type") == "user":
-            answers.update((block.get("tool_use_id"), answer_text(block.get("content"))) for block in content
+            answers.update((block.get("tool_use_id"), result_text(block.get("content"))) for block in content
                            if isinstance(block, dict) and block.get("type") == "tool_result")
             failed.update(block.get("tool_use_id") for block in content
                           if isinstance(block, dict) and block.get("type") == "tool_result" and block.get("is_error"))
@@ -400,7 +484,8 @@ def read_trace(kept: str) -> dict:
     if not trace["lines"]:
         raise NativeError(f"the trace {path} is empty")
     for use in trace["tool_uses"]:
-        use["answer"] = answers.get(use["id"], "")
+        use["result"] = answers.get(use["id"], "")  # read by `returned`; never stored
+        use["answer"] = answer_text(use["result"])
         use["error"] = use.pop("id") in failed
     if trace["final_message"] is None:
         trace["final_message"] = trace.get("last_text")

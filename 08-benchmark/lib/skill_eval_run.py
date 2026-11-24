@@ -10,7 +10,7 @@ Usage (through lib/skill_eval.py, which owns the command line):
                              [--out DIR] [--json FILE]
 
 `run` without `--real` prints the plan (per skill: its cases, the two arms, the runs and the cost
-ceiling) and spends nothing. With `--real` it prints the ceiling first, then for every skill that
+ceiling) and spends nothing; `--json FILE` then holds that plan (`mode` "plan"), not a report. With `--real` it prints the ceiling first, then for every skill that
 has a case with no stored result: lays the skill's package out as a throwaway plugin holding only
 that skill (03-tools/lib/skill_build.py, so what is measured is what ships), writes its cases in
 the native layout (lib/skill_eval_native.py), runs `claude plugin eval` once, with and without the
@@ -42,8 +42,10 @@ plugin packs to the same digest, so a change of the server or of another packed 
 Scoring of one run, in this order; the first one that applies is the run's status:
   errored           the tool reports the run ended abnormally, with or without a trace
   unreadable        its kept directory, its trace or the judge's verdict could not be read
-  cheated           a tool call named a `forbidden_paths` entry: decided on the trace by the kit,
-                    whatever the native graders said; it scores nothing and is counted apart
+  cheated           a tool call named a `forbidden_paths` entry, or a tool result held a telling
+                    line of a staged file under one (skill_eval_native.telling_lines): decided on the
+                    trace by the kit, whatever the native graders said; it scores nothing and is
+                    counted apart
   not_triggered     with arm only: a skill of `expected_skills` was not invoked by a Skill call
                     that worked (as `<plugin>:<skill>` or `<skill>`); reported as
                     "not triggered, quality not judged", never as bad quality
@@ -64,7 +66,9 @@ of its scored runs that passed, delta their difference. Verdict per skill, on TH
                 it changes nothing (delta under delta_min)
   works         none of the above; `not measured` instead when the skill declares MCP tools and
                 a run of it was made without the kit's server
-A verdict from fewer than runs_per_arm_min runs per arm is labelled a signal.
+A verdict from fewer than runs_per_arm_min scored runs per arm is labelled a signal, and the label
+says how many of the runs made were scored: a run that cheated, ended on an error or could not be
+read was made and not scored.
 
 Store: `<out>/store/<skill>/<case>/<case_hash>.v<RUNNER_VERSION>.json`. A case whose hash has a
 stored result with every run readable, made with the settings asked now (model, judge model, runs
@@ -99,7 +103,7 @@ import skill_eval_native as native
 from skill_eval import CaseError
 from skill_eval_native import ARMS, NativeError
 
-RUNNER_VERSION = 3  # part of every stored result's name: raise it when the scoring or what a result depends on changes
+RUNNER_VERSION = 4  # part of every stored result's name: raise it when the scoring or what a result depends on changes
 HERE = pathlib.Path(__file__).resolve().parent
 KIT_ROOT = HERE.parent.parent
 DEFAULT_MAX_COST_USD = 0.50  # per skill and invocation
@@ -120,6 +124,7 @@ STATUS_WORDS = {
     "errored": "ended on an error", "unreadable": "could not be read",
 }
 UNUSABLE = ("errored", "unreadable")
+UNSCORED = ("cheated", *UNUSABLE)  # a run with one of these was made and scores nothing
 REASONS = {
     "no_trigger": "it does not trigger when it should (look at the description)",
     "validator": "its output fails a validator",
@@ -321,7 +326,8 @@ def score_run(case: dict, arm: str, native_run: dict, scratch, mcp_prefix: str |
                                   for use in served[:MAX_ANSWERS_KEPT]]
         if error:
             return end("errored", error)
-        run["cheat"] = native.touched(case["forbidden_paths"], trace["tool_uses"])
+        run["cheat"] = (native.touched(case["forbidden_paths"], trace["tool_uses"])
+                        + native.returned(native.telling_lines(case), trace["tool_uses"]))
         if run["cheat"]:
             return end("cheated", run["cheat"][0])
         if arm == "with" and case["expected_skills"]:
@@ -372,12 +378,14 @@ def summarize(records: list[dict]) -> dict:
     """The counts, scores and spend of a skill's stored results."""
     arms = {arm: dict({status: 0 for status in STATUS_WORDS}, runs=0) for arm in ARMS}
     money = {"spend_usd": 0.0, "judge_usd": 0.0, "judge_uncounted_usd": 0.0, "judge_not_triggered_usd": 0.0}
-    runs_per_arm, expects = None, False
+    runs_per_arm, scored_per_arm, expects = None, None, False
     for record in records:
         expects = expects or bool(record.get("expected_skills"))
         for arm in ARMS:
             runs = record["arms"].get(arm) or []
             runs_per_arm = len(runs) if runs_per_arm is None else min(runs_per_arm, len(runs))
+            scored = sum(1 for run in runs if run["status"] not in UNSCORED)
+            scored_per_arm = scored if scored_per_arm is None else min(scored_per_arm, scored)
             for run in runs:
                 arms[arm]["runs"] += 1
                 arms[arm][run["status"]] += 1
@@ -396,7 +404,8 @@ def summarize(records: list[dict]) -> dict:
     scored_base = base["runs"] - base["cheated"] - sum(base[status] for status in UNUSABLE)
     with_score = used["passed"] / triggered if triggered else None
     without_score = base["passed"] / scored_base if scored_base else None
-    return {"cases": len(records), "arms": arms, "runs_per_arm": runs_per_arm or 0, "expects_trigger": expects,
+    return {"cases": len(records), "arms": arms, "runs_per_arm": runs_per_arm or 0,
+            "scored_per_arm": scored_per_arm or 0, "expects_trigger": expects,
             "checked": checked, "triggered": triggered, "validated": triggered - used["validator_failed"],
             "with_score": with_score, "without_score": without_score,
             "delta": None if None in (with_score, without_score) else with_score - without_score,
@@ -407,7 +416,7 @@ def summarize(records: list[dict]) -> dict:
 def verdict(summary: dict, selected: int, failure: str | None = None) -> dict:
     """`works`, `review` or `not measured` for one skill, with the reasons in plain words."""
     def answer(name: str, reasons: list[str]) -> dict:
-        signal = name != "not measured" and summary["runs_per_arm"] < THRESHOLDS["runs_per_arm_min"]
+        signal = name != "not measured" and summary["scored_per_arm"] < THRESHOLDS["runs_per_arm_min"]
         return {"verdict": name, "reasons": reasons, "signal": signal}
 
     used = summary["arms"]["with"]
@@ -585,6 +594,20 @@ def plan_lines(plan: dict, ceiling: float) -> list[str]:
     return lines
 
 
+def plan_data(plan: dict, ceiling: float) -> dict:
+    """The plan of one skill as data, for `run --json FILE` without `--real`: what `plan_lines` counts."""
+    cases = [{"case": entry["case"]["id"], "tier": entry["case"]["tier"], "hash": entry["hash"],
+              "state": "cached" if entry["cached"] else "to run", "runs": entry["runs"],
+              "stored_at": (entry["record"] or {}).get("stored_at"), "differs": entry["differs"]}
+             for entry in plan["entries"]]
+    to_run = [case for case in cases if case["state"] == "to run"]
+    return {"skill": plan["skill"], "has_skill": plan["has_skill"], "arms": list(ARMS), "cases": cases,
+            "to_run": len(to_run), "cached": len(cases) - len(to_run),
+            "native_runs": sum(len(ARMS) * case["runs"] for case in to_run),
+            "ceiling_usd": ceiling if to_run else 0.0,
+            "kit_mcp": plan["kit_mcp"], "kit_plugin": plan["kit_plugin"], "mcp_tools": plan["mcp_tools"]}
+
+
 # ------------------------------------------------------------------------------------- real run
 
 def _discard_kept(result: dict) -> None:
@@ -712,8 +735,9 @@ def report_lines(report: dict) -> list[str]:
     def score(value) -> str:
         return "n/a" if value is None else f"{value:.2f}"
 
-    signal = (f" [signal: {summary['runs_per_arm']} run(s) per arm, a verdict needs {THRESHOLDS['runs_per_arm_min']}]"
-              if report["signal"] else "")
+    made, scored = summary["runs_per_arm"], summary["scored_per_arm"]
+    counted = f"{made} run(s) per arm" if scored == made else f"{scored} of {made} run(s) per arm could be scored"
+    signal = f" [signal: {counted}, a verdict needs {THRESHOLDS['runs_per_arm_min']}]" if report["signal"] else ""
     lines = [f"{report['skill']}: {report['verdict']}{signal} - {'; '.join(report['reasons'])}"]
     if summary["cases"]:
         delta = "n/a" if summary["delta"] is None else f"{summary['delta']:+.2f}"
@@ -752,6 +776,13 @@ def report_lines(report: dict) -> list[str]:
     return lines
 
 
+def _write_json(json_path, data: dict) -> None:
+    try:
+        pathlib.Path(json_path).write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    except OSError as exc:
+        raise CaseError(f"cannot write {json_path}: {exc.strerror or _one_line(exc)}") from exc
+
+
 def _print_report(plans: list[dict], failures: dict, json_path) -> None:
     reports = [skill_report(plan, failures.get(plan["skill"])) for plan in plans]
     limits = ", ".join(f"{key} {value:g}" for key, value in THRESHOLDS.items())
@@ -760,11 +791,7 @@ def _print_report(plans: list[dict], failures: dict, json_path) -> None:
         print("\n".join(report_lines(report)))
     print(AROUND)
     if json_path:
-        data = {"runner_version": RUNNER_VERSION, "thresholds": THRESHOLDS, "skills": reports}
-        try:
-            pathlib.Path(json_path).write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        except OSError as exc:
-            raise CaseError(f"cannot write {json_path}: {exc.strerror or _one_line(exc)}") from exc
+        _write_json(json_path, {"runner_version": RUNNER_VERSION, "thresholds": THRESHOLDS, "skills": reports})
 
 
 # ------------------------------------------------------------------------------------ commands
@@ -785,6 +812,9 @@ def cmd_run(args) -> int:
     for plan in plans:
         print("\n".join(plan_lines(plan, args.max_cost_usd)), flush=True)
     if not args.real:
+        if args.json:  # the plan as data: without it the flag would be dropped in silence
+            _write_json(args.json, {"runner_version": RUNNER_VERSION, "mode": "plan", "max_cost_usd": args.max_cost_usd,
+                                    "ceiling_usd": total, "skills": [plan_data(plan, args.max_cost_usd) for plan in plans]})
         print(f"skill-eval: plan only: nothing was run and nothing was spent; a real run has a ceiling of "
               f"USD {total:.2f} (add --real to run it)")
         return 0

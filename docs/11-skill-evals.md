@@ -1,6 +1,6 @@
 # Skill evals: does this skill work?
 
-One command answers it per skill: `works`, `review` or `not measured`, with the reason in plain words. It runs fixed cases with the skill and without it on Claude Code's own eval tool, `claude plugin eval`, and scores them itself. Nothing is spent unless you pass `--real`.
+One command answers it per skill: `works`, `review` or `not measured`, with the reason in plain words. It runs fixed cases with and without the skill on Claude Code's own eval tool, `claude plugin eval`, and scores them itself. Nothing is spent unless you pass `--real`.
 
 All 17 skills have a BUILD and two have a case today [Tested: `03-tools/bin/skill-build.sh test --all`]. Their first runs read `review` at one run per arm, a signal, not a verdict (section 6). Comparing the whole kit with plain Claude Code is another instrument: [09-measurement.md](09-measurement.md). Tags are the ones of `08-benchmark/METRICS.md`: **Measured**, **Tested**, **Inferred**, **Assumed**, **Unknown**.
 
@@ -27,9 +27,9 @@ It declares the same five targets in every skill. To write one, copy `02-skills/
 A SKIP is never a pass. `srcs` are top-level files: a nested path is refused until the installers can copy a subfolder [Tested].
 
 ```bash
-03-tools/bin/skill-build.sh test --all                    # one line per target: PASS, FAIL or SKIP with its reason
-03-tools/bin/skill-build.sh test change-card --no-cache   # one skill, nothing taken from the cache
-03-tools/bin/skill-build.sh build change-card             # the zip, under the tools folder's out/skill-build/dist/
+03-tools/bin/skill-build.sh test --all                    # per target: PASS, FAIL or SKIP and why
+03-tools/bin/skill-build.sh test change-card --no-cache   # one skill, no cache
+03-tools/bin/skill-build.sh build change-card             # the zip, in the tools folder's out/skill-build/dist/
 ```
 
 The zip is the plugin the eval runs, so what is measured is what ships. `BUILD.json` is neither packed nor installed.
@@ -41,20 +41,20 @@ The zip is the plugin the eval runs, so what is measured is what ships. `BUILD.j
 | `prompt.md` | what a user would type; it does not name the skill |
 | `case.json` | the tier (`smoke`, `core`, `deep`), `expected_skills`, `setup.files`, `validators`, `expectations` and the limits |
 | `setup/` | fixed files the run starts from |
-| `testdata/` | the answer key: never given to the run, and a run that reads it is `cheated` |
+| `testdata/` | the answer key: never given to the run; a run that reads it is `cheated` |
 | `validators/` | scripts that compare the files the run left with `testdata/`; exit 0 passes |
 
 To write one, copy `08-benchmark/evals/post-review-comment/smoke-render/`. Run the validator by hand on a wrong file first: a case that cannot fail measures nothing.
 
-The two seed cases, `post-review-comment/smoke-render` and `change-card/smoke-missing-field`, fail when the file the run must leave is missing or differs from the answer key.
+Both seed cases, `post-review-comment/smoke-render` and `change-card/smoke-missing-field`, fail when the run's file is missing or differs from the answer key.
 
 ## 4. The commands
 
 ```bash
-python3 08-benchmark/lib/skill_eval.py validate            # every case is well formed; spends nothing
-python3 08-benchmark/lib/skill_eval.py run --tier smoke    # the plan and its cost ceiling; spends nothing
+python3 08-benchmark/lib/skill_eval.py validate            # every case is valid
+python3 08-benchmark/lib/skill_eval.py run --tier smoke    # the plan and its ceiling
 python3 08-benchmark/lib/skill_eval.py run --skill change-card --kit-mcp --real --max-cost-usd 0.25
-python3 08-benchmark/lib/skill_eval.py report              # the verdicts from the stored results; spends nothing
+python3 08-benchmark/lib/skill_eval.py report              # the verdicts from stored results
 ```
 
 - `--real` is the only flag that spends. The run prints its ceiling first; the default is USD 0.50 per skill [Measured: `08-benchmark/lib/skill_eval_run.py`].
@@ -75,7 +75,7 @@ Each run passes three scorers in order: the skill was invoked, the validators pa
 | `review`: the judge rejects it | the answer misses an expectation | fix the skill's output, or reword the expectation |
 | `not measured` | nothing stored, the run failed, every run cheated, or it ran without its MCP tools | the reason names what to run next |
 
-`[signal]` beside a verdict means fewer than three runs per arm. The limits are a trigger, validator and judge rate of 0.8 and a difference of 0.1 [Measured: `THRESHOLDS` in `08-benchmark/lib/skill_eval_run.py`]. A run that did not pass lists the tools it called: its trace is deleted once scored.
+`[signal]` beside a verdict means fewer than three scored runs per arm. The limits are a trigger, validator and judge rate of 0.8 and a difference of 0.1 [Measured: `THRESHOLDS` in `08-benchmark/lib/skill_eval_run.py`]. A run that did not pass lists the tools it called: its trace is deleted once scored.
 
 ## 6. What a run costs, and what leaves your machine
 
@@ -89,7 +89,7 @@ Each run passes three scorers in order: the skill was invoked, the validators pa
 
 Source: the `spend:` line of each run, 2026-11-24, logged in `odd/tasks/skill-evals.md` [Tested, n=1 each]. The tool checks the ceiling before each run, so the run in flight may pass it.
 
-The eval tool publishes its HTML report to claude.ai by default. The kit passes `--no-publish` on every command line, and a test fails if that flag is ever missing [Tested: `08-benchmark/tests/test_skill_eval_run.py`]. Never call `claude plugin eval` by hand without it. Each run is a Claude Code session on your own credential; results stay under the tools folder's `out/skill-evals/`.
+The eval tool publishes its HTML report to claude.ai by default. The kit passes `--no-publish` on every command line, and a test fails if it is ever missing [Tested: `08-benchmark/tests/test_skill_eval_run.py`]. Never call `claude plugin eval` by hand without it. Each run is a Claude Code session on your own credential; results stay under the tools folder's `out/skill-evals/`.
 
 ## 7. What is not measured yet
 
@@ -102,11 +102,12 @@ The eval tool publishes its HTML report to claude.ai by default. The kit passes 
 | Why the shell calls of `post-review-comment` failed | a stored result keeps tool names, not commands | Unknown |
 | Strict typing of a skill's Python | no checker installed; the three command lines in `03-tools/lib/skill_build.py` are unverified | Measured |
 | Any runtime but Claude Code | the eval tool is Claude Code's own | Measured |
+| A forbidden file read unseen | `cheated` needs a call naming it or a result showing a line of it, 12+ characters; a count or a hash is not seen | Tested |
 | A tier as "at least" | `--tier` is an exact match: `core` does not include `smoke` | Measured |
 
 ## 8. The kit plugin
 
-The package per skill stays the unit that is verified and evaluated, but it carries no server, and 14 of the 17 skills call the kit's. One more target packs the kit as one plugin, `metodo`: every skill, the server under `tools/`, and each tool name as that plugin exposes it. Use it to hand the skills to someone, or to measure a skill as it ships (`run --kit-plugin`; the report says which form was measured). Limits: the server writes under `tools/out` inside the plugin, which Claude Code replaces on an update, and no single setting moves that folder [Measured: `03-tools/mcp/registry.py`]; its config is the kit's default; hooks and role agents are not in it; it is published nowhere.
+The package per skill stays the unit that is verified and evaluated, but it carries no server, which 14 of the 17 skills call. One more target packs the kit as one plugin, `metodo`: every skill, the server under `tools/`, and each tool name as that plugin exposes it. Use it to hand the skills to someone, or to measure a skill as it ships (`run --kit-plugin`; the report names the form). Limits: the server writes under `tools/out` inside the plugin, which Claude Code replaces on an update, and no single setting moves that folder [Measured: `03-tools/mcp/registry.py`]; its config is the kit's default; hooks and role agents are not in it; it is published nowhere.
 
 ```bash
 03-tools/bin/skill-build.sh build --kit-plugin --out <dir>   # <dir>/metodo/: the zip (same bytes each time) and marketplace/

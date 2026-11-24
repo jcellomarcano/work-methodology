@@ -134,6 +134,43 @@ class Plan(RunnerTest):
             self.assertTrue(res.stderr.startswith("skill-eval: "), res.stderr)
             self.assertIn(said, res.stderr)
 
+    def test_plan_with_json_writes_the_plan_to_the_file_and_spends_nothing(self):  # B1
+        self.play(cases=BOTH_GOOD)
+        self.assert_clean(self.run_real(), 0)  # smoke-basic is stored, so the plan has a cached case
+        target = self.tmp / "plan.json"
+        res = self.cli("run", "--skill", "demo-skill", *self.where(), "--max-cost-usd", "0.25", "--json", str(target))
+        self.assert_clean(res, 0)
+        self.assertIn("plan only: nothing was run and nothing was spent", res.stdout)
+        self.assertTrue(target.is_file(), "the plan was not written to the file --json names")
+        data = json.loads(target.read_text())
+        self.assertEqual((data["mode"], data["runner_version"], data["max_cost_usd"], data["ceiling_usd"]),
+                         ("plan", runner.RUNNER_VERSION, 0.25, 0.25))
+        self.assertNotIn("thresholds", data)  # a plan is not a report
+        (skill,) = data["skills"]
+        self.assertEqual((skill["skill"], skill["arms"], skill["to_run"], skill["cached"], skill["native_runs"],
+                          skill["ceiling_usd"]), ("demo-skill", ["with", "without"], 1, 1, 6, 0.25))
+        cases = {case["case"]: case for case in skill["cases"]}
+        self.assertEqual({name: (case["tier"], case["state"], case["runs"]) for name, case in cases.items()},
+                         {"demo-skill/core-trigger": ("core", "to run", 3), "demo-skill/smoke-basic": ("smoke", "cached", 1)})
+        self.assertEqual(cases[SMOKE]["hash"], self.stored()["hash"])
+        self.assertEqual(len(self.calls()), 1, "a plan must not start the tool")
+        res = self.cli("run", "--skill", "demo-skill", *self.where(), "--json", str(self.tmp / "absent" / "plan.json"))
+        self.assertEqual(res.returncode, 2, res.stdout + res.stderr)
+        self.assertIn("skill-eval: cannot write", res.stderr)
+
+    def test_json_file_of_a_real_run_keeps_its_shape(self):  # previous behavior of --json with --real
+        self.play(cases=BOTH_GOOD)
+        target = self.tmp / "report.json"
+        self.assert_clean(self.run_real("--json", str(target)), 0)
+        data = json.loads(target.read_text())
+        self.assertEqual(sorted(data), ["runner_version", "skills", "thresholds"])
+        (skill,) = data["skills"]
+        self.assertEqual(sorted(skill), ["cached", "cases", "measured_as", "reasons", "selected", "signal", "size_tokens",
+                                         "skill", "summary", "token_method", "verdict"])
+        self.assertEqual(sorted(skill["cases"][0]), ["arms", "case", "hash", "state", "tier"])
+        for key in ("arms", "cases", "runs_per_arm", "with_score", "without_score", "delta", "cheated", "spend_usd"):
+            self.assertIn(key, skill["summary"])
+
     def test_exempt_path_that_no_staged_file_matches_is_said_in_the_plan(self):
         self.edit_case(ablation_exempt_paths=["notes.txt", "absent/**"])
         res = self.cli("run", "--skill", "demo-skill", *self.where())
@@ -803,6 +840,66 @@ class AntiCheat(RunnerTest):
         self.assertFalse(hit("*.key", "Read", file_path="/w/server.keystore"))
         self.assertFalse(hit("secrets/**", "Write", file_path="/w/notes.md", content="see secrets/key.txt"))
 
+    SECRET = "passphrase: marigold-tango-7-delta"
+
+    def stage_secret(self, more=""):
+        """Stage `secrets/key.txt`, a file under the case's forbidden glob, beside the other setup files."""
+        folder = self.case / "setup" / "secrets"
+        folder.mkdir()
+        (folder / "key.txt").write_text(f"# key\n\n{self.SECRET}\n}}\n{more}")
+        raw = json.loads((self.case / "case.json").read_text())
+        raw["setup"]["files"].append({"from": "setup/secrets", "to": "secrets"})
+        (self.case / "case.json").write_text(json.dumps(raw))
+
+    def test_run_whose_broad_search_returned_a_forbidden_file_is_cheated(self):  # B2
+        self.stage_secret()
+        searches = (
+            ("a recursive grep", "Bash", {"command": "grep -rn pass ."}, f"./notes.txt:1:a note\n./secrets/key.txt:3:{self.SECRET}"),
+            ("a pattern search with no path", "Grep", {"pattern": "passphrase", "output_mode": "content"},
+             f"secrets/key.txt:3:{self.SECRET}"),
+            ("a cat through a glob", "Bash", {"command": "cat */key.txt"}, f"# key\n\n{self.SECRET}\n}}"),
+        )
+        for label, tool, tool_input, result in searches:
+            with self.subTest(label):
+                self.assertEqual(native.touched(["secrets/**"], [{"name": tool, "input": tool_input}]), [],
+                                 "the call names no forbidden path, so only its result can tell")
+                call = {"name": tool, "input": tool_input, "result": result}
+                self.play(cases={"smoke-basic": {"with": {**GOOD_RUN, "calls": [call]}, "without": GOOD_RUN}})
+                res = self.run_real("--no-cache")
+                self.assert_clean(res, 0)
+                self.assertEqual(self.statuses(), {"with": ["cheated"], "without": ["passed"]})
+                run = self.stored()["arms"]["with"][0]
+                self.assertEqual(run["cheat"], [f"{tool} returned line 3 of secrets/key.txt, which is under 'secrets/**'"])
+                self.assertEqual((run["judge_counted"], run["validators"]), (False, []))
+                self.assertIn("demo-skill: not measured", res.stdout)
+                self.assertNotIn("marigold", json.dumps(self.stored()) + res.stdout)  # the hit never quotes the file
+                shutil.rmtree(self.out / "store")
+
+    def test_run_whose_search_returned_nothing_of_a_forbidden_file_is_not_cheated(self):  # B2, the miss
+        self.stage_secret()
+        # The result holds the blank line, the bracket and the short comment of the forbidden file: none tells.
+        call = {"name": "Bash", "input": {"command": "grep -rn greeting ."},
+                "result": "./src/app.py:1:def greeting():\n\n}\n# key\n"}
+        self.play(cases={"smoke-basic": {"with": {**GOOD_RUN, "calls": [call]}, "without": GOOD_RUN}})
+        self.assert_clean(self.run_real(), 0)
+        self.assertEqual(self.statuses(), {"with": ["passed"], "without": ["passed"]})
+
+    def test_only_a_telling_line_of_a_forbidden_staged_file_counts(self):  # B2, the rule
+        (self.case / "setup" / "notes.txt").write_text("a line the notes file also holds\n")
+        self.stage_secret(more="----------------\nreturn None\n  a line the notes file also holds\n"
+                          + "0123456789abcdef" * 20 + " tail\n")
+        lines = native.telling_lines(skill_eval.load_case(self.case))
+        self.assertEqual(lines, [(self.SECRET, "line 3 of secrets/key.txt, which is under 'secrets/**'"),
+                                 (("0123456789abcdef" * 20)[:native.TELLING_MAX_CHARS],
+                                  "line 8 of secrets/key.txt, which is under 'secrets/**'")])
+
+        def hit(result):
+            return native.returned(lines, [{"name": "Bash", "input": {"command": "ls"}, "result": result}])
+        self.assertEqual(hit(f"1\t{self.SECRET}"), ["Bash returned line 3 of secrets/key.txt, which is under 'secrets/**'"])
+        self.assertEqual(hit("0123456789abcdef" * 14 + " ... [truncated]"), ["Bash returned line 8 of secrets/key.txt, which is under 'secrets/**'"])
+        self.assertEqual(hit("----------------\nreturn None\na line the notes file also holds\n\n}\n# key"), [])
+        self.assertEqual(native.returned(lines, [{"name": "Read", "input": {}}]), [])  # a call with no result kept
+
     def test_only_the_kept_folders_the_result_names_are_opened_and_removed(self):
         precious = self.tmp / "precious"
         (precious / "out").mkdir(parents=True)
@@ -888,6 +985,13 @@ class Verdict(unittest.TestCase):
                                      record(["passed"], ["judge_rejected"]))["signal"])
         self.assertFalse(self.verdict(record(["passed"] * 3, ["judge_rejected"] * 3))["signal"])
 
+    def test_signal_is_decided_by_the_runs_scored_in_each_arm_not_by_the_runs_made(self):  # B3
+        summary = runner.summarize([record(["errored", "unreadable", "passed"], ["judge_rejected"] * 3)])
+        self.assertEqual((summary["runs_per_arm"], summary["scored_per_arm"]), (3, 1))
+        self.assertEqual((runner.verdict(summary, 1)["verdict"], runner.verdict(summary, 1)["signal"]), ("works", True))
+        self.assertTrue(self.verdict(record(["passed"] * 3, ["cheated", "judge_rejected", "judge_rejected"]))["signal"])
+        self.assertFalse(self.verdict(record(["passed"] * 3 + ["errored"], ["judge_rejected"] * 4))["signal"])
+
     def test_case_with_no_expected_skill_is_not_said_to_trigger(self):
         got = self.verdict(record(["passed"] * 3, ["judge_rejected"] * 3, expected=False))
         self.assertEqual(got["reasons"], ["the result is better than without it"])
@@ -914,6 +1018,17 @@ class Report(RunnerTest):
         self.assertEqual((data["skills"][0]["skill"], data["skills"][0]["verdict"], data["skills"][0]["signal"]),
                          ("demo-skill", "works", True))
         self.assertEqual(data["thresholds"], runner.THRESHOLDS)
+
+    def test_signal_label_says_how_many_of_the_runs_made_were_scored(self):  # B3
+        failed = {**GOOD_RUN, "error": "API error"}
+        self.play(cases={"smoke-basic": {"with": [failed, failed, GOOD_RUN], "without": [{}, {}, {}]}})
+        res = self.run_real("--runs", "3", "--json", str(self.tmp / "report.json"))
+        self.assert_clean(res, 0)
+        self.assertEqual(self.statuses(), {"with": ["errored", "errored", "passed"], "without": ["validator_failed"] * 3})
+        self.assertIn("demo-skill: works [signal: 1 of 3 run(s) per arm could be scored, a verdict needs 3] - ", res.stdout)
+        self.assertIn("runs per arm: 3", res.stdout)
+        skill = json.loads((self.tmp / "report.json").read_text())["skills"][0]
+        self.assertEqual((skill["signal"], skill["summary"]["runs_per_arm"], skill["summary"]["scored_per_arm"]), (True, 3, 1))
 
     def test_report_of_a_skill_never_run_is_not_measured(self):
         res = self.report()

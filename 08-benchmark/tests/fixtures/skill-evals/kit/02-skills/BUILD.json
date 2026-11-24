@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "kit_plugin": {
+    "name": "fixture-kit",
+    "version": "0.1.0",
+    "description": "The fixture kit as one plugin.",
+    "marketplace": "fixture-market",
+    "owner": "Fixture Owner"
+  }
+}

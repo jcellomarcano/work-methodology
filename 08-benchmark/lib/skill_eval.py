@@ -564,7 +564,8 @@ def main(argv: list[str] | None = None) -> int:
         command.add_argument("--root", metavar="DIR", help="folder of <skill>/<case>/ folders (default: <kit>/08-benchmark/evals)")
         command.add_argument("--kit", metavar="DIR", help="the checkout whose 02-skills is evaluated (default: this one)")
         command.add_argument("--out", metavar="DIR", help="results and store (default: <kit>/03-tools/out/skill-evals)")
-        command.add_argument("--json", metavar="FILE", help="also write the report as JSON")
+        command.add_argument("--json", metavar="FILE", help="also write the report as JSON" if command is report else
+                             "also write the report as JSON; without --real, the plan")
     run.add_argument("--real", action="store_true", help="spend: start the native tool (without it only the plan is printed)")
     run.add_argument("--no-cache", action="store_true", help="run a case again even when its hash has a stored result")
     run.add_argument("--kit-mcp", action="store_true",
