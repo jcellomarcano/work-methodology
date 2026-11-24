@@ -103,7 +103,7 @@ path, the file is never opened), a test (a `tests` folder, or a `.py` file that 
 BUILD file, a cache, an `out`, `vendor` or `baselines` folder. The target FAILs, one line per
 problem, when a skill cannot be packed, when a skill names a tool the catalog lacks (declared or
 only in its text), when a packed skill still says `mcp__metodo__`, or when a text file holds the
-home path of this machine. `build --kit-plugin` writes `<out>/<name>/<name>-<version>.zip`, the same
+home path of this machine (as a whole path: a longer name or path that only contains it is not it). `build --kit-plugin` writes `<out>/<name>/<name>-<version>.zip`, the same
 bytes for the same inputs (a script keeps its mode), and beside it `marketplace/`, a marketplace
 folder that lists this one plugin from `plugins/<name>/`, the plugin laid out as a folder; that
 folder is replaced on every build. `test --kit-plugin` checks the same and writes nothing; it is
@@ -116,8 +116,9 @@ part); Claude Code replaces a plugin's folder on an update, so nothing written t
   build_kit_plugin(kit, out_dir)  writes the zip and the marketplace folder; returns zip, sha256,
                                   marketplace, plugin_dir, name and version
   layout_kit_plugin(kit, dest)    lays the plugin out in `dest` (absent or empty) for a run and returns
-                                  plugin_dir, name, version, files, manifest, tool_prefix and skills
-                                  ({skill: {invoke: "<plugin>:<skill>", mcp_tools}})
+                                  plugin_dir, name, version, files, manifest, tool_prefix, digest and
+                                  skills ({skill: {invoke: "<plugin>:<skill>", mcp_tools}})
+  kit_plugin_digest(plan)         sha256 over every file an inspected plugin holds: path, mode and bytes
 
 Usage:
     lib/skill_build.py test  [SKILL ...] [--all] [--kit-plugin] [--no-cache] [--json FILE]
@@ -146,7 +147,7 @@ import tempfile
 import textwrap
 import zipfile
 
-RUNNER_VERSION = 2  # part of every hash: raise it when a target checks something new
+RUNNER_VERSION = 3  # part of every hash: raise it when a target checks something new
 SCHEMA_VERSION = 1
 HERE = pathlib.Path(__file__).resolve().parent
 BUILD_FILE = "BUILD.json"
@@ -170,6 +171,8 @@ CHECKER_ENV = "SKILL_BUILD_TYPE_CHECKER"
 # until CHECKERS_VERIFIED is set, every PASS of py_type_test says so in its reason.
 # Each line asks for the checker's strict mode. pyright has no strict flag: it reads the mode from
 # a project file, which the executor writes from STRICT_PROJECT_SETTINGS in place of STRICT_PROJECT.
+# That file sits in a scratch folder, which pyright takes as the project root, so for it the sources
+# are named by their full path and the skill folder is added as an import root (`extraPaths`).
 STRICT_PROJECT = "{strict-project}"
 STRICT_PROJECT_SETTINGS = {"typeCheckingMode": "strict"}
 CHECKERS = {
@@ -358,6 +361,8 @@ def load_build(kit: Kit, skill: str) -> tuple[dict | None, list[str]]:
         raw = json.loads(text)
     except ValueError as exc:
         return None, [f"{BUILD_FILE} is not valid JSON: {_one_line(exc)}"]
+    except RecursionError:  # a file nested past the reader's depth: a user error, never a traceback
+        return None, [f"{BUILD_FILE} is not valid JSON: it is nested too deep to read"]
     if not isinstance(raw, dict):
         return None, [f"{BUILD_FILE} must be a JSON object, got {type(raw).__name__}"]
     problems = [f"unknown key {key!r}" for key in sorted(raw) if key not in ("schema_version",) + TARGETS]
@@ -395,8 +400,8 @@ def read_front_matter(path) -> tuple[dict | None, list[str]]:
     """(top-level fields, plain-scalar problems) of a SKILL.md; (None, []) when it has no front matter.
 
     A field is a string, or a list for a flow (`[a, b]`) or block (`- a`) sequence. A block
-    scalar (`|` or `>`) is its indented lines, dedented, kept as lines or folded into one; with no
-    line under it the field is empty. The kit ships no YAML parser: this reads the subset the
+    scalar (`|` or `>`) is its indented lines, dedented, kept as lines or folded (one line per
+    paragraph, a blank line between two being a line break); with no line under it the field is empty. The kit ships no YAML parser: this reads the subset the
     skills use and checks the one rule a strict parser rejects in it, a plain scalar holding
     ': ' or ' #'.
     """
@@ -413,7 +418,16 @@ def read_front_matter(path) -> tuple[dict | None, list[str]]:
 
     def block_text(folded: bool, raw: list[str]) -> str:
         text = textwrap.dedent("\n".join(raw)).strip("\n")
-        return " ".join(part.strip() for part in text.split("\n") if part.strip()) if folded else text
+        if not folded:
+            return text
+        folded_text, blank = "", 0  # YAML folding: a line break in a paragraph is a space, a blank line a break
+        for part in (line.strip() for line in text.split("\n")):
+            if not part:
+                blank += 1
+                continue
+            folded_text += ("\n" * blank if blank else " ") * bool(folded_text) + part
+            blank = 0
+        return folded_text
 
     for number, line in enumerate(lines[1:lines.index("---", 1)], start=2):
         if block is not None:
@@ -670,6 +684,13 @@ def _home_paths() -> list[bytes]:
     return sorted({path.encode() for path in (home, os.path.realpath(home)) if len(path) > 1 and path != "~"})
 
 
+def _home_res() -> list[re.Pattern[bytes]]:
+    """The home path of this machine as a whole path: not the start of a longer name (`<home>-old`,
+    `<home>2`) and not the end of a longer path (`/mnt/copy<home>`). A dot after it still counts: it
+    ends a sentence more often than it starts an extension."""
+    return [re.compile(rb"(?<![A-Za-z0-9._-])" + re.escape(home) + rb"(?![A-Za-z0-9_-])") for home in _home_paths()]
+
+
 def _plan_kit_plugin(kit: Kit, decl: dict) -> tuple[dict | None, list[str]]:
     """(what the kit plugin holds, []), or (None, the problems that keep it from being packed)."""
     name = decl["name"]
@@ -758,13 +779,13 @@ def _plan_kit_plugin(kit: Kit, decl: dict) -> tuple[dict | None, list[str]]:
         "folders": dict(sorted(folders.items())), "limits": list(KIT_LIMITS), "files": sorted(entries),
     }
     entries["MANIFEST.json"] = _json_bytes(manifest)
-    homes = _home_paths()
+    homes = _home_res()
     for entry, data in sorted(entries.items()):
         try:
             data.decode("utf-8")
         except UnicodeDecodeError:
             continue  # not a text file
-        if any(home in data for home in homes):
+        if any(home.search(data) for home in homes):
             problems.append(f"{entry} holds the home path of this machine")
     if problems:
         return None, problems
@@ -783,6 +804,16 @@ def _require_kit_plugin(kit: Kit) -> dict:
     if plan is None:
         raise BuildError("the kit plugin: " + "; ".join(problems))
     return plan
+
+
+def kit_plugin_digest(plan: dict) -> str:
+    """sha256 over every file of a kit plugin (path, mode, bytes): the skills, the server and the manifest."""
+    digest = hashlib.sha256()
+    for entry, data in plan["entries"]:
+        for part in (entry.encode("utf-8", "surrogateescape"), f"{plan['modes'][entry]:o}".encode(), data):
+            digest.update(len(part).to_bytes(8, "big"))  # length-prefixed: no two splits collide
+            digest.update(part)
+    return digest.hexdigest()
 
 
 def _lay_out(dest: pathlib.Path, plan: dict) -> None:
@@ -826,7 +857,7 @@ def layout_kit_plugin(kit: Kit, dest) -> dict:
     manifest = plan["manifest"]
     return {"plugin_dir": str(dest), "name": plan["name"], "version": plan["version"],
             "files": [entry for entry, _data in plan["entries"]], "manifest": manifest,
-            "tool_prefix": manifest["mcp_server"]["tool_prefix"],
+            "tool_prefix": manifest["mcp_server"]["tool_prefix"], "digest": kit_plugin_digest(plan),
             "skills": {skill["name"]: {"invoke": skill["invoke"], "mcp_tools": skill["mcp_tools"]}
                        for skill in manifest["skills"]}}
 
@@ -839,7 +870,10 @@ def kit_plugin_results(kit: Kit, out_dir=None) -> list[dict]:
     if plan is None:
         return [_result(label, KIT_TARGET, "FAIL", problem) for problem in problems]
     if out_dir is not None:
-        built = _write_kit_plugin(plan, out_dir)
+        try:
+            built = _write_kit_plugin(plan, out_dir)
+        except BuildError as exc:  # a folder the build will not replace: one more result, not the end of the command
+            return [_result(label, KIT_TARGET, "FAIL", str(exc))]
         return [_result(label, KIT_TARGET, "PASS", f"{built['zip']} sha256:{built['sha256']}")]
     manifest = plan["manifest"]
     count, served = len(manifest["skills"]), sum(1 for entry in manifest["files"] if entry.startswith(PLUGIN_TOOLS + "/"))
@@ -917,11 +951,15 @@ def _py_type(kit: Kit, skill: str, build: dict) -> tuple[str, str]:
         return "SKIP", name
     try:
         with tempfile.TemporaryDirectory(prefix="skill-build-") as scratch:
+            checked = sources
             if STRICT_PROJECT in flags:
+                folder = kit.skills / skill
                 project = os.path.join(scratch, "pyrightconfig.json")
-                pathlib.Path(project).write_bytes(_json_bytes(STRICT_PROJECT_SETTINGS))
+                settings = {**STRICT_PROJECT_SETTINGS, "extraPaths": [str(folder)]}
+                pathlib.Path(project).write_bytes(_json_bytes(settings))
                 flags = [project if flag == STRICT_PROJECT else flag for flag in flags]
-            proc = subprocess.run([found, *flags, *sources], cwd=kit.skills / skill, capture_output=True,
+                checked = [_join(folder, source) for source in sources]  # not names under the scratch root
+            proc = subprocess.run([found, *flags, *checked], cwd=kit.skills / skill, capture_output=True,
                                   text=True, timeout=900)
     except (OSError, subprocess.TimeoutExpired) as exc:
         return "FAIL", f"{name} did not run: {_one_line(exc)}"

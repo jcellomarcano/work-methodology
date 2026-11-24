@@ -506,6 +506,37 @@ class ReviewFindings(CaseTest):
         self.assert_problem("setup.files[1].to: 'code/app.py' is also the destination of setup.files[0]: "
                             "two files cannot land on one path")
 
+    def test_two_spellings_of_one_destination_are_a_problem(self):  # R3-duplicate-destination-check-gaps
+        # a file system that ignores case, or the form of an accent, opens both as one file
+        self.set_files(("setup/notes.txt", "out/Notes.txt"), ("setup/src/app.py", "out/notes.txt"))
+        self.assert_problem("setup.files[1].to: 'out/notes.txt' is the destination 'out/Notes.txt' of setup.files[0] "
+                            "under another spelling: two files cannot land on one path")
+        composed, decomposed = "caf\u00e9.txt", "cafe\u0301.txt"
+        self.set_files(("setup/notes.txt", composed), ("setup/src/app.py", decomposed))
+        self.assert_problem(f"setup.files[1].to: {decomposed!r} is the destination {composed!r} of setup.files[0] "
+                            f"under another spelling: two files cannot land on one path")
+        self.set_files(("setup/src", "Code"), ("setup/notes.txt", "code/APP.py"))
+        self.assert_problem("setup.files[1].to: 'code/APP.py' is the destination 'Code/app.py' of setup.files[0] "
+                            "under another spelling: two files cannot land on one path")
+
+    def test_a_file_cannot_land_where_another_entry_needs_a_folder(self):  # R3-duplicate-destination-check-gaps
+        self.set_files(("setup/notes.txt", "code"), ("setup/src/app.py", "code/app.py"))
+        self.assert_problem("setup.files[1].to: 'code/app.py' needs 'code' to be a folder, and setup.files[0] stages a file there")
+        self.set_files(("setup/src", "code/deep"), ("setup/notes.txt", "Code"))
+        self.assert_problem("setup.files[1].to: 'Code' is a file where setup.files[0] stages 'code/deep/app.py': "
+                            "one path cannot be a file and a folder")
+
+    def test_spellings_the_path_type_folds_were_already_one_destination(self):  # previous behavior of the check
+        for first, second in (("a.txt", "./a.txt"), ("deep/a.txt", "deep//a.txt"), ("deep/a.txt", "deep/./a.txt")):
+            with self.subTest(second=second):
+                self.set_files(("setup/notes.txt", first), ("setup/src/app.py", second))
+                self.assert_problem(f"setup.files[1].to: {first!r} is also the destination of setup.files[0]: "
+                                    f"two files cannot land on one path")
+
+    def test_destinations_that_only_share_a_folder_are_no_problem(self):  # previous behavior of the check
+        self.set_files(("setup/notes.txt", "code/notes.txt"), ("setup/src", "code"), ("setup/src/app.py", "code2"))
+        self.assertEqual(skill_eval.validate_case(self.case), [])
+
     def test_stage_still_copies_every_file_when_all_can_be(self):  # previous behavior of stage
         self.set_files(("setup/notes.txt", "a.txt"), ("setup/src/app.py", "deep/b.py"))
         dest = self.tmp / "work"

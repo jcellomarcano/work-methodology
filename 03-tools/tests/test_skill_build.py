@@ -413,7 +413,7 @@ class PyTypeTests(KitCase):
                 self.assertEqual(result["status"], "PASS", result)
                 self.assertIn("unverified", result["reason"])
                 argv = log.read_text(encoding="utf-8").split()
-                self.assertEqual(argv[-1], "tool.py")
+                self.assertEqual(os.path.basename(argv[-1]), "tool.py")  # pyright is given the full path
                 if name == "mypy":
                     self.assertIn("--strict", argv)
                 elif name == "pytype":
@@ -433,6 +433,50 @@ class PyTypeTests(KitCase):
             (self.tmp / "checker.version").write_text("stub 2.0\n", encoding="utf-8")
             third = self.target("py_type_test", use_cache=True)
         self.assertEqual([first["cached"], second["cached"], third["cached"]], [False, True, False])
+
+    def test_pyright_checks_the_skills_own_files_from_a_project_file_kept_outside_the_skill(self):  # R3-pyright-project-root-in-scratch
+        self.with_python()
+        folder = self.root / "02-skills" / "demo"
+        with mock.patch.dict(os.environ, {skill_build.CHECKER_ENV: str(self.stub(0, name="pyright"))}):
+            result = self.target("py_type_test")
+        self.assertEqual(result["status"], "PASS", result)
+        argv = (self.tmp / "checker.log").read_text(encoding="utf-8").split()
+        project = json.loads((self.tmp / "project.json").read_text(encoding="utf-8"))
+        # pyright takes the folder of its project file as the project root, and that folder is a
+        # scratch one: the files are named by their full path and the imports are sent to the skill
+        self.assertEqual(argv[-1], str(folder / "tool.py"))
+        self.assertTrue(Path(argv[-1]).is_file(), argv)
+        self.assertEqual(project["extraPaths"], [str(folder)])
+        self.assertEqual(project["typeCheckingMode"], "strict")
+        self.assertNotIn(str(folder), argv[argv.index("--project") + 1])
+        self.assertEqual(sorted(p.name for p in folder.iterdir()), ["BUILD.json", "SKILL.md", "tool.py"])
+
+    def silent_stub(self, on_version: str) -> Path:
+        """A checker that accepts the sources and does `on_version` when asked for its version."""
+        path = self.tmp / "bin" / "mypy"
+        path.parent.mkdir(exist_ok=True)
+        path.write_text(f'#!/bin/sh\nif [ "$1" = "--version" ]; then {on_version}; fi\n'
+                        f'echo "$@" >> "{self.tmp}/checker.log"\nexit 0\n', encoding="utf-8")
+        os.chmod(path, 0o755)
+        return path
+
+    def test_a_checker_that_cannot_say_its_version_still_runs_and_its_pass_is_never_stored(self):  # R3-checker-version-failure-untested
+        self.with_python()
+        log = self.tmp / "checker.log"
+        for said, on_version in (("exits 3", "echo broken >&2; exit 3"), ("says nothing", "exit 0")):
+            with self.subTest(version=said):
+                log.unlink(missing_ok=True)
+                with mock.patch.dict(os.environ, {skill_build.CHECKER_ENV: str(self.silent_stub(on_version))}):
+                    first = self.target("py_type_test", use_cache=True)
+                    second = self.target("py_type_test", use_cache=True)
+                self.assertEqual([first["status"], second["status"]], ["PASS", "PASS"], [first, second])
+                self.assertEqual([first["cached"], second["cached"]], [False, False])
+                self.assertEqual(len(log.read_text(encoding="utf-8").splitlines()), 2)  # it ran both times
+                self.assertEqual(sorted(self.kit.cache.glob("*py_type_test*")) if self.kit.cache.is_dir() else [], [])
+        with mock.patch.object(skill_build.subprocess, "run",
+                               side_effect=subprocess.TimeoutExpired(["mypy", "--version"], 60)):
+            with self.assertRaises(OSError):  # the one error the executor reads as "store nothing"
+                skill_build._checker_version("mypy")
 
 
 class PyTestTests(KitCase):
@@ -728,6 +772,19 @@ class ReviewFindingTests(KitCase):
         self.assertIn("description is empty or missing", result["reason"])
         self.assertEqual(self.target("agent_skill")["status"], "FAIL")
 
+    def test_a_folded_block_scalar_keeps_its_paragraphs(self):  # R3-folded-block-scalar-drops-paragraphs
+        folder = self.add_skill(md=self.front_matter(
+            ">\n  First paragraph,\n  still the first.\n\n  Second paragraph.\n\n\n  Third, after two blank lines.\n"
+            "one: >-\n  one\n  two\nkept: |\n  a\n\n  b"))
+        fields, problems = skill_build.read_front_matter(folder / "SKILL.md")
+        # YAML folding: a line break inside a paragraph is a space, a blank line is a line break
+        self.assertEqual(fields["description"],
+                         "First paragraph, still the first.\nSecond paragraph.\n\nThird, after two blank lines.")
+        self.assertEqual(fields["one"], "one two")  # previous behavior: one paragraph is one line
+        self.assertEqual(fields["kept"], "a\n\nb")  # previous behavior: a literal block keeps its lines
+        self.assertEqual(fields["version"], "1.2.0")
+        self.assertEqual(problems, [])
+
     def test_one_function_names_the_package_file(self):  # R2-build-skill-duplicates-package-path
         self.add_skill()
         expected = skill_build.package_path(self.tmp / "out", "demo", "1.2.0")
@@ -759,6 +816,13 @@ class ReviewFindingTests(KitCase):
         self.assertIn("is not UTF-8 text", self.problems()[0])
         self.write_build("demo", "{not json")
         self.assertIn("is not valid JSON", self.problems()[0])  # previous behavior
+
+    def test_a_build_file_nested_past_the_json_reader_is_one_problem_line(self):
+        # closing pass, 2026-11-24: json.loads raises RecursionError, not ValueError, on such a file
+        self.add_skill(build=False)
+        self.write_build("demo", "[" * 200000)
+        self.assertEqual(len(self.problems()), 1, self.problems())
+        self.assertIn("is not valid JSON", self.problems()[0])
 
 
 class LayoutForARunTests(KitCase):
@@ -1006,6 +1070,18 @@ class KitPluginTests(KitPluginCase):
         self.assertIn("home path", problems[0])
         self.assertNotIn(home, problems[0])  # the report does not repeat it
 
+    def test_a_longer_path_or_a_word_that_only_contains_the_home_path_is_not_the_home_path(self):  # R3-home-path-substring-false-positive
+        home = os.path.expanduser("~")
+        self.tool("config/where.json", json.dumps({"sibling": f"{home}-backup/my-tools", "word": f"{home}2",
+                                                   "longer": f"/mnt/snapshots{home}/my-tools"}) + "\n")
+        self.assertIn("tools/config/where.json", self.held())  # packed: none of the three is this machine's home
+        for text in (home, f"{home}/my-tools", f'"{home}"', f"file://{home}/x", f"see {home}.", f"A={home}:{home}/bin"):
+            with self.subTest(text=text.replace(home, "HOME")):  # previous behavior: the home path itself still fails
+                self.tool("config/where.json", text + "\n")
+                problems = self.problems()
+                self.assertEqual(len(problems), 1, problems)
+                self.assertIn("home path", problems[0])
+
     def test_the_zip_is_byte_identical_for_identical_inputs(self):
         first, second = self.build("one"), self.build("two")
         self.assertEqual(first["zip"].name, "demo-kit-0.3.0.zip")
@@ -1151,6 +1227,25 @@ class KitPluginCommandTests(KitPluginCase):
         code, stdout, _stderr = self.cli("test", "--kit-plugin")
         self.assertEqual(code, 1)
         self.assertTrue(stdout.startswith("FAIL kit:kit_plugin 02-skills/BUILD.json"), stdout)
+
+    def test_a_marketplace_folder_the_build_cannot_replace_is_a_fail_line_and_exit_1(self):  # R3-kit-plugin-builderror-escapes-cli
+        out = self.tmp / "dist"
+        market = out / "demo-kit" / "marketplace"
+        market.mkdir(parents=True)
+        (market / "mine.txt").write_text("not written by the build\n", encoding="utf-8")
+        code, stdout, stderr = self.cli("build", "demo", "--kit-plugin", "--out", str(out))
+        self.assertEqual(code, 1, stdout + stderr)
+        lines = stdout.splitlines()
+        # the skill packed before it keeps its line: the kit plugin's error is one more result, not the end of the command
+        self.assertEqual([line.split()[:2] for line in lines], [["PASS", "demo:agent_skill"], ["FAIL", "demo-kit:kit_plugin"]])
+        for line in lines:
+            self.assertRegex(line, LINE_RE)
+        self.assertIn("holds something this command did not write", lines[1])
+        self.assertIn("1 PASS", stderr)
+        self.assertIn("1 FAIL", stderr)
+        self.assertNotIn("Traceback", stdout + stderr)
+        self.assertEqual((market / "mine.txt").read_text(encoding="utf-8"), "not written by the build\n")
+        self.assertFalse((out / "demo-kit" / "demo-kit-0.3.0.zip").exists())
 
     def test_without_the_option_the_command_is_what_it_was(self):  # previous behavior of build and test
         out = self.tmp / "dist"

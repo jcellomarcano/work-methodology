@@ -78,6 +78,7 @@ import re
 import shutil
 import sys
 import tempfile
+import unicodedata
 
 SCHEMA_VERSION = 1
 HERE = pathlib.Path(__file__).resolve().parent
@@ -198,12 +199,19 @@ def _plan_entry(case_real: str, index: int, entry: dict) -> tuple[list[tuple[str
 
 # ---------------------------------------------------------------------------------- validation
 
+def _destination_key(target: str) -> str:
+    """One key for every spelling a file system may open as the same path: its case and the form of
+    its accents. Compared on every machine, so a case means the same thing on all of them."""
+    return unicodedata.normalize("NFC", unicodedata.normalize("NFC", target).casefold())
+
+
 def _check_setup(case_real: str, setup, problems: list[str]) -> None:
     if not isinstance(setup, dict) or not isinstance(setup.get("files", []), list):
         problems.append(f"'setup' must be an object with a 'files' list, got {setup!r}")
         return
     problems.extend(f"setup: unknown key {key!r}" for key in sorted(setup) if key != "files")
-    landed: dict[str, int] = {}  # destination -> the first entry that stages a file there
+    landed: dict[str, tuple[int, str]] = {}  # destination key -> the first entry that stages a file there, its spelling
+    folders: dict[str, tuple[int, str]] = {}  # key of a folder a destination sits in -> the first such entry, its file
     for index, entry in enumerate(setup.get("files", [])):
         label = f"setup.files[{index}]"
         if not isinstance(entry, dict) or not all(isinstance(entry.get(k), str) for k in ("from", "to")):
@@ -221,9 +229,25 @@ def _check_setup(case_real: str, setup, problems: list[str]) -> None:
         pairs, faults = _plan_entry(case_real, index, entry)
         problems.extend(faults)
         for _source, target in pairs:
-            if landed.setdefault(target, index) != index:  # the later file would silently replace the earlier one
-                problems.append(f"{label}.to: {target!r} is also the destination of setup.files[{landed[target]}]: "
+            key = _destination_key(target)
+            first, spelled = landed.setdefault(key, (index, target))
+            if spelled != target:  # one file on a file system that ignores the difference
+                problems.append(f"{label}.to: {target!r} is the destination {spelled!r} of setup.files[{first}] "
+                                f"under another spelling: two files cannot land on one path")
+            elif first != index:  # the later file would silently replace the earlier one
+                problems.append(f"{label}.to: {target!r} is also the destination of setup.files[{first}]: "
                                 f"two files cannot land on one path")
+            if key in folders:
+                problems.append(f"{label}.to: {target!r} is a file where setup.files[{folders[key][0]}] stages "
+                                f"{folders[key][1]!r}: one path cannot be a file and a folder")
+            parts = pathlib.PurePosixPath(target).parts
+            for depth in range(1, len(parts)):
+                parent = "/".join(parts[:depth])
+                parent_key = _destination_key(parent)
+                if parent_key in landed:
+                    problems.append(f"{label}.to: {target!r} needs {parent!r} to be a folder, and "
+                                    f"setup.files[{landed[parent_key][0]}] stages a file there")
+                folders.setdefault(parent_key, (index, target))
 
 
 def _check_validators(case_real: str, validators, problems: list[str]) -> None:

@@ -365,6 +365,58 @@ class ReviewFindings(RunnerTest):
             shutil.rmtree(self.out / "store")
 
 
+class ClosingPass(RunnerTest):
+    """The findings the native reviews of T4 and T5 left for the closing pass (feature skill-evals, L17 and L19)."""
+
+    def test_native_run_that_ends_leaves_no_process_of_its_group_behind(self):  # R3-normal-exit-leaves-group, R4-001
+        leaves = self.tmp / "leaves"
+        leaves.write_text(f'#!/bin/sh\nsleep 30 &\necho $! > "{self.tmp}/left.pid"\necho said\nexit 4\n')
+        leaves.chmod(0o755)
+
+        def end(pid):
+            try:
+                os.kill(pid, 9)
+            except OSError:
+                pass
+
+        result = native.run_native([str(leaves)], self.tmp, timeout=30)
+        child = int((self.tmp / "left.pid").read_text())
+        self.addCleanup(end, child)
+        self.assertEqual(result, (4, "said\n", ""))  # previous behavior: the exit code and both outputs
+        for _ in range(50):
+            try:
+                os.kill(child, 0)
+            except ProcessLookupError:
+                break
+            time.sleep(0.1)
+        else:
+            self.fail(f"process {child}, started by a tool that has ended, is still running")
+
+    def test_declaration_that_cannot_be_read_at_all_declares_nothing_and_is_never_a_traceback(self):  # R3-declared-needs-narrow-except
+        declaration = self.kit / "02-skills" / "demo-skill" / "BUILD.json"
+        declaration.write_text("[" * 200000)  # nested past what the JSON reader can follow: not a ValueError
+        self.assertEqual(runner.declared_needs({"kit": self.kit}, "demo-skill"), ([], False))
+        plan = self.cli("run", "--skill", "demo-skill", *self.where(), "--tier", "smoke")
+        self.assert_clean(plan, 0)
+        self.assertIn("demo-skill/smoke-basic [smoke]: to run", plan.stdout)
+        self.play(cases=BOTH_GOOD)
+        res = self.run_real()  # the run itself says the skill cannot be packed, in one line
+        self.assert_clean(res, 1)
+        self.assertIn("demo-skill: not measured", res.stdout)
+        self.assertEqual(len([line for line in res.stderr.splitlines() if line.startswith("skill-eval: demo-skill: ")]), 1,
+                         res.stderr)
+        self.assertEqual(self.calls(), [])
+
+    def test_declaration_that_can_be_read_still_says_what_the_skill_needs(self):  # previous behavior of declared_needs
+        skill = self.kit / "02-skills" / "demo-skill"
+        (skill / "BUILD.json").write_text(json.dumps({"schema_version": 1, "agent_skill": {
+            "srcs": ["SKILL.md"], "deps": ["mcp__metodo__demo_tool", "03-tools/lib"]}}))
+        with open(skill / "SKILL.md", "a") as handle:
+            handle.write("\nRun `__TOOLS_DEFAULT__/lib/x.py`.\n")
+        self.assertEqual(runner.declared_needs({"kit": self.kit}, "demo-skill"), (["mcp__metodo__demo_tool"], True))
+        self.assertEqual(runner.declared_needs({"kit": self.kit}, "other-skill"), ([], False))
+
+
 class WhatARunDid(RunnerTest):
     """The trace is removed once it is scored, so the stored result keeps the tools a run called."""
 
@@ -586,6 +638,37 @@ class KitPlugin(RunnerTest):
         self.assert_clean(res, 0)
         self.assertEqual(len(self.calls()), 1)
         self.assertIn("  measured as: its own package\n", res.stdout)
+
+    def test_a_change_in_the_server_or_in_another_packed_skill_runs_the_case_again(self):  # R3-kit-plugin-cache-ignores-server-and-other-skills
+        self.assert_clean(self.run_real("--kit-plugin"), 0)
+        again = self.run_real("--kit-plugin")
+        self.assert_clean(again, 0)
+        self.assertEqual(len(self.calls()), 1)  # previous behavior: nothing changed, so it is served from the store
+        self.assertIn("demo-skill/smoke-basic [smoke]: cached", again.stdout)
+        (self.kit / "03-tools" / "mcp" / "server.py").write_text("print('another server that no test starts')\n")
+        plan = self.cli("run", "--skill", "demo-skill", *self.where(), "--tier", "smoke", "--kit-plugin")
+        self.assert_clean(plan, 0)
+        self.assertIn("demo-skill/smoke-basic [smoke]: to run", plan.stdout)
+        self.assertIn("the stored result used other settings: another build of the kit plugin", plan.stdout)
+        self.assert_clean(self.run_real("--kit-plugin"), 0)
+        self.assertEqual(len(self.calls()), 2)
+        with open(self.kit / "02-skills" / "other-skill" / "SKILL.md", "a") as handle:
+            handle.write("\nOne more line in a skill that is not the one measured.\n")
+        self.assert_clean(self.run_real("--kit-plugin"), 0)
+        self.assertEqual(len(self.calls()), 3)
+        self.assert_clean(self.run_real("--kit-plugin"), 0)
+        self.assertEqual(len(self.calls()), 3)  # and the new result is reused while the plugin stays as it is
+        shown = self.report()  # previous behavior: the report shows what is stored and packs nothing
+        self.assert_clean(shown, 0)
+        self.assertIn(self.FORM, shown.stdout)
+
+    def test_a_change_in_the_server_does_not_run_the_skills_own_package_again(self):  # previous behavior of the cache
+        self.assert_clean(self.run_real(), 0)
+        (self.kit / "03-tools" / "mcp" / "server.py").write_text("print('another server that no test starts')\n")
+        res = self.run_real()
+        self.assert_clean(res, 0)
+        self.assertEqual(len(self.calls()), 1)
+        self.assertIn("demo-skill/smoke-basic [smoke]: cached", res.stdout)
 
     def test_the_kit_plugin_and_the_checkout_server_together_are_a_usage_error(self):
         res = self.run_real("--kit-plugin", "--kit-mcp")

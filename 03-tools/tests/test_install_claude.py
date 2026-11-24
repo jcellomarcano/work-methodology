@@ -314,6 +314,13 @@ class InstallPiTests(unittest.TestCase):
         for entry in ("*.log", ".mcp.json", ".pi/agents", ".pi/mcp.json"):
             self.assertIn(entry, lines)
 
+    def test_the_build_file_is_named_once_in_the_pi_installer(self):  # R2-build-file-literal-duplicated
+        code = [line for line in PI_INSTALLER.read_text(encoding="utf-8").splitlines() if not line.lstrip().startswith("#")]
+        named = [line for line in code if "BUILD.json" in line]
+        self.assertEqual(named, ['BUILD_FILE="BUILD.json"'])
+        # the install loop and the uninstall loop both skip the file through that one name
+        self.assertEqual(len([line for line in code if '= "$BUILD_FILE" ] && continue' in line]), 2, code)
+
     def test_pi_gets_the_whole_mcp_server_and_is_told_what_pi_needs(self):
         proc = self._run()
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)

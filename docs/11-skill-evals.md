@@ -59,7 +59,7 @@ python3 08-benchmark/lib/skill_eval.py report              # the verdicts from t
 
 - `--real` is the only flag that spends. The run prints its ceiling first; the default is USD 0.50 per skill [Measured: `08-benchmark/lib/skill_eval_run.py`].
 - `--kit-mcp` starts this checkout's MCP server for a skill that declares its tools; 14 of the 17 do [Measured: the `deps` of each `BUILD.json`]. It runs as you, outside the tool's sandbox. Without it such a skill runs without its tools and its verdict is never `works`. Section 8 has `--kit-plugin`.
-- A case is not run again while its files, the skill's files and the settings (model, judge, runs, server, form) stay the same. `--no-cache` runs it anyway.
+- A case runs again only when its files, the skill's, the kit plugin's or the settings (model, judge, runs, server, form) change; `--no-cache` forces it.
 
 ## 5. Reading the verdict
 

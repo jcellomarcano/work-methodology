@@ -265,7 +265,8 @@ def run_native(argv: list[str], cwd, timeout: float) -> tuple[int, str, str]:
     """Run the tool; (exit code, stdout, stderr). A NativeError when it cannot start or never ends.
 
     Its output goes to two files, not to pipes: a process the tool started and left behind keeps a
-    pipe open, and reading that pipe to its end would hang the runner past any timeout.
+    pipe open, and reading that pipe to its end would hang the runner past any timeout. However the
+    tool ends, what it started in its group ends with it: a server it left running is stopped.
     """
     with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
         try:
@@ -282,6 +283,7 @@ def run_native(argv: list[str], cwd, timeout: float) -> tuple[int, str, str]:
         except BaseException:  # an interrupt of the runner must not leave a paid run behind
             _stop_group(proc)
             raise
+        _stop_group(proc)  # the tool has ended: whatever it started and left in its group ends here
         out.seek(0)
         err.seek(0)
         return code, out.read().decode("utf-8", "replace"), err.read().decode("utf-8", "replace")
