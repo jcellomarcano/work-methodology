@@ -1,0 +1,1 @@
+I want the methodology kit set up in ~/code/shop-api. My answers to your setup questions are in interview-notes.md. Save the answers file as answers.json and get the setup going, then tell me what's left for me.

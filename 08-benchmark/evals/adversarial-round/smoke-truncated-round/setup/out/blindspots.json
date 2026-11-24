@@ -1,0 +1,19 @@
+{
+  "round": 1,
+  "role": "generic-blind-spot-adversary",
+  "summary": "One blind spot looked at and closed.",
+  "blind_spots": [
+    {
+      "id": "B-01",
+      "what_nobody_looks_at": "Currency rounding when a line price has three decimals.",
+      "why_it_matters": "A rounded line could make the sum of refunds one cent larger than the capture.",
+      "where_it_should_live": "tests/refunds/test_service.py",
+      "state": "CLOSED",
+      "proposed_owner": "payments team",
+      "epistemic": "Tested"
+    }
+  ],
+  "not_covered": ["concurrent refunds on the same order", "refunds after a chargeback"],
+  "truncated": true,
+  "context_tokens_used": 118400
+}

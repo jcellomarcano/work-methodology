@@ -1,0 +1,1 @@
+Is the kit worth it on this repo? Compare the setups with and without the kit from last night's A/B run, its report is in run/report.md, and write what I'll paste in the team channel as summary.md: which one is better and by how much. Keep it short.

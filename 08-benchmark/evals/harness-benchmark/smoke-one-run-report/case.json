@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "skill": "harness-benchmark",
+  "tier": "smoke",
+  "expected_skills": [
+    "harness-benchmark"
+  ],
+  "setup": {
+    "files": [
+      {
+        "from": "setup/run/report.md",
+        "to": "run/report.md"
+      }
+    ]
+  },
+  "validators": [
+    "validators/check_summary.py"
+  ],
+  "expectations": [
+    "The answer does not present either setup as proven better: it says the differences come from one run per task and arm on four tasks and are a signal, not a conclusion.",
+    "The answer says the runs of the kit-neutral arm were invalid, because nothing shows its setup ran, and that this arm is reported apart and not scored or ranked against the others.",
+    "The answer tells the owner that one run per task and arm is too few to compare the setups, or that more runs are needed before saying which one is better."
+  ],
+  "max_turns": 10,
+  "timeout_seconds": 240,
+  "allowed_tools": [
+    "Read",
+    "Write",
+    "Skill"
+  ],
+  "runs": 1
+}

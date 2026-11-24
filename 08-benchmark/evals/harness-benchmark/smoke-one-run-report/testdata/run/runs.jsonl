@@ -1,0 +1,12 @@
+{"task": "t1", "arm": "vanilla", "rep": 0, "status": "ok", "verify_passed": true, "cost_usd": 0.4137, "findings_count": 0}
+{"task": "t1", "arm": "kit-invoked", "rep": 0, "status": "ok", "verify_passed": true, "cost_usd": 0.9725, "findings_count": 0}
+{"task": "t1", "arm": "kit-neutral", "rep": 0, "status": "invalid-arm", "reason": "evidence-missing", "cost_usd": 0.4018}
+{"task": "t2", "arm": "vanilla", "rep": 0, "status": "ok", "verify_passed": false, "cost_usd": 0.3891, "findings_count": 0}
+{"task": "t2", "arm": "kit-invoked", "rep": 0, "status": "ok", "verify_passed": true, "cost_usd": 0.8846, "findings_count": 0}
+{"task": "t2", "arm": "kit-neutral", "rep": 0, "status": "invalid-arm", "reason": "evidence-missing", "cost_usd": 0.3977}
+{"task": "t3", "arm": "vanilla", "rep": 0, "status": "ok", "verify_passed": true, "cost_usd": 0.4462, "findings_count": 0}
+{"task": "t3", "arm": "kit-invoked", "rep": 0, "status": "ok", "verify_passed": true, "cost_usd": 1.0513, "findings_count": 0}
+{"task": "t3", "arm": "kit-neutral", "rep": 0, "status": "invalid-arm", "reason": "evidence-missing", "cost_usd": 0.435}
+{"task": "t4", "arm": "vanilla", "rep": 0, "status": "ok", "verify_passed": false, "cost_usd": 0.5208, "findings_count": 0}
+{"task": "t4", "arm": "kit-invoked", "rep": 0, "status": "ok", "verify_passed": false, "cost_usd": 1.1379, "findings_count": 0}
+{"task": "t4", "arm": "kit-neutral", "rep": 0, "status": "invalid-arm", "reason": "evidence-missing", "cost_usd": 0.4921}

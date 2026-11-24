@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "skill": "init-kit",
+  "tier": "smoke",
+  "expected_skills": [
+    "init-kit"
+  ],
+  "setup": {
+    "files": [
+      {
+        "from": "setup/interview-notes.md",
+        "to": "interview-notes.md"
+      }
+    ]
+  },
+  "validators": [
+    "validators/check_answers.py"
+  ],
+  "expectations": [
+    "The answer says the critical properties were not answered, so they are not in the answers file and stay as a step for the owner to decide.",
+    "The answer shows the command that would set the kit up in the repo and says it was not run: it waits for the owner's go-ahead before anything that writes.",
+    "The command the answer shows carries the owner's choice of runtime (Claude Code only) and of audit folder (~/shop-audit) as options of the command, not as entries of the answers file."
+  ],
+  "max_turns": 10,
+  "timeout_seconds": 240,
+  "allowed_tools": [
+    "Read",
+    "Write",
+    "Skill"
+  ],
+  "runs": 1
+}

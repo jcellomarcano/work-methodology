@@ -1,0 +1,36 @@
+{
+  "saved_file": "answers.json",
+  "notes": "interview-notes.md",
+  "accepted_list_keys": [
+    "property_order",
+    "critical_properties",
+    "critical_paths",
+    "ticket_keys"
+  ],
+  "accepted_string_keys": [
+    "language"
+  ],
+  "renamed_keys": {
+    "money_paths": "critical_paths"
+  },
+  "confirmed": {
+    "property_order": [
+      "Data integrity",
+      "Security",
+      "Availability",
+      "Performance"
+    ],
+    "critical_paths": [
+      "src/payments/",
+      "src/refunds/"
+    ],
+    "ticket_keys": [
+      "PAY",
+      "SHOP"
+    ],
+    "language": "kotlin"
+  },
+  "not_answered": [
+    "critical_properties"
+  ]
+}

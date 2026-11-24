@@ -1,0 +1,40 @@
+{
+  "round": 1,
+  "role": "generic-challenger",
+  "summary": "Three claims of the card attacked through the correctness lens; all three hold against the diff.",
+  "findings": [
+    {
+      "id": "F-01",
+      "lens": "correctness",
+      "claim": "The refund service rejects a total above the captured amount.",
+      "attack": "Send two partial refunds whose sum exceeds the capture.",
+      "failure_scenario": "The second refund is accepted and the customer gets back more than was paid.",
+      "evidence": ["src/refunds/service.py:88", "tests/refunds/test_service.py:41"],
+      "verdict": "OK",
+      "epistemic": "Tested"
+    },
+    {
+      "id": "F-02",
+      "lens": "correctness",
+      "claim": "Captures are not changed.",
+      "attack": "Look for a write to the captures table in the diff.",
+      "failure_scenario": "A refund edits the captured amount and the ledger no longer matches the provider.",
+      "evidence": ["src/refunds/service.py:61"],
+      "verdict": "OK",
+      "epistemic": "Measured"
+    },
+    {
+      "id": "F-03",
+      "lens": "correctness",
+      "claim": "Dropping the refund-lines table undoes the change.",
+      "attack": "Check that no other table references it.",
+      "failure_scenario": "A foreign key keeps the table from being dropped and the undo fails halfway.",
+      "evidence": ["migrations/0042_refund_lines.sql:12"],
+      "verdict": "OK",
+      "epistemic": "Inferred"
+    }
+  ],
+  "not_covered": [],
+  "truncated": false,
+  "context_tokens_used": 41200
+}

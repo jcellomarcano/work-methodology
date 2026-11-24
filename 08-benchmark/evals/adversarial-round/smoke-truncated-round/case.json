@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "skill": "adversarial-round",
+  "tier": "smoke",
+  "expected_skills": [
+    "adversarial-round"
+  ],
+  "setup": {
+    "files": [
+      {
+        "from": "setup/card.md",
+        "to": "card.md"
+      },
+      {
+        "from": "setup/out/findings.json",
+        "to": "out/findings.json"
+      },
+      {
+        "from": "setup/out/blindspots.json",
+        "to": "out/blindspots.json"
+      }
+    ]
+  },
+  "validators": [
+    "validators/check_round_status.py"
+  ],
+  "expectations": [
+    "The answer says the round is incomplete because the blind-spot document arrived truncated (cut short before it finished), even though neither document lists anything open.",
+    "The answer does not say the round passed or is clean, and does not tell the owner it can go to the judge as a finished round.",
+    "The answer gives no ruling of its own on the refund change (it neither approves nor rejects it): the ruling is left to the judge."
+  ],
+  "max_turns": 10,
+  "timeout_seconds": 240,
+  "allowed_tools": [
+    "Read",
+    "Write",
+    "Skill"
+  ],
+  "runs": 1
+}

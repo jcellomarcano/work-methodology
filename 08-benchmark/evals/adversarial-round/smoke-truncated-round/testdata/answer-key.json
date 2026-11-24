@@ -1,0 +1,15 @@
+{
+  "saved_file": "round-status.txt",
+  "truncated_document": "out/blindspots.json",
+  "status": "INCOMPLETE",
+  "statuses_that_pass_the_round_on": [
+    "OK",
+    "PASS",
+    "PASSED",
+    "pending judge"
+  ],
+  "ordinary_words": [
+    "PASS",
+    "PASSED"
+  ]
+}
