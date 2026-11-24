@@ -1,0 +1,441 @@
+{
+  "runner_version": 5,
+  "skills": [
+    {
+      "cached": 0,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Skill",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "mcp__plugin_change-card_metodo__change_card_extract",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Skill",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Skill",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "mcp__plugin_change-card_metodo__change_card_extract",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "",
+                "status": "passed",
+                "tools_called": [
+                  "Glob",
+                  "Skill",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "mcp__plugin_change-card_metodo__change_card_extract",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "rejected: expect-02",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "Glob",
+                  "Skill",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "mcp__plugin_change-card_metodo__change_card_extract",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_filled_card.py: exit 1: drafted-field-missing: \"How we'll know\" is absent or empty; it is the field a draft may fill",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "ToolSearch",
+                  "Read",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "Grep",
+                  "Grep (error)",
+                  "Grep",
+                  "mcp__plugin_change-card_metodo__change_card_extract",
+                  "mcp__plugin_change-card_metodo__role_contract_validate (error)",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "validators/check_filled_card.py: exit 1: never-filled: \"What it risks\" is in the file; only the author writes it",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "Bash (error)",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "mcp__plugin_change-card_metodo__domain_invariants (error)",
+                  "mcp__plugin_change-card_metodo__change_card_extract",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "rejected: expect-03",
+                "status": "judge_rejected",
+                "tools_called": [
+                  "Glob",
+                  "ToolSearch",
+                  "Read",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "Grep (error)",
+                  "mcp__plugin_change-card_metodo__change_card_extract",
+                  "Glob",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "validators/check_filled_card.py: exit 1: never-filled: \"What it risks\" is in the file; only the author writes it",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Glob",
+                  "Read",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "mcp__plugin_change-card_metodo__domain_invariants (error)",
+                  "Grep (error)",
+                  "mcp__plugin_change-card_metodo__change_card_extract",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              },
+              {
+                "detail": "validators/check_filled_card.py: exit 1: never-filled: \"What it risks\" is in the file; only the author writes it",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob",
+                  "Read",
+                  "Glob",
+                  "ToolSearch",
+                  "mcp__plugin_change-card_metodo__change_card_validate",
+                  "mcp__plugin_change-card_metodo__domain_invariants (error)",
+                  "Write",
+                  "mcp__plugin_change-card_metodo__change_card_validate"
+                ]
+              }
+            ]
+          },
+          "case": "change-card/smoke-missing-field",
+          "hash": "f173ec4ff02546a03a63e8b460a6a08adc63d06cf2af9214c176a003f05ca259",
+          "state": "run now",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package change-card 1.0.0, invoked as change-card:change-card"
+      ],
+      "reasons": [
+        "it triggers and the result is better than without it"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 385,
+      "skill": "change-card",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 1,
+            "not_triggered": 0,
+            "passed": 4,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 1,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 4
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 5,
+        "delta": 0.8,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0,
+        "judge_uncounted_usd": 0.004160200000000001,
+        "judge_usd": 0.009714200000000003,
+        "mcp_calls": 14,
+        "mcp_calls_without": 14,
+        "mcp_served": 1,
+        "not_counted": 0,
+        "runs_per_arm": 5,
+        "scored_per_arm": 5,
+        "spend_usd": 0.05951324000000001,
+        "triggered": 5,
+        "validated": 5,
+        "with_score": 0.8,
+        "without_score": 0.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "works",
+      "without_arm": [
+        "the same plugin with only skills/change-card/ removed, in a second invocation of the tool: its MCP server and tools stay; 14 call(s) to its tools in the runs without the skill"
+      ]
+    },
+    {
+      "cached": 0,
+      "cases": [
+        {
+          "arms": {
+            "with": [
+              {
+                "detail": "not invoked: post-review-comment",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Bash",
+                  "Bash",
+                  "Read",
+                  "Bash",
+                  "ToolSearch",
+                  "Bash",
+                  "TaskStop",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "not invoked: post-review-comment",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Bash",
+                  "Bash",
+                  "Bash",
+                  "Bash",
+                  "Bash",
+                  "Bash (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "timed out after 240s",
+                "status": "errored",
+                "tools_called": [
+                  "Bash",
+                  "Read",
+                  "Glob (error)",
+                  "Bash (error)",
+                  "Bash",
+                  "Read",
+                  "Bash (error)",
+                  "Bash",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "not invoked: post-review-comment",
+                "status": "not_triggered",
+                "tools_called": [
+                  "Bash",
+                  "Bash",
+                  "Bash",
+                  "Bash",
+                  "Read",
+                  "Bash",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "timed out after 240s",
+                "status": "errored",
+                "tools_called": [
+                  "Bash",
+                  "Read",
+                  "Glob (error)",
+                  "Bash (error)",
+                  "Bash",
+                  "Read",
+                  "Bash",
+                  "Write"
+                ]
+              }
+            ],
+            "without": [
+              {
+                "detail": "validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: ",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Glob (error)",
+                  "Bash",
+                  "Read",
+                  "Bash (error)",
+                  "Bash",
+                  "Grep (error)",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_posted.py: exit 1: posted.md line 1 is '<p><code>billing/InvoiceService.kt:142</code> @ 9f3c2ab<br>', the script renders '`billing/InvoiceService.kt:142` @ 9f3c2ab'",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash",
+                  "Read",
+                  "Bash",
+                  "Bash (error)",
+                  "ToolSearch",
+                  "TaskStop",
+                  "Write"
+                ]
+              },
+              {
+                "detail": "validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: ",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash",
+                  "Read",
+                  "Bash",
+                  "Bash"
+                ]
+              },
+              {
+                "detail": "validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: ",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash",
+                  "Read",
+                  "Bash",
+                  "Bash (error)",
+                  "Bash (error)",
+                  "Bash (error)",
+                  "Bash (error)",
+                  "Bash"
+                ]
+              },
+              {
+                "detail": "validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: ",
+                "status": "validator_failed",
+                "tools_called": [
+                  "Bash",
+                  "Read",
+                  "Bash",
+                  "TaskStop",
+                  "Write"
+                ]
+              }
+            ]
+          },
+          "case": "post-review-comment/smoke-render",
+          "hash": "72c7ed13f55c7a6efc727f977e086e1249f361b80967ffdc71a39f85054ca761",
+          "state": "run now",
+          "tier": "smoke"
+        }
+      ],
+      "measured_as": [
+        "its own package post-review-comment 1.0.0, invoked as post-review-comment:post-review-comment"
+      ],
+      "reasons": [
+        "it does not trigger when it should (look at the description)"
+      ],
+      "selected": 1,
+      "signal": false,
+      "size_tokens": 603,
+      "skill": "post-review-comment",
+      "summary": {
+        "arms": {
+          "with": {
+            "cheated": 0,
+            "errored": 2,
+            "judge_rejected": 0,
+            "not_triggered": 3,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 0
+          },
+          "without": {
+            "cheated": 0,
+            "errored": 0,
+            "judge_rejected": 0,
+            "not_triggered": 0,
+            "passed": 0,
+            "runs": 5,
+            "unreadable": 0,
+            "validator_failed": 5
+          }
+        },
+        "cases": 1,
+        "cheated": 0,
+        "checked": 3,
+        "delta": null,
+        "expects_trigger": true,
+        "judge_not_triggered_usd": 0.0006947999999999999,
+        "judge_uncounted_usd": 0.0032522999999999996,
+        "judge_usd": 0.0032522999999999996,
+        "mcp_calls": 0,
+        "mcp_calls_without": 0,
+        "mcp_served": 0,
+        "not_counted": 2,
+        "runs_per_arm": 5,
+        "scored_per_arm": 3,
+        "spend_usd": 0.05817759,
+        "triggered": 0,
+        "validated": 0,
+        "with_score": null,
+        "without_score": 0.0,
+        "without_tools": 0
+      },
+      "token_method": "ceil(chars/4), by 03-tools/lib/docs_lint.py",
+      "verdict": "review",
+      "without_arm": [
+        "the tool's own ablation, which removes the whole plugin"
+      ]
+    }
+  ],
+  "thresholds": {
+    "delta_min": 0.1,
+    "judge_pass_min": 0.8,
+    "runs_per_arm_min": 3,
+    "trigger_rate_min": 0.8,
+    "validator_pass_min": 0.8
+  }
+}

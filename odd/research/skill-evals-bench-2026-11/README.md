@@ -47,3 +47,16 @@ stronger judge model would settle it; both are a spend decision of the owner.
   straight to the shell, as `change-card` went straight to its tool before its case was rewritten; the same
   look at the case is the next step. Its arm without the skill is the tool's own ablation, since the skill
   declares no server tool.
+
+## The same two skills at five runs per arm
+
+One more invocation for both skills with `--runs 5`, USD 0.118, files `run5-both-skills-five-runs.*`. The day's
+five invocations cost USD 0.258.
+
+| Skill | Verdict | With the skill | Without it |
+|---|---|---|---|
+| `change-card` | `works`: with 0.80, without 0.00 | triggered 5 of 5; validator 5 of 5; judge 4 of 5 (one answer rejected on the second expectation) | none of 5 passed: 3 wrote "What it risks", 1 left the draft out, 1 passed the validator and was rejected by the judge |
+| `post-review-comment` | `review`: it does not trigger when it should | 0 of 3 scored runs invoked it; 2 timed out after 240 s | validator failed 5 of 5 |
+
+At five runs the limit of 0.8 is met by four passes of five, so one rejected answer no longer flips
+`change-card`. `post-review-comment` got worse, not better, with more runs: no scored run invoked the skill.

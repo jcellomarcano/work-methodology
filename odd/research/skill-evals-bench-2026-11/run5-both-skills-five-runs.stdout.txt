@@ -1,0 +1,60 @@
+skill-eval: cost ceiling USD 0.50 (USD 0.25 for each of 2 skill(s) to run); the tool checks it before each run, so the run in flight may pass it
+change-card: 1 case(s), 1 to run, 0 cached; arms with, without; 10 native run(s) in 2 native invocation(s); ceiling USD 0.25
+  change-card: --kit-mcp starts this checkout's MCP server for its runs (it runs as you, outside the tool's sandbox) and allows the 2 tool(s) the skill declares
+  change-card: the arm without the skill runs on the same plugin with only skills/change-card/ removed, so the server and its tools stay in both arms: the tool is started twice with --ablation none, under USD 0.125 and at most USD 0.125 of the ceiling
+  change-card/smoke-missing-field [smoke]: to run, 5 run(s) per arm (the stored result used other settings: runs per arm 3, now 5)
+post-review-comment: 1 case(s), 1 to run, 0 cached; arms with, without; 10 native run(s); ceiling USD 0.25
+  post-review-comment: its files name the kit's tools root, rendered to <home>/work-methodology/03-tools for the run
+  post-review-comment/smoke-render [smoke]: to run, 5 run(s) per arm (the stored result used other settings: runs per arm 3, now 5)
+skill-eval report (runner v5; thresholds: trigger_rate_min 0.8, validator_pass_min 0.8, judge_pass_min 0.8, delta_min 0.1, runs_per_arm_min 3)
+change-card: works - it triggers and the result is better than without it
+  cases: 1 measured of 1 selected (0 cached) | arms: with, without | runs per arm: 5
+  score: with 0.80, without 0.00, delta +0.80 | triggered 5 of 5 | cheated 0 | not counted 0
+  size: 385 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0595, judge USD 0.0097 of it
+  judge spend that did not count: USD 0.0042, on runs not triggered USD 0.0000 (the native tool runs its judge on every run)
+  measured as: its own package change-card 1.0.0, invoked as change-card:change-card
+  arm without the skill: the same plugin with only skills/change-card/ removed, in a second invocation of the tool: its MCP server and tools stay; 14 call(s) to its tools in the runs without the skill
+  kit MCP server: started for 1 case(s); 14 call(s) to its tools in the runs with the skill
+  change-card/smoke-missing-field [smoke]: with: passed, passed, passed, passed, rejected by the judge | without: failed a validator, failed a validator, rejected by the judge, failed a validator, failed a validator
+    with run 5: rejected: expect-02
+    with run 5 called: Glob, Skill, Read, ToolSearch, mcp__plugin_change-card_metodo__change_card_validate, mcp__plugin_change-card_metodo__change_card_extract, Write, mcp__plugin_change-card_metodo__change_card_validate
+    without run 1: validators/check_filled_card.py: exit 1: drafted-field-missing: "How we'll know" is absent or empty; it is the field a draft may fill
+    without run 1 called: Glob, ToolSearch, Read, mcp__plugin_change-card_metodo__change_card_validate, Grep, Grep (error), Grep, mcp__plugin_change-card_metodo__change_card_extract, mcp__plugin_change-card_metodo__role_contract_validate (error), Write, mcp__plugin_change-card_metodo__change_card_validate
+    without run 2: validators/check_filled_card.py: exit 1: never-filled: "What it risks" is in the file; only the author writes it
+    without run 2 called: Glob, Glob, Read, Bash (error), ToolSearch, mcp__plugin_change-card_metodo__change_card_validate, mcp__plugin_change-card_metodo__domain_invariants (error), mcp__plugin_change-card_metodo__change_card_extract, Write, mcp__plugin_change-card_metodo__change_card_validate
+    without run 3: rejected: expect-03
+    without run 3 called: Glob, ToolSearch, Read, mcp__plugin_change-card_metodo__change_card_validate, Grep (error), mcp__plugin_change-card_metodo__change_card_extract, Glob, Write, mcp__plugin_change-card_metodo__change_card_validate
+    without run 4: validators/check_filled_card.py: exit 1: never-filled: "What it risks" is in the file; only the author writes it
+    without run 4 called: Glob, Glob, Read, ToolSearch, mcp__plugin_change-card_metodo__change_card_validate, mcp__plugin_change-card_metodo__domain_invariants (error), Grep (error), mcp__plugin_change-card_metodo__change_card_extract, Write, mcp__plugin_change-card_metodo__change_card_validate
+    without run 5: validators/check_filled_card.py: exit 1: never-filled: "What it risks" is in the file; only the author writes it
+    without run 5 called: Glob, Read, Glob, ToolSearch, mcp__plugin_change-card_metodo__change_card_validate, mcp__plugin_change-card_metodo__domain_invariants (error), Write, mcp__plugin_change-card_metodo__change_card_validate
+post-review-comment: review - it does not trigger when it should (look at the description)
+  cases: 1 measured of 1 selected (0 cached) | arms: with, without | runs per arm: 5
+  score: with n/a, without 0.00, delta n/a | triggered 0 of 3 | cheated 0 | not counted 2
+  size: 603 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0582, judge USD 0.0033 of it
+  judge spend that did not count: USD 0.0033, on runs not triggered USD 0.0007 (the native tool runs its judge on every run)
+  measured as: its own package post-review-comment 1.0.0, invoked as post-review-comment:post-review-comment
+  arm without the skill: the tool's own ablation, which removes the whole plugin
+  post-review-comment/smoke-render [smoke]: with: not triggered, quality not judged, not triggered, quality not judged, ended on an error, not triggered, quality not judged, ended on an error | without: failed a validator, failed a validator, failed a validator, failed a validator, failed a validator
+    with run 1: not invoked: post-review-comment
+    with run 1 called: Bash, Bash, Read, Bash, ToolSearch, Bash, TaskStop, Write
+    with run 2: not invoked: post-review-comment
+    with run 2 called: Bash, Bash, Bash, Bash, Bash, Bash (error), Write
+    with run 3: timed out after 240s
+    with run 3 called: Bash, Read, Glob (error), Bash (error), Bash, Read, Bash (error), Bash, Write
+    with run 4: not invoked: post-review-comment
+    with run 4 called: Bash, Bash, Bash, Bash, Read, Bash, Write
+    with run 5: timed out after 240s
+    with run 5 called: Bash, Read, Glob (error), Bash (error), Bash, Read, Bash, Write
+    without run 1: validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: 
+    without run 1 called: Glob (error), Bash, Read, Bash (error), Bash, Grep (error), Write
+    without run 2: validators/check_posted.py: exit 1: posted.md line 1 is '<p><code>billing/InvoiceService.kt:142</code> @ 9f3c2ab<br>', the script renders '`billing/InvoiceService.kt:142` @ 9f3c2ab'
+    without run 2 called: Bash, Read, Bash, Bash (error), ToolSearch, TaskStop, Write
+    without run 3: validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: 
+    without run 3 called: Bash, Read, Bash, Bash
+    without run 4: validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: 
+    without run 4 called: Bash, Read, Bash, Bash (error), Bash (error), Bash (error), Bash (error), Bash
+    without run 5: validators/check_posted.py: exit 1: posted.md line 2 is 'What happens: the retry loop charges the card again when the first charge timed out but went through. Why it happens: the retry does not check the charge id it already holds. Impact: a customer can be billed twice for one invoice. How to fix: 
+    without run 5 called: Bash, Read, Bash, TaskStop, Write
+done by the kit around the native tool: tiers as tags, setup.files through a scaffold script, script validators on the files each run left, the forbidden-path check on each trace, the cascade, the verdict and the cache; the tool's own score of each run is kept in the stored result
+exit=0
