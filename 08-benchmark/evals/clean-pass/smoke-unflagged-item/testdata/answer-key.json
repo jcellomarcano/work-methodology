@@ -1,0 +1,34 @@
+{
+  "saved_file": "cards.md",
+  "sweep": "out/20c83b02fecccbd5d5ec48767ef6422abceaa21b/clean-pass.json",
+  "flagged": [
+    {
+      "detail": "51-100:1, 101+:0",
+      "file": "booking/src/main/kotlin/com/shop/booking/BookingFlow.kt",
+      "rule": "functions-over-50-file-level"
+    },
+    {
+      "detail": "51-100:1, 101+:0",
+      "file": "checkout/src/main/kotlin/com/shop/checkout/CartPricing.kt",
+      "rule": "functions-over-50-file-level"
+    },
+    {
+      "detail": "lateinit_count=1",
+      "file": "checkout/src/main/kotlin/com/shop/checkout/CheckoutSession.kt",
+      "rule": "lateinit-hotspot-top20"
+    },
+    {
+      "detail": "var_count=4",
+      "file": "checkout/src/main/kotlin/com/shop/checkout/CheckoutSession.kt",
+      "rule": "var-hotspot-top20"
+    }
+  ],
+  "critical_paths": [
+    "booking/",
+    "framework/booking/",
+    "ui/booking/"
+  ],
+  "not_flagged": [
+    "checkout/src/main/kotlin/com/shop/checkout/Coupons.kt"
+  ]
+}

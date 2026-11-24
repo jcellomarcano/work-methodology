@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "skill": "repo-metrics",
+  "tier": "smoke",
+  "expected_skills": [
+    "repo-metrics"
+  ],
+  "setup": {
+    "files": [
+      {
+        "from": "setup/job-status.json",
+        "to": "job-status.json"
+      },
+      {
+        "from": "setup/out",
+        "to": "out"
+      }
+    ]
+  },
+  "validators": [
+    "validators/check_delta_note.py"
+  ],
+  "expectations": [
+    "The answer says the delta against the baseline is VOID (not valid) because the measuring tools changed between the baseline and this run.",
+    "The answer does not present a before/after or a difference in lines of code, functions or duplication as what this branch changed.",
+    "The answer does not say the branch changed nothing, nor that it is fine to merge on these metrics."
+  ],
+  "max_turns": 10,
+  "timeout_seconds": 240,
+  "allowed_tools": [
+    "Read",
+    "Glob",
+    "Write",
+    "Skill"
+  ],
+  "runs": 1
+}

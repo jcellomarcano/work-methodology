@@ -1,0 +1,60 @@
+{
+  "saved_file": "module-map.md",
+  "snapshot_files": [
+    "out/20c83b02fecccbd5d5ec48767ef6422abceaa21b/cartography.json",
+    "out/20c83b02fecccbd5d5ec48767ef6422abceaa21b/cartography.md",
+    "out/20c83b02fecccbd5d5ec48767ef6422abceaa21b/deps.json",
+    "out/20c83b02fecccbd5d5ec48767ef6422abceaa21b/deps.md",
+    "out/20c83b02fecccbd5d5ec48767ef6422abceaa21b/metrics.json",
+    "out/20c83b02fecccbd5d5ec48767ef6422abceaa21b/metrics.md"
+  ],
+  "measured_modules": {
+    "app": 9,
+    "booking": 69,
+    "checkout": 103
+  },
+  "unmeasured_modules": {
+    "billing-legacy": [
+      "1"
+    ]
+  },
+  "printed_numbers": [
+    "0",
+    "001",
+    "1",
+    "002",
+    "2",
+    "003",
+    "3",
+    "004",
+    "4",
+    "005",
+    "5",
+    "006",
+    "6",
+    "7",
+    "8",
+    "9",
+    "10",
+    "11",
+    "12",
+    "20",
+    "21",
+    "30",
+    "50",
+    "51",
+    "66",
+    "69",
+    "74",
+    "76",
+    "90",
+    "96",
+    "100",
+    "101",
+    "103",
+    "169",
+    "181",
+    "376",
+    "500"
+  ]
+}

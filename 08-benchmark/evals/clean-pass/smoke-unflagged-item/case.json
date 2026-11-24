@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "skill": "clean-pass",
+  "tier": "smoke",
+  "expected_skills": [
+    "clean-pass"
+  ],
+  "setup": {
+    "files": [
+      {
+        "from": "setup/settings.gradle",
+        "to": "settings.gradle"
+      },
+      {
+        "from": "setup/gradle",
+        "to": "gradle"
+      },
+      {
+        "from": "setup/app",
+        "to": "app"
+      },
+      {
+        "from": "setup/billing-legacy",
+        "to": "billing-legacy"
+      },
+      {
+        "from": "setup/booking",
+        "to": "booking"
+      },
+      {
+        "from": "setup/checkout",
+        "to": "checkout"
+      },
+      {
+        "from": "setup/config",
+        "to": "config"
+      },
+      {
+        "from": "setup/out",
+        "to": "out"
+      }
+    ]
+  },
+  "validators": [
+    "validators/check_cards.py"
+  ],
+  "expectations": [
+    "The answer says the flagged file BookingFlow.kt got no card yet because it is in a critical path, and that it needs the owner's word first.",
+    "The answer says Coupons.kt was not flagged by the sweep, so no card was written for it."
+  ],
+  "max_turns": 24,
+  "timeout_seconds": 300,
+  "allowed_tools": [
+    "Read",
+    "Glob",
+    "Write",
+    "Skill"
+  ],
+  "runs": 1
+}

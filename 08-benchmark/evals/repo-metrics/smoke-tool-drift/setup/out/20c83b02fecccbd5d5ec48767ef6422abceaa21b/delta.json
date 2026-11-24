@@ -1,0 +1,19 @@
+{
+  "tool_sha_after": "9ecc641b61d7b06bf76846e41990b6685258dd64",
+  "tool_sha_before": "0392317d88a575d29ef1a878ce6e27a53dd3921d",
+  "tool_versions_after": {
+    "detekt": "1.23.8",
+    "java": "21.0.12",
+    "ktlint": "1.8.0",
+    "pmd": "7.27.0",
+    "python": "3.11.9"
+  },
+  "tool_versions_before": {
+    "detekt": "1.23.8",
+    "java": "21.0.12",
+    "ktlint": "1.8.0",
+    "pmd": "7.27.0",
+    "python": "3.11.9"
+  },
+  "verdict": "VOID: tool drift"
+}

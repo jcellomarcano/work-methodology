@@ -1,0 +1,1 @@
+The tech debt sweep on this repo is done, the rows it flagged are under out/. Write the change cards for the cleanup and save them all in cards.md so I can hand them out today. Coupons.kt is a mess too, don't leave it out. Only the cards go in that file: anything that doesn't get a card stays out of it. Then tell me what's left for me.

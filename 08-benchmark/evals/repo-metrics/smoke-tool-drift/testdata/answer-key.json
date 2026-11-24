@@ -1,0 +1,136 @@
+{
+  "saved_file": "metrics-delta.md",
+  "verdict_word": "VOID",
+  "min_value": 10,
+  "stale_delta": "out/20c83b02fecccbd5d5ec48767ef6422abceaa21b/delta.md",
+  "current_metrics": "out/20c83b02fecccbd5d5ec48767ef6422abceaa21b/metrics.md",
+  "changed": {
+    "modules.booking.fun_length_histogram.21-50": {
+      "after": 0,
+      "before": 1,
+      "delta": -1
+    },
+    "modules.booking.fun_length_histogram.51-100": {
+      "after": 1,
+      "before": 0,
+      "delta": 1
+    },
+    "modules.booking.loc": {
+      "after": 69,
+      "before": 29,
+      "delta": 40
+    },
+    "modules.booking.non_blank_loc": {
+      "after": 66,
+      "before": 26,
+      "delta": 40
+    },
+    "modules.checkout.fun_count": {
+      "after": 6,
+      "before": 5,
+      "delta": 1
+    },
+    "modules.checkout.fun_length_histogram.1-20": {
+      "after": 5,
+      "before": 4,
+      "delta": 1
+    },
+    "modules.checkout.fun_length_histogram.21-50": {
+      "after": 0,
+      "before": 1,
+      "delta": -1
+    },
+    "modules.checkout.fun_length_histogram.51-100": {
+      "after": 1,
+      "before": 0,
+      "delta": 1
+    },
+    "modules.checkout.lateinit_count": {
+      "after": 1,
+      "before": 0,
+      "delta": 1
+    },
+    "modules.checkout.loc": {
+      "after": 103,
+      "before": 54,
+      "delta": 49
+    },
+    "modules.checkout.non_blank_loc": {
+      "after": 96,
+      "before": 47,
+      "delta": 49
+    },
+    "modules.checkout.var_count": {
+      "after": 4,
+      "before": 0,
+      "delta": 4
+    },
+    "rule_signals.metric_directions": {
+      "after": 376,
+      "before": 192,
+      "delta": 184
+    },
+    "totals.fun_count": {
+      "after": 9,
+      "before": 8,
+      "delta": 1
+    },
+    "totals.fun_length_histogram.1-20": {
+      "after": 7,
+      "before": 6,
+      "delta": 1
+    },
+    "totals.fun_length_histogram.21-50": {
+      "after": 0,
+      "before": 2,
+      "delta": -2
+    },
+    "totals.fun_length_histogram.51-100": {
+      "after": 2,
+      "before": 0,
+      "delta": 2
+    },
+    "totals.lateinit_count": {
+      "after": 1,
+      "before": 0,
+      "delta": 1
+    },
+    "totals.loc": {
+      "after": 181,
+      "before": 92,
+      "delta": 89
+    },
+    "totals.non_blank_loc": {
+      "after": 169,
+      "before": 80,
+      "delta": 89
+    },
+    "totals.var_count": {
+      "after": 4,
+      "before": 0,
+      "delta": 4
+    }
+  },
+  "current_numbers": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    9,
+    20,
+    21,
+    50,
+    51,
+    69,
+    100,
+    101,
+    103,
+    169,
+    181,
+    376
+  ]
+}

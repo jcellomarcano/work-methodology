@@ -1,0 +1,1 @@
+Before I merge I need to compare my branch with the baseline: did files or functions bloat, did duplication go up? The metrics job already ran: what it returned is in job-status.json and the files it left are under out/. Write the delta up by the book and save it as metrics-delta.md, it goes into the PR description. Then tell me what's left for me.

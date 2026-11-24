@@ -1,0 +1,38 @@
+{
+  "adapter_law_candidates": [],
+  "cycle_candidates": {
+    "app-framework->app-ui": {
+      "count": 0,
+      "occurrences": []
+    },
+    "app-ui->app-framework": {
+      "count": 0,
+      "occurrences": []
+    }
+  },
+  "derived_prefixes": {
+    "app-framework": [],
+    "app-ui": [],
+    "data": [],
+    "domain": []
+  },
+  "edges_count_by_pair": {},
+  "nodes_seen": {
+    "app-framework": 0,
+    "app-ui": 0,
+    "data": 0,
+    "domain": 0
+  },
+  "repo_dirty": false,
+  "repo_sha": "20c83b02fecccbd5d5ec48767ef6422abceaa21b",
+  "schema_version": "1.0.0",
+  "tool_sha": "0392317d88a575d29ef1a878ce6e27a53dd3921d",
+  "tool_versions": {
+    "detekt": "1.23.8",
+    "java": "21.0.12",
+    "ktlint": "1.8.0",
+    "pmd": "7.27.0",
+    "python": "3.11.9"
+  },
+  "violations": []
+}

@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "skill": "cartography",
+  "tier": "smoke",
+  "expected_skills": [
+    "cartography"
+  ],
+  "setup": {
+    "files": [
+      {
+        "from": "setup/settings.gradle",
+        "to": "settings.gradle"
+      },
+      {
+        "from": "setup/gradle",
+        "to": "gradle"
+      },
+      {
+        "from": "setup/app",
+        "to": "app"
+      },
+      {
+        "from": "setup/billing-legacy",
+        "to": "billing-legacy"
+      },
+      {
+        "from": "setup/booking",
+        "to": "booking"
+      },
+      {
+        "from": "setup/checkout",
+        "to": "checkout"
+      },
+      {
+        "from": "setup/config",
+        "to": "config"
+      },
+      {
+        "from": "setup/out",
+        "to": "out"
+      }
+    ]
+  },
+  "validators": [
+    "validators/check_module_map.py"
+  ],
+  "expectations": [
+    "The answer says the snapshot gives no size (lines of code) for billing-legacy, so the map leaves it unmeasured instead of giving it a line count.",
+    "The answer says the merge against develop collides on gradle/libs.versions.toml and that this collision needs the owner's decision."
+  ],
+  "max_turns": 12,
+  "timeout_seconds": 240,
+  "allowed_tools": [
+    "Read",
+    "Glob",
+    "Write",
+    "Skill"
+  ],
+  "runs": 1
+}

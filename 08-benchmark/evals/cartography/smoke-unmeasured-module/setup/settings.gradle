@@ -1,0 +1,5 @@
+rootProject.name = 'shop'
+include ':app'
+include ':checkout'
+include ':booking'
+include ':billing-legacy'
