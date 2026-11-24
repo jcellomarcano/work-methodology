@@ -1,0 +1,15 @@
+skill-eval report (runner v5; thresholds: trigger_rate_min 0.8, validator_pass_min 0.8, judge_pass_min 0.8, delta_min 0.1, runs_per_arm_min 3)
+receipt-review: review [signal: 1 run(s) per arm, a verdict needs 3] - it does not trigger when it should (look at the description)
+  cases: 1 measured of 1 selected (1 cached) | arms: with, without | runs per arm: 1
+  score: with n/a, without 0.00, delta n/a | triggered 0 of 1 | cheated 0 | not counted 0
+  size: 1217 tokens (ceil(chars/4), by 03-tools/lib/docs_lint.py) | spend: USD 0.0118, judge USD 0.0021 of it
+  judge spend that did not count: USD 0.0021, on runs not triggered USD 0.0011 (the native tool runs its judge on every run)
+  measured as: its own package receipt-review 1.0.0, invoked as receipt-review:receipt-review
+  arm without the skill: the same plugin with only skills/receipt-review/ removed, in a second invocation of the tool: the mocked tools stay; 1 call(s) to its tools in the runs without the skill
+  mocked tools: answered from the mock files of 1 case(s), the real server not started; 0 call(s) to them in the runs with the skill
+  receipt-review/smoke-tier-frozen [smoke]: with: not triggered, quality not judged | without: failed a validator (cached)
+    with run 1: not invoked: receipt-review
+    with run 1 called: Glob, Bash (error), Read, Glob, Grep, Read, Grep, Glob, Write
+    without run 1: validators/check_context.py: exit 1: 2 rules broken: risk-line-missing, lenses-line-missing
+    without run 1 called: Glob, Bash (error), Read, Read, ToolSearch, mcp__plugin_receipt-review_metodo__receipt_status, Write
+done by the kit around the native tool: tiers as tags, setup.files through a scaffold script, script validators on the files each run left, the forbidden-path check on each trace, the cascade, the verdict and the cache; the tool's own score of each run is kept in the stored result

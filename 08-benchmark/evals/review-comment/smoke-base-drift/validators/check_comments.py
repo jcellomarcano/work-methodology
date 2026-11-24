@@ -2,12 +2,12 @@
 """Validator of review-comment/smoke-base-drift: the comments under comments/ are on the pull request.
 
 Called as `check_comments.py WORKSPACE TESTDATA`. The case stages a reviewer's notes with two
-findings, the saved scope of the pull request (`round/001-pr-scope.json`, real output of the kit's
-`pr_scope.py`) and the code at the pull request's tip. One finding is on a file the pull request
+findings and the code at the pull request's tip; the scope of the pull request comes from the mock
+of the kit's `pr_scope` tool (`mocks/metodo/pr_scope.md`, real output of the kit's server). One finding is on a file the pull request
 changed; the other is on a file that only the base branch changed after the branch was cut, which
 the web diff shows as if the author had touched it. The skill's iron law says that second file
 never gets a comment and that a comment has four parts in one paragraph and a proposal in the
-file's language. The answer key, `answer-key.json`, holds the two lists of the staged scope, the
+file's language. The answer key, `answer-key.json`, holds the two lists of that scope, the
 file that must get a comment, and the labels, caps and language of the kit's
 `config/review-comment.json`. It reads the `.md` files under `comments/` and the answer key,
 nothing else, and needs only the standard library.

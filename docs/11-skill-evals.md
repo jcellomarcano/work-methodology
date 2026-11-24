@@ -2,7 +2,7 @@
 
 One command answers it per skill: `works`, `review` or `not measured`, and why. It runs fixed cases with and without the skill on Claude Code's own eval tool, `claude plugin eval`, and scores them itself.
 
-All 17 skills have a BUILD and a case [Tested: `03-tools/bin/skill-build.sh test --all`]. At five runs per arm seven read `works` and ten read `review` (section 6), on the cases as they were before the mocks. Ten cases changed since: they have only signals at one run per arm, no five-run benchmark yet. The whole kit against plain Claude Code: [09-measurement.md](09-measurement.md). Tags as in `08-benchmark/METRICS.md`.
+All 17 skills have a BUILD and a case [Tested: `03-tools/bin/skill-build.sh test --all`]. At five runs per arm seven read `works` and ten read `review` (section 6), on the cases before the mocks. Nine cases changed since: they have only signals at one run per arm, no five-run benchmark yet. The whole kit against plain Claude Code: [09-measurement.md](09-measurement.md). Tags as in `08-benchmark/METRICS.md`.
 
 ## 1. The two files you write
 
@@ -40,7 +40,7 @@ The zip is the plugin the eval runs, so what is measured is what ships. `BUILD.j
 | `setup/` | fixed files the run starts from |
 | `testdata/` | the answer key: never given to the run; a run that reads it is `cheated` |
 | `validators/` | scripts that compare the files the run left with `testdata/`; exit 0 passes |
-| `mocks/` | optional `mocks/metodo/<tool>.md`, the eval tool's own format: the kit's real server answer on the scenario's data, in both arms, no real server. It fits only a tool whose answer does not depend on what the run changes; in a mocked run a declared tool with no mock is not available to the model. Ten cases carry mocks |
+| `mocks/` | optional `mocks/metodo/<tool>.md`, the eval tool's own format: the kit's real server answer on the scenario's data, in both arms, no real server. It fits only a tool whose answer does not depend on what the run changes; a declared tool with no mock is not available to a mocked run. Nine cases carry mocks |
 
 To write one, copy `08-benchmark/evals/post-review-comment/smoke-render/`. Run the validator by hand on a wrong file first: a case that cannot fail measures nothing.
 
@@ -64,7 +64,7 @@ Each run passes three scorers in order: the skill was invoked, the validators pa
 
 | The report says | It means | What to do |
 |---|---|---|
-| `works`: the result is better than without it | it triggered, and passed more often than the runs without it | keep it; confirm with `--runs 3` |
+| `works`: the result is better than without it | it triggered, and passed more often than without it | keep it; confirm with `--runs 3` |
 | `review`: it does not trigger when it should | the agent never called the skill | rewrite the `description` in its `SKILL.md` |
 | `review`: changes nothing | the same score with and without it | shrink or cut the skill, or make the case harder |
 | `review`: the result is worse than without it | the skill hurts on this case | read the run's line under the case, fix the steps |
@@ -79,9 +79,9 @@ Each run passes three scorers in order: the skill was invoked, the validators pa
 | Run, model and judge `haiku` | USD | Verdict |
 |---|---|---|
 | the 17 skills, five per arm | 1.42 | 7 `works`; 10 `review`: 3 do not trigger, 5 trigger and fail, 2 do no better than without |
-| the ten cases with mocks, one per arm | 0.17 | signals, not verdicts (run 9, README below) |
+| run 9: the ten cases that had mocks then, one per arm | 0.17 | signals, not verdicts (README below) |
 
-Source: the `spend:` line of each run, 2026-11-24, kept in `odd/research/skill-evals-bench-2026-11/`, whose README has the table per skill [Tested]. One run per arm cost USD 0.007 to 0.013.
+Source: the `spend:` lines, 2026-11-24, kept in `odd/research/skill-evals-bench-2026-11/`, whose README has the table per skill and what is kept of each run [Tested]. One run per arm cost USD 0.007 to 0.013.
 
 The eval tool publishes its HTML report to claude.ai by default. The kit passes `--no-publish` on every command line; a test fails if it is missing [Tested: `08-benchmark/tests/test_skill_eval_run.py`]. Never call `claude plugin eval` by hand without it. Each run is a Claude Code session on your own credential; results stay under the tools folder's `out/skill-evals/`.
 
@@ -91,12 +91,11 @@ The eval tool publishes its HTML report to claude.ai by default. The kit passes 
 |---|---|---|
 | A verdict beyond one case | every skill has one case, run on one model, `haiku` | Measured |
 | A steady verdict at three runs | 0.8 then needs three of three, so one judge vote flips it; five runs held for `change-card` | Tested |
-| Live tool calls and role agents | ten cases begin at the skill's first step through mocks; seven carry none: `change-card` and `human-reply` (the tool is called again after the run rewrites the file it checks), `adversarial-round` (one tool answers differently for each of the two documents the case stands on), `harness-benchmark` (its first step is its own script through the shell), `human-review`, `init-kit` and `post-review-comment` (their text calls no kit tool). Role agents are still not exercised | Tested |
+| Live tool calls and role agents | nine cases begin at the skill's first step through mocks; eight carry none: `change-card` and `human-reply` (the tool is called again after the run rewrites the file it checks), `adversarial-round` (one tool answers differently for each of the case's two documents), `benchmark-release` (its tool's arguments are what the case measures, and a fixed mock answers the same whatever is asked), `harness-benchmark` (its first step is its own script through the shell), `human-review`, `init-kit` and `post-review-comment` (their text calls no kit tool). Role agents are still not exercised | Tested |
 | `--kit-plugin` with the server in both arms | proven in stub tests only; `--kit-mcp` has a real run | Unknown |
 | Why the shell calls of `post-review-comment` failed | a stored result keeps tool names, not commands | Unknown |
 | Strict typing of a skill's Python | no checker installed; the three command lines in `03-tools/lib/skill_build.py` are unverified | Measured |
 | A forbidden file read unseen | `cheated` needs a call naming it or a result showing a line of it, 12+ characters; a count or a hash is not seen | Tested |
-| A tier as "at least" | `--tier` is an exact match: `core` does not include `smoke` | Measured |
 
 ## 8. The kit plugin
 

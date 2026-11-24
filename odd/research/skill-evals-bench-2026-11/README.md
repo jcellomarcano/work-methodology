@@ -143,7 +143,7 @@ is a signal, never a verdict [Measured]. Spend: USD 0.1749 over 15 runs (0.0678 
 | `cartography` | `cartography` | passed | failed a validator | 1 / 1 |
 | `repo-metrics` | `metrics_delta`, `job_status` | passed | passed | 2 / 2 |
 | `clean-pass` | `clean_pass` | passed | failed a validator | 1 / 1 |
-| `benchmark-release` | `benchmark_release`, `job_status` | passed | passed | 2 / 2 |
+| `benchmark-release` (mock withdrawn, see below) | `benchmark_release`, `job_status` | passed | passed | 2 / 2 |
 | `verify-per-commit` | `verify_commit`, `job_status` | passed | passed | 2 / 2 |
 | `real-environment-minutes` | `benchmark_release`, `job_status`, `domain_invariants`, `change_card_extract` | passed | passed | 4 / 2 |
 | `review-comment` | `pr_scope` | passed | failed a validator | 1 / 1 |
@@ -155,8 +155,17 @@ Earlier proof runs of the same cases, each followed by a change to the case: `ca
 first saved the output under `out/<sha>/` because the prompt said the tool's files land under `out/` (prompt
 reworded); `receipt-review` first carried a mock of `receipt_start`, which the run with the skill declined to
 call on an open receipt, so the lenses were out of reach (mock dropped, the receipt staged where the tool
-writes it). The stdout of the runs of the first six rows is kept as `run9-mocks-<skill>-<n>.stdout.txt`; the
-last four rows are as their writers reported them (the feature document, L37).
+writes it). What is kept of each run: the stdout of the runs of `cartography`, `repo-metrics`, `clean-pass`
+and `necessary-comment` (`run9-mocks-<skill>-<n>.stdout.txt`), and for the other six the report the runner
+prints from the stored result of the run (`run9-mocks-<skill>-<n>.report.txt`; the one of `receipt-review` was
+printed at commit `59c31e0`, the case as it was run, before its `round_dir` was relabeled). The first run of
+`receipt-review` (USD 0.0113) has no kept line: it is as its writer reported it. The spend lines kept sum to
+USD 0.1636.
+
+`benchmark-release` lost its mocks after the independent verification (the feature document, L38): a fixed
+mock answers the tag's comparison whatever refs the run asks for, the prompt invites a comparison against
+`main`, and the base is what that case measures, so a careless run that asked for `main` received the tag's
+figures and passed. The case is back to its bytes at `83a0ea5`; its row above stays as a record of the run.
 
 What the rows show [Inferred, one run per arm]: `necessary-comment` never triggered in five runs when its case
 began after the measure, and triggered and passed when the case asks for the gate itself. In four cases
@@ -169,9 +178,10 @@ How the mock bodies were made: each is the answer of the kit's real server (`03-
 scratch repository could not reproduce the scenario's identities, the answer was relabeled and nothing else:
 scratch paths to workspace-relative ones, scratch commit shas to the scenario's, the scratch kit sha to the
 staged one. The scripts are under `mock-builders/`, one folder per writer; they name the kit checkout as
-`KIT_ROOT`, to be replaced with its path before a run.
+`KIT_ROOT`, to be replaced with its path before a run. Run them on a copy of the tree: the script of group b writes
+beside itself and rewrites the mock files with new run ids.
 
-Seven skills carry no mock: `change-card` and `human-reply` (the tool is called again after the run rewrites
+Eight skills carry no mock: `benchmark-release` (above), `change-card` and `human-reply` (the tool is called again after the run rewrites
 the file it checks, and answers differently), `adversarial-round` (one tool answers `PASS` for one document and
 `INCOMPLETE` for the other, and the case stands on that difference), `harness-benchmark` (its first step is a
 script of its own run through the shell; its two kit tools start a job with a fresh id), and `human-review`,
