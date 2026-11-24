@@ -8,10 +8,6 @@
   "setup": {
     "files": [
       {
-        "from": "setup/round/002-comments.json",
-        "to": "round/002-comments.json"
-      },
-      {
         "from": "setup/round/003-comment-verdicts.json",
         "to": "round/003-comment-verdicts.json"
       },

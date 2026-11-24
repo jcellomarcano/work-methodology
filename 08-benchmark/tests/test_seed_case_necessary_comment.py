@@ -5,6 +5,11 @@ under `python3 -I`, on a workspace each test builds in a temporary folder: a cop
 stages (`setup/`) and a `round/004-routing.json`. The case's own `testdata/` is the answer key. One
 test per rule the validator names, each pinning the line it prints, plus the shapes a faithful
 routing can take.
+
+The run starts at the skill's first step: the script's list is no staged file, it is the answer of
+the kit's measure tool, kept as `mocks/metodo/comment_gate_measure.md`. `Mocked` pins that body to
+the staged sources it was measured on, to the answer key and to the staged verdicts, and pins what
+the new starting point changed in the case (what is staged, what the prompt asks).
 """
 import json
 import pathlib
@@ -17,6 +22,7 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 CASE = ROOT / "evals" / "necessary-comment" / "smoke-verdict-routing"
 VALIDATOR = CASE / "validators" / "check_routing.py"
+MOCK = CASE / "mocks" / "metodo" / "comment_gate_measure.md"
 POLICY = "src/main/kotlin/export/RetryPolicy.kt"
 LEDGER = "src/main/kotlin/billing/Ledger.kt"
 # The routing the skill's text gives for the seven staged verdicts.
@@ -135,6 +141,61 @@ class Rules(ValidatorTest):
                            f'route-wrong: {POLICY}:19 (MAKE-SELF-EXPLANATORY) goes to "generic-mechanic"; a '
                            "MAKE-SELF-EXPLANATORY touches statements, so it goes to generic-judge and never to generic-mechanic",
                            "2 rules broken: route-missing, route-wrong")
+
+
+class Mocked(unittest.TestCase):
+    """The mock is the measure tool's real answer on the staged change; these facts are what the case stands on."""
+
+    def measured(self) -> dict:
+        return json.loads(MOCK.read_text(encoding="utf-8"))
+
+    def case(self) -> dict:
+        return json.loads((CASE / "case.json").read_text(encoding="utf-8"))
+
+    def test_the_mock_lists_exactly_the_comments_the_answer_key_routes(self):
+        measured = self.measured()
+        key = json.loads((CASE / "testdata" / "answer-key.json").read_text(encoding="utf-8"))
+        listed = sorted((comment["path"], comment["line"]) for comment in measured["comments"])
+        self.assertEqual(listed, sorted((route["path"], route["line"]) for route in key["routes"]))
+        self.assertEqual(listed, sorted((file, line) for file, line, _to in ROUTES))
+        self.assertEqual(measured["summary"]["total"], 7)  # the count the third expectation quotes
+        self.assertEqual(measured["summary"]["markers"], 1)
+        self.assertEqual([(comment["path"], comment["line"]) for comment in measured["comments"] if comment["kind"] == "marker"],
+                         [(POLICY, 21)])  # the NEEDS-COMMENT the answer key sends to the owner
+
+    def test_the_mock_is_what_the_script_reads_in_the_staged_sources(self):
+        for comment in self.measured()["comments"]:
+            lines = (CASE / "setup" / comment["path"]).read_text(encoding="utf-8").splitlines()
+            where = f"{comment['path']}:{comment['line']}"
+            # `line` is where the comment opens: its text begins there, or one line down in a KDoc block
+            self.assertIn(" ".join(comment["text"].split()[:4]), " ".join(lines[comment["line"] - 1:comment["line"] + 1]), where)
+            self.assertIn(comment["statement"], [line.strip() for line in lines[comment["line"]:]], where)
+
+    def test_the_staged_verdicts_judge_the_comments_the_mock_lists(self):
+        verdicts = json.loads((CASE / "setup" / "round" / "003-comment-verdicts.json").read_text(encoding="utf-8"))
+        self.assertEqual([(finding["path"], finding["line"], finding["statement"]) for finding in verdicts["findings"]],
+                         [(comment["path"], comment["line"], comment["statement"]) for comment in self.measured()["comments"]])
+
+    def test_the_mock_is_one_plain_fixed_body(self):
+        mocks = CASE / "mocks"
+        self.assertEqual(sorted(path.relative_to(mocks).as_posix() for path in mocks.rglob("*") if path.is_file()),
+                         ["metodo/comment_gate_measure.md"])
+        self.assertFalse(MOCK.read_text(encoding="utf-8").startswith("---"))  # no front matter: the body is the answer
+
+    def test_what_the_mock_carries_is_not_staged_as_a_file_too(self):
+        staged = [entry["to"] for entry in self.case()["setup"]["files"]]
+        self.assertNotIn("round/002-comments.json", staged)
+        self.assertEqual(sorted(path.name for path in (CASE / "setup" / "round").iterdir()), ["003-comment-verdicts.json"])
+        self.assertIn("round/003-comment-verdicts.json", staged)  # the agent's verdicts: an eval launches no role agent
+
+    def test_the_prompt_asks_for_the_range_the_mock_measured_and_names_no_skill_tool_or_validator(self):
+        prompt = (CASE / "prompt.md").read_text(encoding="utf-8")
+        self.assertIn(self.measured()["range"], prompt)
+        self.assertEqual(self.measured()["range"], "HEAD~1..HEAD")
+        for unstaged_or_named in ("002-comments.json", "necessary-comment", "comment_gate", "mcp__", "check_routing"):
+            self.assertNotIn(unstaged_or_named, prompt)
+        for kept in ("round/003-comment-verdicts.json", "round/004-routing.json"):
+            self.assertIn(kept, prompt)
 
 
 if __name__ == "__main__":

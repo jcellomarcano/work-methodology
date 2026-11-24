@@ -109,7 +109,7 @@
   ],
   "range": "HEAD~1..HEAD",
   "repo_dirty": false,
-  "repo_sha": "fde4684ed86a6bfa77e7a88c27aee3028a9d0914",
+  "repo_sha": "5d04a51f32c92b12d58fa8e6eca8c7db5ef5bbde",
   "schema_version": "1.0.0",
   "summary": {
     "action_tags": 0,
@@ -119,7 +119,7 @@
     "markers": 1,
     "total": 7
   },
-  "tool_sha": "870fba1338994fd149832ce257bde5e66671eb71",
+  "tool_sha": "3796239caba5caebd2b7329e2f515e33794905a9",
   "tool_versions": {
     "detekt": "1.23.8",
     "java": "21.0.12",

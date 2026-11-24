@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Validator of necessary-comment/smoke-verdict-routing: round/004-routing.json routes as the skill says.
 
-Called as `check_routing.py WORKSPACE TESTDATA`. The case stages a round in which the script and
-the agent already answered: `round/002-comments.json` (the real output of
-`03-tools/lib/comment_gate.py` on the staged change: seven new comments, one of them a
-NEEDS-COMMENT marker) and `round/003-comment-verdicts.json` (seven verdicts in the shape of
-`03-tools/schemas/comment-gate-output.schema.json`). The run is asked who gets each comment, saved
-as `round/004-routing.json`. The skill's text decides it (02-skills/necessary-comment/SKILL.md,
+Called as `check_routing.py WORKSPACE TESTDATA`. The run starts at the skill's first step: the
+script's list is the answer of the kit's measure tool, which the case carries as
+`mocks/metodo/comment_gate_measure.md` (the real answer of `comment_gate_measure` on the staged
+change: seven new comments, one of them a NEEDS-COMMENT marker). The agent already answered, since
+an eval launches no role agent: `round/003-comment-verdicts.json` is staged (seven verdicts in the
+shape of `03-tools/schemas/comment-gate-output.schema.json`). The run is asked who gets each
+comment, saved as `round/004-routing.json`. The skill's text decides it (02-skills/necessary-comment/SKILL.md,
 step 4 and "Escalate to the owner"): UNNECESSARY, and NECESSARY or KDOC-INTERFACE with a
 `proposed_text`, go to `generic-mechanic`; MAKE-SELF-EXPLANATORY goes to `generic-judge`; a
 MAKE-SELF-EXPLANATORY on a critical path (`config/project.json`) and a NEEDS-COMMENT the gate could
@@ -43,9 +44,10 @@ mechanic. A destination that names none of the three words (`developer`, `delete
 route: the run did not route as the skill does.
 
 What it cannot see. Whether the run knew why: an entry that says `owner` for the right comment
-passes whatever its reason, and the judge reads the answer for that. The three steps the staged
-round replaces (the measure, the agent's verdicts, the verify of the mechanic's result): they need
-a commit range and role agents, which the case format does not stage.
+passes whatever its reason, and the judge reads the answer for that. Whether the run saved the
+script's list in the round as it came. The two steps the staged round replaces (the agent's
+verdicts, the verify of the mechanic's result): they need role agents and the mechanic's commits,
+which the case format does not stage.
 """
 from __future__ import annotations
 
